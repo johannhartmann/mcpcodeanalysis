@@ -127,7 +127,7 @@ jobs:
       if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     
     - name: Upload coverage reports
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v5
       with:
         file: ./coverage.xml
         flags: unittests
