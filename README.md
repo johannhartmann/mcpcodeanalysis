@@ -11,20 +11,23 @@ An intelligent MCP (Model Context Protocol) server that provides advanced code a
 ## Features
 
 - 🔍 **Semantic Code Search**: Natural language queries to find relevant code
+- 🏛️ **Domain-Driven Analysis**: Extract business entities and bounded contexts using LLM
 - 📊 **Code Structure Analysis**: Hierarchical understanding of modules, classes, and functions
 - 🔄 **Incremental Updates**: Git-based change tracking for efficient re-indexing
 - 🎯 **Smart Code Explanations**: AI-powered explanations with context aggregation
 - 🔗 **Dependency Analysis**: Understand code relationships and dependencies
-- 💡 **Refactoring Suggestions**: AI-driven code improvement recommendations
+- 🌐 **Knowledge Graph**: Build semantic graphs with community detection (Leiden algorithm)
+- 💡 **DDD Refactoring**: Domain-Driven Design suggestions and improvements
 - 🚀 **High Performance**: Handles codebases with millions of lines of code
 - 🐍 **Python Support**: Full support for Python with more languages coming
 
 ## MCP Tools Available
 
 ### Code Search Tools
-- `semantic_search` - Search for code using natural language queries
+- `semantic_search` - Search for code using natural language queries (with optional domain enhancement)
 - `find_similar_code` - Find code similar to a given entity
 - `search_by_code_snippet` - Search for code similar to a snippet
+- `search_by_business_capability` - Find code implementing business capabilities
 - `keyword_search` - Search for code using keywords
 
 ### Code Analysis Tools
@@ -32,6 +35,14 @@ An intelligent MCP (Model Context Protocol) server that provides advanced code a
 - `analyze_file` - Analyze file structure and metrics
 - `get_dependencies` - Get dependencies for a code entity
 - `find_usages` - Find where a function or class is used
+
+### Domain-Driven Design Tools
+- `extract_domain_model` - Extract domain entities and relationships using LLM
+- `find_aggregate_roots` - Find aggregate roots in the codebase
+- `analyze_bounded_context` - Analyze bounded contexts and their relationships
+- `suggest_ddd_refactoring` - Get DDD-based refactoring suggestions
+- `find_bounded_contexts` - Discover all bounded contexts
+- `generate_context_map` - Generate context maps (JSON, Mermaid, PlantUML)
 
 ### Repository Management Tools
 - `add_repository` - Add a new GitHub repository to track
