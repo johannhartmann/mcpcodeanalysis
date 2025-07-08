@@ -6,6 +6,7 @@ from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.embeddings.domain_search import DomainAwareSearch, DomainSearchScope
 from src.embeddings.openai_client import OpenAIClient
 from src.embeddings.vector_search import SearchScope, VectorSearch
 from src.utils.logger import get_logger
@@ -31,6 +32,12 @@ class SearchRequest(BaseModel):
     threshold: float | None = Field(
         None, ge=0.0, le=1.0, description="Minimum similarity threshold",
     )
+    use_domain_knowledge: bool = Field(
+        default=False, description="Use domain knowledge to enhance search"
+    )
+    bounded_context: str | None = Field(
+        None, description="Limit search to specific bounded context"
+    )
 
 
 class SimilarCodeRequest(BaseModel):
@@ -41,6 +48,13 @@ class SimilarCodeRequest(BaseModel):
     exclude_same_file: bool = Field(
         default=False, description="Exclude results from the same file",
     )
+
+
+class BusinessCapabilitySearchRequest(BaseModel):
+    """Search by business capability request."""
+    
+    capability: str = Field(..., description="Business capability description")
+    limit: int = Field(default=10, ge=1, le=50, description="Maximum number of results")
 
 
 class CodeSnippetSearchRequest(BaseModel):
@@ -78,6 +92,9 @@ class CodeSearchTools:
         self.vector_search = (
             VectorSearch(db_session, openai_client) if openai_client else None
         )
+        self.domain_search = (
+            DomainAwareSearch(db_session, openai_client) if openai_client else None
+        )
 
     async def register_tools(self):
         """Register all code search tools."""
@@ -97,23 +114,45 @@ class CodeSearchTools:
                     Search results with similarity scores
                 """
                 try:
-                    # Convert scope string to enum
-                    scope = SearchScope[request.scope.upper()]
-
-                    results = await self.vector_search.search(
-                        query=request.query,
-                        scope=scope,
-                        repository_id=request.repository_id,
-                        file_id=request.file_id,
-                        limit=request.limit,
-                        threshold=request.threshold,
-                    )
+                    # Use domain-aware search if requested
+                    if request.use_domain_knowledge and self.domain_search:
+                        # Convert to domain scope
+                        domain_scope_map = {
+                            "all": DomainSearchScope.ALL,
+                            "functions": DomainSearchScope.DOMAIN_SERVICE,
+                            "classes": DomainSearchScope.ENTITY,
+                            "modules": DomainSearchScope.BOUNDED_CONTEXT,
+                        }
+                        domain_scope = domain_scope_map.get(
+                            request.scope.lower(), 
+                            DomainSearchScope.ALL
+                        )
+                        
+                        results = await self.domain_search.search_with_domain_context(
+                            query=request.query,
+                            scope=domain_scope,
+                            bounded_context=request.bounded_context,
+                            limit=request.limit,
+                            include_related=True,
+                        )
+                    else:
+                        # Standard vector search
+                        scope = SearchScope[request.scope.upper()]
+                        results = await self.vector_search.search(
+                            query=request.query,
+                            scope=scope,
+                            repository_id=request.repository_id,
+                            file_id=request.file_id,
+                            limit=request.limit,
+                            threshold=request.threshold,
+                        )
 
                     return {
                         "success": True,
                         "query": request.query,
                         "results": results,
                         "count": len(results),
+                        "search_type": "domain-aware" if request.use_domain_knowledge else "standard",
                     }
 
                 except Exception as e:
@@ -199,6 +238,44 @@ class CodeSearchTools:
                         "error": str(e),
                         "results": [],
                     }
+            
+            # Business capability search
+            if self.domain_search:
+                @self.mcp.tool(
+                    name="search_by_business_capability",
+                    description="Search for code that implements a business capability"
+                )
+                async def search_by_business_capability(
+                    request: BusinessCapabilitySearchRequest
+                ) -> dict[str, Any]:
+                    """Search for code by business capability.
+                    
+                    Args:
+                        request: Business capability search parameters
+                        
+                    Returns:
+                        Code implementing the capability
+                    """
+                    try:
+                        results = await self.domain_search.search_by_business_capability(
+                            capability=request.capability,
+                            limit=request.limit,
+                        )
+                        
+                        return {
+                            "success": True,
+                            "capability": request.capability,
+                            "results": results,
+                            "count": len(results),
+                        }
+                        
+                    except Exception as e:
+                        logger.exception(f"Business capability search failed: {e}")
+                        return {
+                            "success": False,
+                            "error": str(e),
+                            "results": [],
+                        }
 
         # Keyword search tools (always available)
         @self.mcp.tool(
