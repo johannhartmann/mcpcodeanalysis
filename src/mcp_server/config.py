@@ -1,0 +1,264 @@
+"""Configuration management for MCP Code Analysis Server."""
+
+import os
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import yaml
+from pydantic import BaseModel, Field, SecretStr, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class RepositoryConfig(BaseModel):
+    """Configuration for a GitHub repository."""
+    
+    url: str
+    branch: Optional[str] = None
+    access_token: Optional[SecretStr] = None
+    
+    @field_validator('url')
+    @classmethod
+    def validate_github_url(cls, v: str) -> str:
+        """Validate GitHub URL format."""
+        if not v.startswith(('https://github.com/', 'git@github.com:')):
+            raise ValueError(f"Invalid GitHub URL: {v}")
+        return v
+
+
+class ScannerConfig(BaseModel):
+    """Scanner configuration."""
+    
+    sync_interval: int = Field(default=300, ge=60, description="Sync interval in seconds")
+    webhook_secret: Optional[SecretStr] = None
+    storage_path: Path = Path("./repositories")
+    exclude_patterns: List[str] = Field(
+        default_factory=lambda: [
+            "__pycache__", "*.pyc", ".git", "venv", ".env", "node_modules"
+        ]
+    )
+
+
+class ParserConfig(BaseModel):
+    """Parser configuration."""
+    
+    languages: List[str] = Field(default_factory=lambda: ["python"])
+    chunk_size: int = Field(default=100, ge=10, le=1000)
+
+
+class EmbeddingsConfig(BaseModel):
+    """Embeddings configuration."""
+    
+    model: str = "text-embedding-ada-002"
+    batch_size: int = Field(default=100, ge=1, le=500)
+    use_cache: bool = True
+    cache_dir: Path = Path(".embeddings_cache")
+    max_tokens: int = Field(default=8000, ge=100, le=8191)
+    generate_interpreted: bool = True
+
+
+class DatabaseConfig(BaseModel):
+    """Database configuration."""
+    
+    host: str = "localhost"
+    port: int = Field(default=5432, ge=1, le=65535)
+    database: str = "code_analysis"
+    user: str = "codeanalyzer"
+    password: Optional[SecretStr] = None
+    pool_size: int = Field(default=10, ge=1, le=50)
+    max_overflow: int = Field(default=20, ge=0, le=100)
+    vector_dimension: int = 1536
+    index_lists: int = 100
+    
+    @property
+    def url(self) -> str:
+        """Get database connection URL."""
+        password_str = self.password.get_secret_value() if self.password else ""
+        if password_str:
+            return f"postgresql+asyncpg://{self.user}:{password_str}@{self.host}:{self.port}/{self.database}"
+        return f"postgresql+asyncpg://{self.user}@{self.host}:{self.port}/{self.database}"
+
+
+class MCPConfig(BaseModel):
+    """MCP server configuration."""
+    
+    host: str = "0.0.0.0"
+    port: int = Field(default=8080, ge=1, le=65535)
+    allow_origins: List[str] = Field(default_factory=lambda: ["*"])
+    rate_limit_enabled: bool = False
+    rate_limit_per_minute: int = Field(default=60, ge=1)
+    request_timeout: int = Field(default=30, ge=1, le=300)
+
+
+class GitHubConfig(BaseModel):
+    """GitHub integration configuration."""
+    
+    api_rate_limit: int = Field(default=5000, ge=1)
+    webhook_endpoint: str = "/webhooks/github"
+    use_webhooks: bool = True
+    poll_interval: int = Field(default=300, ge=60)
+
+
+class QueryConfig(BaseModel):
+    """Query processing configuration."""
+    
+    default_limit: int = Field(default=10, ge=1, le=100)
+    max_limit: int = Field(default=100, ge=1, le=1000)
+    similarity_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+    include_context: bool = True
+    context_lines: int = Field(default=3, ge=0, le=10)
+    ranking_weights: Dict[str, float] = Field(
+        default_factory=lambda: {
+            "semantic_similarity": 0.6,
+            "keyword_match": 0.2,
+            "recency": 0.1,
+            "popularity": 0.1
+        }
+    )
+
+
+class LoggingConfig(BaseModel):
+    """Logging configuration."""
+    
+    level: str = "INFO"
+    format: str = "json"
+    file_enabled: bool = True
+    file_path: Path = Path("logs/mcp-server.log")
+    file_rotation: str = "daily"
+    file_retention_days: int = Field(default=7, ge=1)
+    console_enabled: bool = True
+    console_colorized: bool = True
+
+
+class Settings(BaseSettings):
+    """Application settings."""
+    
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore"
+    )
+    
+    # Environment variables
+    openai_api_key: SecretStr
+    database_url: Optional[str] = None
+    postgres_password: Optional[SecretStr] = None
+    api_key: Optional[SecretStr] = None
+    debug: bool = False
+    
+    # Configuration sections
+    repositories: List[RepositoryConfig] = Field(default_factory=list)
+    scanner: ScannerConfig = Field(default_factory=ScannerConfig)
+    parser: ParserConfig = Field(default_factory=ParserConfig)
+    embeddings: EmbeddingsConfig = Field(default_factory=EmbeddingsConfig)
+    database: DatabaseConfig = Field(default_factory=DatabaseConfig)
+    mcp: MCPConfig = Field(default_factory=MCPConfig)
+    github: GitHubConfig = Field(default_factory=GitHubConfig)
+    query: QueryConfig = Field(default_factory=QueryConfig)
+    logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    
+    @classmethod
+    def from_yaml(cls, config_path: Path) -> "Settings":
+        """Load settings from YAML configuration file."""
+        if not config_path.exists():
+            raise FileNotFoundError(f"Configuration file not found: {config_path}")
+        
+        with open(config_path, 'r') as f:
+            config_data = yaml.safe_load(f)
+        
+        # Expand environment variables in configuration
+        config_data = cls._expand_env_vars(config_data)
+        
+        # Load environment variables
+        env_settings = cls()
+        
+        # Merge configuration by recreating with proper types
+        if config_data:
+            # Update the dictionary used for initialization
+            init_data = {}
+            
+            # Get values from environment first
+            for field_name in cls.model_fields:
+                if hasattr(env_settings, field_name):
+                    init_data[field_name] = getattr(env_settings, field_name)
+            
+            # Override with config file values
+            init_data.update(config_data)
+            
+            # Create new instance with merged data
+            return cls(**init_data)
+        
+        return env_settings
+    
+    @staticmethod
+    def _expand_env_vars(config: Any) -> Any:
+        """Recursively expand environment variables in configuration."""
+        if isinstance(config, dict):
+            return {k: Settings._expand_env_vars(v) for k, v in config.items()}
+        elif isinstance(config, list):
+            return [Settings._expand_env_vars(item) for item in config]
+        elif isinstance(config, str) and config.startswith("${") and config.endswith("}"):
+            env_var = config[2:-1]
+            return os.getenv(env_var, config)
+        return config
+    
+    def get_database_url(self) -> str:
+        """Get database URL."""
+        if self.database_url:
+            return self.database_url
+        
+        password = self.postgres_password or self.database.password
+        if password:
+            password_str = password.get_secret_value() if hasattr(password, 'get_secret_value') else str(password)
+        else:
+            password_str = ""
+        
+        return (
+            f"postgresql://{self.database.user}:{password_str}"
+            f"@{self.database.host}:{self.database.port}/{self.database.database}"
+        )
+    
+    def validate_config(self) -> None:
+        """Validate configuration settings."""
+        # Ensure storage path exists
+        self.scanner.storage_path.mkdir(parents=True, exist_ok=True)
+        
+        # Ensure cache directory exists
+        if self.embeddings.use_cache:
+            self.embeddings.cache_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Ensure log directory exists
+        if self.logging.file_enabled:
+            self.logging.file_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Validate ranking weights sum to 1.0
+        weight_sum = sum(self.query.ranking_weights.values())
+        if abs(weight_sum - 1.0) > 0.001:
+            raise ValueError(f"Ranking weights must sum to 1.0, got {weight_sum}")
+
+
+# Global settings instance
+_settings: Optional[Settings] = None
+
+
+def get_settings() -> Settings:
+    """Get application settings singleton."""
+    global _settings
+    if _settings is None:
+        config_path = Path(os.getenv("CONFIG_PATH", "config.yaml"))
+        if config_path.exists():
+            _settings = Settings.from_yaml(config_path)
+        else:
+            _settings = Settings()
+        _settings.validate_config()
+    return _settings
+
+
+def reload_settings(config_path: Optional[Path] = None) -> Settings:
+    """Reload settings from configuration file."""
+    global _settings
+    if config_path is None:
+        config_path = Path(os.getenv("CONFIG_PATH", "config.yaml"))
+    _settings = Settings.from_yaml(config_path) if config_path.exists() else Settings()
+    _settings.validate_config()
+    return _settings

@@ -1,0 +1,158 @@
+scanner:
+  # Paths to scan for code files
+  root_paths: 
+    - "."
+    # - "/path/to/your/codebase"
+  
+  # Patterns to exclude from scanning
+  exclude_patterns: 
+    - "__pycache__"
+    - "*.pyc"
+    - ".git"
+    - ".venv"
+    - "venv"
+    - "env"
+    - ".env"
+    - "node_modules"
+    - ".pytest_cache"
+    - ".mypy_cache"
+    - ".ruff_cache"
+    - "*.egg-info"
+    - "dist"
+    - "build"
+    - "htmlcov"
+    - ".coverage"
+  
+  # File size limits
+  max_file_size_mb: 10
+  
+  # Git integration
+  use_git: true
+  git_branch: "main"
+  
+parser:
+  # Languages to parse (currently only Python)
+  languages: ["python"]
+  
+  # Chunk size for large files (in lines)
+  chunk_size: 100
+  
+  # Maximum depth for nested structures
+  max_depth: 10
+  
+  # Extract docstrings
+  extract_docstrings: true
+  
+  # Extract type hints
+  extract_type_hints: true
+
+embeddings:
+  # OpenAI model for embeddings
+  model: "text-embedding-ada-002"
+  
+  # Batch size for embedding generation
+  batch_size: 100
+  
+  # Maximum tokens per chunk
+  max_tokens: 8000
+  
+  # Cache embeddings locally
+  use_cache: true
+  cache_dir: ".embeddings_cache"
+  
+  # Generate both raw and interpreted embeddings
+  generate_interpreted: true
+  
+database:
+  # PostgreSQL connection settings
+  host: "localhost"
+  port: 5432
+  database: "code_analysis"
+  user: "codeanalyzer"
+  # Password is set via environment variable
+  
+  # Connection pool settings
+  pool_size: 10
+  max_overflow: 20
+  
+  # pgvector settings
+  vector_dimension: 1536
+  index_lists: 100  # ivfflat index parameter
+  
+mcp:
+  # Server settings
+  host: "0.0.0.0"
+  port: 8080
+  
+  # CORS settings
+  allow_origins: ["*"]
+  
+  # Rate limiting
+  rate_limit_enabled: false
+  rate_limit_per_minute: 60
+  
+  # Request timeout (seconds)
+  request_timeout: 30
+  
+query:
+  # Default search limit
+  default_limit: 10
+  max_limit: 100
+  
+  # Similarity threshold (0-1)
+  similarity_threshold: 0.7
+  
+  # Include file context in results
+  include_context: true
+  context_lines: 3
+  
+  # Ranking weights
+  ranking_weights:
+    semantic_similarity: 0.6
+    keyword_match: 0.2
+    recency: 0.1
+    popularity: 0.1
+
+indexing:
+  # Incremental indexing interval (seconds)
+  update_interval: 300  # 5 minutes
+  
+  # Parallel processing
+  parallel_workers: 4
+  
+  # Memory limits
+  max_memory_mb: 2048
+  
+  # Progress reporting
+  report_progress: true
+  progress_interval: 100  # files
+
+logging:
+  # Log level (DEBUG, INFO, WARNING, ERROR)
+  level: "INFO"
+  
+  # Log format (json, text)
+  format: "json"
+  
+  # Log file settings
+  file_enabled: true
+  file_path: "logs/mcp-server.log"
+  file_rotation: "daily"
+  file_retention_days: 7
+  
+  # Console logging
+  console_enabled: true
+  console_colorized: true
+
+monitoring:
+  # Metrics collection
+  metrics_enabled: false
+  metrics_port: 9090
+  
+  # Health check endpoint
+  health_check_enabled: true
+  health_check_path: "/health"
+  
+  # Performance profiling
+  profiling_enabled: false
+  profiling_path: "profiles/"

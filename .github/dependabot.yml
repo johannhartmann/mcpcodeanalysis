@@ -1,0 +1,69 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "johannhartmann"
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      development:
+        patterns:
+          - "pytest*"
+          - "black"
+          - "ruff"
+          - "mypy"
+          - "pre-commit"
+        update-types:
+          - "minor"
+          - "patch"
+      production:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "pytest*"
+          - "black"
+          - "ruff"
+          - "mypy"
+          - "pre-commit"
+        update-types:
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+    reviewers:
+      - "johannhartmann"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+    reviewers:
+      - "johannhartmann"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "build"
+      include: "scope"

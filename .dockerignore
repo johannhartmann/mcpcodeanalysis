@@ -1,0 +1,92 @@
+# Git
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info
+dist
+build
+.pytest_cache
+.mypy_cache
+.ruff_cache
+htmlcov
+.coverage
+.coverage.*
+*.cover
+
+# Virtual environments
+venv
+env
+ENV
+.venv
+.env
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+logs/
+*.log
+code_to_analyze/
+indexed_data/
+.embeddings_cache/
+backups/
+
+# Documentation
+docs/
+site/
+mkdocs.yml
+
+# Testing
+tests/
+conftest.py
+pytest.ini
+
+# Development
+Makefile
+.pre-commit-config.yaml
+.editorconfig
+
+# Nix
+flake.nix
+flake.lock
+result
+result-*
+
+# Docker
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile
+.dockerignore
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Archives
+*.zip
+*.tar.gz
+*.tar
+
+# Local configuration (keep example files)
+config.yaml
+.env
+!config.example.yaml
+!.env.example

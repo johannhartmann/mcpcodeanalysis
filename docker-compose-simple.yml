@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: mcp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: code_analysis
+      POSTGRES_USER: codeanalyzer
+      POSTGRES_PASSWORD: changeme  # IMPORTANT: Change this password!
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codeanalyzer -d code_analysis"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

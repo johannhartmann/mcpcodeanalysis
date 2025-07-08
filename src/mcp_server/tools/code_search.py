@@ -1,0 +1,365 @@
+"""Code search tools for MCP server."""
+
+from typing import Any, Dict, List, Optional
+
+from fastmcp import FastMCP
+from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.embeddings.openai_client import OpenAIClient
+from src.embeddings.vector_search import SearchScope, VectorSearch
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+class SearchRequest(BaseModel):
+    """Search request parameters."""
+    
+    query: str = Field(..., description="Search query text")
+    scope: str = Field(
+        default="all",
+        description="Search scope: all, functions, classes, modules, repository, file"
+    )
+    repository_id: Optional[int] = Field(
+        None,
+        description="Repository ID to limit search"
+    )
+    file_id: Optional[int] = Field(
+        None,
+        description="File ID to limit search"
+    )
+    limit: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+        description="Maximum number of results"
+    )
+    threshold: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description="Minimum similarity threshold"
+    )
+
+
+class SimilarCodeRequest(BaseModel):
+    """Find similar code request."""
+    
+    embedding_id: int = Field(..., description="ID of embedding to find similar to")
+    limit: int = Field(
+        default=10,
+        ge=1,
+        le=50,
+        description="Maximum number of results"
+    )
+    exclude_same_file: bool = Field(
+        default=False,
+        description="Exclude results from the same file"
+    )
+
+
+class CodeSnippetSearchRequest(BaseModel):
+    """Search by code snippet request."""
+    
+    code_snippet: str = Field(..., description="Code snippet to search for")
+    scope: str = Field(
+        default="all",
+        description="Search scope: all, functions, classes, modules"
+    )
+    repository_id: Optional[int] = Field(
+        None,
+        description="Repository ID to limit search"
+    )
+    limit: int = Field(
+        default=10,
+        ge=1,
+        le=50,
+        description="Maximum number of results"
+    )
+
+
+class CodeSearchTools:
+    """Code search tools for MCP."""
+    
+    def __init__(
+        self,
+        db_session: AsyncSession,
+        openai_client: Optional[OpenAIClient],
+        mcp: FastMCP,
+    ):
+        """Initialize code search tools.
+        
+        Args:
+            db_session: Database session
+            openai_client: OpenAI client for embeddings
+            mcp: FastMCP instance
+        """
+        self.db_session = db_session
+        self.openai_client = openai_client
+        self.mcp = mcp
+        self.vector_search = VectorSearch(db_session, openai_client) if openai_client else None
+    
+    async def register_tools(self):
+        """Register all code search tools."""
+        if self.vector_search:
+            # Semantic search tools
+            @self.mcp.tool(
+                name="semantic_search",
+                description="Search for code using natural language queries"
+            )
+            async def semantic_search(request: SearchRequest) -> Dict[str, Any]:
+                """Search for code entities using semantic search.
+                
+                Args:
+                    request: Search parameters
+                    
+                Returns:
+                    Search results with similarity scores
+                """
+                try:
+                    # Convert scope string to enum
+                    scope = SearchScope[request.scope.upper()]
+                    
+                    results = await self.vector_search.search(
+                        query=request.query,
+                        scope=scope,
+                        repository_id=request.repository_id,
+                        file_id=request.file_id,
+                        limit=request.limit,
+                        threshold=request.threshold,
+                    )
+                    
+                    return {
+                        "success": True,
+                        "query": request.query,
+                        "results": results,
+                        "count": len(results),
+                    }
+                    
+                except Exception as e:
+                    logger.error(f"Semantic search failed: {e}")
+                    return {
+                        "success": False,
+                        "error": str(e),
+                        "results": [],
+                    }
+            
+            @self.mcp.tool(
+                name="find_similar_code",
+                description="Find code similar to a given entity"
+            )
+            async def find_similar_code(request: SimilarCodeRequest) -> Dict[str, Any]:
+                """Find code entities similar to a given embedding.
+                
+                Args:
+                    request: Similar code search parameters
+                    
+                Returns:
+                    Similar code entities
+                """
+                try:
+                    results = await self.vector_search.search_similar(
+                        embedding_id=request.embedding_id,
+                        limit=request.limit,
+                        exclude_same_file=request.exclude_same_file,
+                    )
+                    
+                    return {
+                        "success": True,
+                        "embedding_id": request.embedding_id,
+                        "results": results,
+                        "count": len(results),
+                    }
+                    
+                except Exception as e:
+                    logger.error(f"Similar code search failed: {e}")
+                    return {
+                        "success": False,
+                        "error": str(e),
+                        "results": [],
+                    }
+            
+            @self.mcp.tool(
+                name="search_by_code_snippet",
+                description="Search for code similar to a given snippet"
+            )
+            async def search_by_code_snippet(
+                request: CodeSnippetSearchRequest
+            ) -> Dict[str, Any]:
+                """Search for code similar to a provided snippet.
+                
+                Args:
+                    request: Code snippet search parameters
+                    
+                Returns:
+                    Similar code entities
+                """
+                try:
+                    # Convert scope string to enum
+                    scope = SearchScope[request.scope.upper()]
+                    
+                    results = await self.vector_search.search_by_code(
+                        code_snippet=request.code_snippet,
+                        scope=scope,
+                        repository_id=request.repository_id,
+                        limit=request.limit,
+                    )
+                    
+                    return {
+                        "success": True,
+                        "code_snippet": request.code_snippet[:100] + "...",
+                        "results": results,
+                        "count": len(results),
+                    }
+                    
+                except Exception as e:
+                    logger.error(f"Code snippet search failed: {e}")
+                    return {
+                        "success": False,
+                        "error": str(e),
+                        "results": [],
+                    }
+        
+        # Keyword search tools (always available)
+        @self.mcp.tool(
+            name="keyword_search",
+            description="Search for code using keywords"
+        )
+        async def keyword_search(
+            query: str = Field(..., description="Keyword search query"),
+            entity_type: Optional[str] = Field(
+                None,
+                description="Entity type: function, class, module"
+            ),
+            repository_id: Optional[int] = Field(
+                None,
+                description="Repository ID to limit search"
+            ),
+            limit: int = Field(default=20, ge=1, le=100),
+        ) -> Dict[str, Any]:
+            """Search for code entities using keywords.
+            
+            Args:
+                query: Keyword query
+                entity_type: Optional entity type filter
+                repository_id: Optional repository filter
+                limit: Maximum results
+                
+            Returns:
+                Matching code entities
+            """
+            try:
+                from sqlalchemy import and_, or_, select
+                from src.database.models import Class, Function, Module
+                
+                results = []
+                
+                # Search functions
+                if not entity_type or entity_type == "function":
+                    func_query = select(Function).where(
+                        or_(
+                            Function.name.ilike(f"%{query}%"),
+                            Function.docstring.ilike(f"%{query}%"),
+                        )
+                    )
+                    if repository_id:
+                        func_query = func_query.join(Function.file).where(
+                            Function.file.has(repository_id=repository_id)
+                        )
+                    func_query = func_query.limit(limit)
+                    
+                    func_result = await self.db_session.execute(func_query)
+                    functions = func_result.scalars().all()
+                    
+                    for func in functions:
+                        results.append({
+                            "type": "function",
+                            "id": func.id,
+                            "name": func.name,
+                            "file_id": func.file_id,
+                            "start_line": func.start_line,
+                            "end_line": func.end_line,
+                            "docstring": func.docstring,
+                        })
+                
+                # Search classes
+                if not entity_type or entity_type == "class":
+                    class_query = select(Class).where(
+                        or_(
+                            Class.name.ilike(f"%{query}%"),
+                            Class.docstring.ilike(f"%{query}%"),
+                        )
+                    )
+                    if repository_id:
+                        class_query = class_query.join(Class.file).where(
+                            Class.file.has(repository_id=repository_id)
+                        )
+                    class_query = class_query.limit(limit)
+                    
+                    class_result = await self.db_session.execute(class_query)
+                    classes = class_result.scalars().all()
+                    
+                    for cls in classes:
+                        results.append({
+                            "type": "class",
+                            "id": cls.id,
+                            "name": cls.name,
+                            "file_id": cls.file_id,
+                            "start_line": cls.start_line,
+                            "end_line": cls.end_line,
+                            "docstring": cls.docstring,
+                        })
+                
+                # Search modules
+                if not entity_type or entity_type == "module":
+                    module_query = select(Module).where(
+                        or_(
+                            Module.name.ilike(f"%{query}%"),
+                            Module.docstring.ilike(f"%{query}%"),
+                        )
+                    )
+                    if repository_id:
+                        module_query = module_query.join(Module.file).where(
+                            Module.file.has(repository_id=repository_id)
+                        )
+                    module_query = module_query.limit(limit)
+                    
+                    module_result = await self.db_session.execute(module_query)
+                    modules = module_result.scalars().all()
+                    
+                    for module in modules:
+                        results.append({
+                            "type": "module",
+                            "id": module.id,
+                            "name": module.name,
+                            "file_id": module.file_id,
+                            "start_line": module.start_line,
+                            "end_line": module.end_line,
+                            "docstring": module.docstring,
+                        })
+                
+                # Sort by relevance (name matches first)
+                results.sort(
+                    key=lambda x: (
+                        0 if query.lower() in x["name"].lower() else 1,
+                        x["name"],
+                    )
+                )
+                
+                return {
+                    "success": True,
+                    "query": query,
+                    "results": results[:limit],
+                    "count": len(results),
+                }
+                
+            except Exception as e:
+                logger.error(f"Keyword search failed: {e}")
+                return {
+                    "success": False,
+                    "error": str(e),
+                    "results": [],
+                }
+        
+        logger.info("Code search tools registered")

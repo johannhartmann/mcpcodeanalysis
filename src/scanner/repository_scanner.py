@@ -1,0 +1,471 @@
+"""Repository scanner that integrates GitHub monitoring, Git sync, and database."""
+
+import asyncio
+from datetime import datetime, timezone
+from typing import Dict, List, Optional, Set
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+
+from src.database.models import Commit, File, Repository
+from src.mcp_server.config import RepositoryConfig, get_settings
+from src.scanner.code_processor import CodeProcessor
+from src.scanner.git_sync import GitSync
+from src.scanner.github_client import GitHubClient
+from src.utils.exceptions import RepositoryError
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+class RepositoryScanner:
+    """Main repository scanner that coordinates all scanning operations."""
+    
+    def __init__(self, db_session: AsyncSession):
+        self.db_session = db_session
+        self.settings = get_settings()
+        self.git_sync = GitSync()
+        self.code_processor = CodeProcessor(db_session)
+        self._github_clients: Dict[str, GitHubClient] = {}
+    
+    def _get_github_client(self, access_token: Optional[str] = None) -> GitHubClient:
+        """Get or create a GitHub client for the given access token."""
+        token_key = access_token or "default"
+        if token_key not in self._github_clients:
+            self._github_clients[token_key] = GitHubClient(access_token)
+        return self._github_clients[token_key]
+    
+    async def scan_repository(
+        self,
+        repo_config: RepositoryConfig,
+        force_full_scan: bool = False,
+    ) -> Dict[str, any]:
+        """Scan a single repository."""
+        logger.info(
+            "Starting repository scan",
+            url=repo_config.url,
+            branch=repo_config.branch,
+            force_full_scan=force_full_scan,
+        )
+        
+        # Extract owner and repo name
+        owner, repo_name = self.git_sync._extract_owner_repo(repo_config.url)
+        
+        # Get or create repository record
+        repo_record = await self._get_or_create_repository(
+            repo_config,
+            owner,
+            repo_name,
+        )
+        
+        # Get GitHub client
+        access_token = (
+            repo_config.access_token.get_secret_value()
+            if repo_config.access_token
+            else None
+        )
+        github_client = self._get_github_client(access_token)
+        
+        # Update repository info from GitHub
+        async with github_client:
+            try:
+                repo_info = await github_client.get_repository(owner, repo_name)
+                
+                # Update default branch if not specified
+                if not repo_config.branch:
+                    repo_record.default_branch = repo_info["default_branch"]
+                
+                # Store additional metadata
+                repo_record.metadata = {
+                    "description": repo_info.get("description"),
+                    "language": repo_info.get("language"),
+                    "size": repo_info.get("size"),
+                    "stargazers_count": repo_info.get("stargazers_count"),
+                    "updated_at": repo_info.get("updated_at"),
+                }
+                
+            except Exception as e:
+                logger.error("Failed to fetch repository info from GitHub", error=str(e))
+        
+        # Clone or update repository
+        git_repo = await self.git_sync.update_repository(
+            repo_config.url,
+            repo_config.branch or repo_record.default_branch,
+            access_token,
+        )
+        
+        # Determine what to scan
+        last_scan_commit = None
+        if not force_full_scan and repo_record.last_synced:
+            # Get last processed commit
+            last_commit = await self.db_session.execute(
+                select(Commit)
+                .where(Commit.repository_id == repo_record.id)
+                .where(Commit.processed == True)
+                .order_by(Commit.timestamp.desc())
+                .limit(1)
+            )
+            last_commit_record = last_commit.scalar_one_or_none()
+            if last_commit_record:
+                last_scan_commit = last_commit_record.sha
+        
+        # Get new commits
+        new_commits = await self._process_commits(
+            repo_record,
+            git_repo,
+            github_client,
+            since_commit=last_scan_commit,
+        )
+        
+        # Scan files
+        if force_full_scan or not last_scan_commit:
+            # Full scan
+            scanned_files = await self._full_file_scan(repo_record, git_repo)
+        else:
+            # Incremental scan based on commits
+            scanned_files = await self._incremental_file_scan(
+                repo_record,
+                git_repo,
+                new_commits,
+            )
+        
+        # Process scanned files to extract code entities
+        # Create processor with the repository path
+        code_processor = CodeProcessor(self.db_session, git_repo.working_dir)
+        parse_results = await code_processor.process_files(scanned_files)
+        
+        # Update repository last sync time
+        repo_record.last_synced = datetime.utcnow()  # PostgreSQL expects naive datetime
+        await self.db_session.commit()
+        
+        return {
+            "repository_id": repo_record.id,
+            "commits_processed": len(new_commits),
+            "files_scanned": len(scanned_files),
+            "files_parsed": parse_results["success"],
+            "parse_statistics": parse_results["statistics"],
+            "full_scan": force_full_scan or not last_scan_commit,
+        }
+    
+    async def _get_or_create_repository(
+        self,
+        repo_config: RepositoryConfig,
+        owner: str,
+        repo_name: str,
+    ) -> Repository:
+        """Get existing repository or create new one."""
+        result = await self.db_session.execute(
+            select(Repository).where(Repository.github_url == repo_config.url)
+        )
+        repo = result.scalar_one_or_none()
+        
+        if not repo:
+            repo = Repository(
+                github_url=repo_config.url,
+                owner=owner,
+                name=repo_name,
+                default_branch=repo_config.branch or "main",
+                access_token_id=(
+                    f"token_{owner}_{repo_name}"
+                    if repo_config.access_token
+                    else None
+                ),
+            )
+            self.db_session.add(repo)
+            await self.db_session.commit()
+            logger.info("Created new repository record", repo_id=repo.id)
+        
+        return repo
+    
+    async def _process_commits(
+        self,
+        repo_record: Repository,
+        git_repo,
+        github_client: GitHubClient,
+        since_commit: Optional[str] = None,
+    ) -> List[Commit]:
+        """Process new commits from repository."""
+        logger.info(
+            "Processing commits",
+            repo_id=repo_record.id,
+            since_commit=since_commit,
+        )
+        
+        # Get commits from Git
+        commits_data = await self.git_sync.get_recent_commits(
+            git_repo,
+            branch=repo_record.default_branch,
+            limit=1000,  # Reasonable limit
+        )
+        
+        # Filter commits already in database
+        existing_shas = set()
+        if commits_data:
+            result = await self.db_session.execute(
+                select(Commit.sha).where(
+                    Commit.repository_id == repo_record.id,
+                    Commit.sha.in_([c["sha"] for c in commits_data]),
+                )
+            )
+            existing_shas = {row[0] for row in result}
+        
+        # Create new commit records
+        new_commits = []
+        for commit_data in commits_data:
+            if commit_data["sha"] in existing_shas:
+                continue
+            
+            # Stop if we've reached the last processed commit
+            if since_commit and commit_data["sha"] == since_commit:
+                break
+            
+            commit = Commit(
+                repository_id=repo_record.id,
+                sha=commit_data["sha"],
+                message=commit_data["message"],
+                author=commit_data["author"],
+                author_email=commit_data["author_email"],
+                timestamp=commit_data["timestamp"],
+                files_changed=commit_data["files_changed"],
+                additions=commit_data["additions"],
+                deletions=commit_data["deletions"],
+                processed=False,
+            )
+            self.db_session.add(commit)
+            new_commits.append(commit)
+        
+        if new_commits:
+            await self.db_session.commit()
+            logger.info("Added new commits", count=len(new_commits))
+        
+        return new_commits
+    
+    async def _full_file_scan(
+        self,
+        repo_record: Repository,
+        git_repo,
+    ) -> List[File]:
+        """Perform full scan of all repository files."""
+        logger.info("Performing full file scan", repo_id=repo_record.id)
+        
+        # Get all Python files (will be configurable for other languages later)
+        files_data = await self.git_sync.scan_repository_files(
+            git_repo,
+            file_extensions={".py"},
+        )
+        
+        # Mark all existing files as potentially deleted
+        from sqlalchemy import update
+        await self.db_session.execute(
+            update(File)
+            .where(File.repository_id == repo_record.id)
+            .values(is_deleted=True)
+        )
+        
+        # Process each file
+        scanned_files = []
+        for file_data in files_data:
+            file_record = await self._update_or_create_file(
+                repo_record,
+                file_data,
+                git_repo.active_branch.name,
+            )
+            scanned_files.append(file_record)
+        
+        await self.db_session.commit()
+        return scanned_files
+    
+    async def _incremental_file_scan(
+        self,
+        repo_record: Repository,
+        git_repo,
+        new_commits: List[Commit],
+    ) -> List[File]:
+        """Perform incremental scan based on new commits."""
+        logger.info(
+            "Performing incremental file scan",
+            repo_id=repo_record.id,
+            commits=len(new_commits),
+        )
+        
+        # Collect all changed files from commits
+        changed_files: Set[str] = set()
+        for commit in new_commits:
+            changed_files.update(commit.files_changed)
+        
+        # Filter for Python files
+        python_files = [f for f in changed_files if f.endswith(".py")]
+        
+        # Process each changed file
+        scanned_files = []
+        for file_path in python_files:
+            # Get current file info
+            full_path = git_repo.working_dir / file_path
+            
+            if not full_path.exists():
+                # File was deleted
+                result = await self.db_session.execute(
+                    select(File).where(
+                        File.repository_id == repo_record.id,
+                        File.path == file_path,
+                    )
+                )
+                file_record = result.scalar_one_or_none()
+                if file_record:
+                    file_record.is_deleted = True
+                    scanned_files.append(file_record)
+            else:
+                # File exists, update it
+                file_data = {
+                    "path": file_path,
+                    "absolute_path": str(full_path),
+                    "size": full_path.stat().st_size,
+                    "modified_time": datetime.fromtimestamp(full_path.stat().st_mtime),
+                    "content_hash": self.git_sync.get_file_hash(full_path),
+                    "git_hash": None,  # Will be set by _update_or_create_file
+                    "language": "python",
+                }
+                
+                file_record = await self._update_or_create_file(
+                    repo_record,
+                    file_data,
+                    git_repo.active_branch.name,
+                )
+                scanned_files.append(file_record)
+            
+            # Mark commit as processed
+            commit.processed = True
+        
+        await self.db_session.commit()
+        return scanned_files
+    
+    async def _update_or_create_file(
+        self,
+        repo_record: Repository,
+        file_data: Dict[str, any],
+        branch: str,
+    ) -> File:
+        """Update existing file record or create new one."""
+        result = await self.db_session.execute(
+            select(File).where(
+                File.repository_id == repo_record.id,
+                File.path == file_data["path"],
+                File.branch == branch,
+            )
+        )
+        file_record = result.scalar_one_or_none()
+        
+        if not file_record:
+            file_record = File(
+                repository_id=repo_record.id,
+                path=file_data["path"],
+                branch=branch,
+            )
+            self.db_session.add(file_record)
+        
+        # Update file data
+        file_record.content_hash = file_data["content_hash"]
+        file_record.git_hash = file_data.get("git_hash")
+        file_record.size = file_data["size"]
+        file_record.language = file_data["language"]
+        file_record.last_modified = file_data["modified_time"]
+        file_record.is_deleted = False
+        
+        return file_record
+    
+    async def scan_all_repositories(
+        self,
+        force_full_scan: bool = False,
+    ) -> Dict[str, any]:
+        """Scan all configured repositories."""
+        logger.info("Starting scan of all repositories")
+        
+        results = []
+        for repo_config in self.settings.repositories:
+            try:
+                result = await self.scan_repository(repo_config, force_full_scan)
+                results.append({
+                    "url": repo_config.url,
+                    "status": "success",
+                    "details": result,
+                })
+            except Exception as e:
+                logger.error(
+                    "Failed to scan repository",
+                    url=repo_config.url,
+                    error=str(e),
+                )
+                results.append({
+                    "url": repo_config.url,
+                    "status": "error",
+                    "error": str(e),
+                })
+        
+        return {
+            "repositories_scanned": len(results),
+            "successful": sum(1 for r in results if r["status"] == "success"),
+            "failed": sum(1 for r in results if r["status"] == "error"),
+            "results": results,
+        }
+    
+    async def setup_webhooks(self) -> Dict[str, any]:
+        """Set up webhooks for all configured repositories."""
+        if not self.settings.github.use_webhooks:
+            return {"message": "Webhooks disabled in configuration"}
+        
+        webhook_url = f"{self.settings.mcp.host}:{self.settings.mcp.port}{self.settings.github.webhook_endpoint}"
+        results = []
+        
+        for repo_config in self.settings.repositories:
+            try:
+                owner, repo_name = self.git_sync._extract_owner_repo(repo_config.url)
+                access_token = (
+                    repo_config.access_token.get_secret_value()
+                    if repo_config.access_token
+                    else None
+                )
+                
+                github_client = self._get_github_client(access_token)
+                async with github_client:
+                    webhook = await github_client.create_webhook(
+                        owner,
+                        repo_name,
+                        webhook_url,
+                        ["push", "create", "delete"],
+                        secret=self.settings.scanner.webhook_secret.get_secret_value()
+                        if self.settings.scanner.webhook_secret
+                        else None,
+                    )
+                    
+                    # Update repository record with webhook ID
+                    result = await self.db_session.execute(
+                        select(Repository).where(Repository.github_url == repo_config.url)
+                    )
+                    repo = result.scalar_one_or_none()
+                    if repo:
+                        repo.webhook_id = str(webhook["id"])
+                        await self.db_session.commit()
+                    
+                    results.append({
+                        "url": repo_config.url,
+                        "webhook_id": webhook["id"],
+                        "status": "created",
+                    })
+                    
+            except Exception as e:
+                logger.error(
+                    "Failed to create webhook",
+                    url=repo_config.url,
+                    error=str(e),
+                )
+                results.append({
+                    "url": repo_config.url,
+                    "status": "error",
+                    "error": str(e),
+                })
+        
+        return {
+            "webhooks_created": sum(1 for r in results if r["status"] == "created"),
+            "failed": sum(1 for r in results if r["status"] == "error"),
+            "results": results,
+        }
