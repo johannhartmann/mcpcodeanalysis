@@ -9,6 +9,7 @@ from src.database.init_db import get_session_factory, init_database
 from src.embeddings.embedding_service import EmbeddingService
 from src.embeddings.openai_client import OpenAIClient
 from src.mcp_server.config import get_settings
+from src.mcp_server.tools.analysis_tools import AnalysisTools
 from src.mcp_server.tools.code_analysis import CodeAnalysisTools
 from src.mcp_server.tools.code_search import CodeSearchTools
 from src.mcp_server.tools.domain_tools import DomainTools
@@ -39,6 +40,7 @@ class MCPCodeAnalysisServer:
         self.code_analysis_tools: CodeAnalysisTools | None = None
         self.repo_management_tools: RepositoryManagementTools | None = None
         self.domain_tools: DomainTools | None = None
+        self.analysis_tools: AnalysisTools | None = None
 
     async def initialize(self) -> None:
         """Initialize server resources."""
@@ -106,6 +108,10 @@ class MCPCodeAnalysisServer:
             # Initialize domain-driven design tools
             self.domain_tools = DomainTools(session, self.openai_client, self.mcp)
             await self.domain_tools.register_tools()
+            
+            # Initialize advanced analysis tools
+            self.analysis_tools = AnalysisTools(session, self.mcp)
+            await self.analysis_tools.register_tools()
 
         logger.info("All tools registered successfully")
 
