@@ -123,7 +123,7 @@ class RepositoryManagementTools:
                 # Start scanning if requested
                 scan_result = None
                 if request.scan_immediately:
-                    scanner = RepositoryScanner(self.db_session)
+                    scanner = RepositoryScanner(self.db_session, self.openai_client)
                     scan_result = await scanner.scan_repository(repo_config)
 
                     # Generate embeddings if requested
@@ -264,7 +264,7 @@ class RepositoryManagementTools:
                 )
 
                 # Scan repository
-                scanner = RepositoryScanner(self.db_session)
+                scanner = RepositoryScanner(self.db_session, self.openai_client)
                 scan_result = await scanner.scan_repository(
                     repo_config, force_full_scan=request.force_full_scan,
                 )

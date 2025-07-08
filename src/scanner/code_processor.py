@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from src.database.models import Class, File, Function, Import, Module
+from src.domain.indexer import DomainIndexer
+from src.embeddings.openai_client import OpenAIClient
 from src.parser.code_extractor import CodeExtractor
 from src.parser.parser_factory import ParserFactory
 from src.utils.logger import get_logger
@@ -24,11 +26,18 @@ class CodeProcessor:
         self,
         db_session: AsyncSession,
         repository_path: Path | str | None = None,
+        enable_domain_analysis: bool = False,
+        openai_client: OpenAIClient | None = None,
     ) -> None:
         self.db_session = db_session
         self.repository_path = Path(repository_path) if repository_path else None
         self.code_extractor = CodeExtractor()
         self.parser_factory = ParserFactory()
+        self.enable_domain_analysis = enable_domain_analysis
+        self.domain_indexer = None
+        
+        if enable_domain_analysis and openai_client:
+            self.domain_indexer = DomainIndexer(db_session, openai_client)
 
     async def process_file(self, file_record: File) -> dict[str, Any]:
         """Process a file to extract code entities."""
@@ -67,11 +76,25 @@ class CodeProcessor:
             # Update file processing status
             file_record.last_modified = datetime.utcnow()
             await self.db_session.commit()
+            
+            # Run domain analysis if enabled
+            domain_stats = {}
+            if self.domain_indexer and file_path.suffix == ".py":
+                try:
+                    logger.info(f"Running domain analysis for {file_record.path}")
+                    domain_result = await self.domain_indexer.index_file(file_record.id)
+                    domain_stats = {
+                        "domain_entities": domain_result.get("entities_extracted", 0),
+                        "domain_relationships": domain_result.get("relationships_extracted", 0),
+                    }
+                except Exception as e:
+                    logger.warning(f"Domain analysis failed for {file_record.path}: {e}")
 
             return {
                 "file_id": file_record.id,
                 "status": "success",
                 "statistics": stats,
+                "domain_statistics": domain_stats,
             }
 
         except Exception as e:
