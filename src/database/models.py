@@ -1,10 +1,9 @@
 """Database models for MCP Code Analysis Server."""
 
-from datetime import datetime
-from typing import List, Optional
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
+    JSON,
     Boolean,
     Column,
     DateTime,
@@ -13,23 +12,22 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
-    JSON,
     String,
     Text,
     UniqueConstraint,
     func,
 )
-from sqlalchemy.orm import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import declarative_base, relationship
+from typing import Any
 
-Base = declarative_base()
+Base: Any = declarative_base()
 
 
 class Repository(Base):
     """GitHub repository model."""
-    
+
     __tablename__ = "repositories"
-    
+
     id = Column(Integer, primary_key=True)
     github_url = Column(String(500), unique=True, nullable=False)
     owner = Column(String(255), nullable=False)
@@ -42,21 +40,23 @@ class Repository(Base):
     is_active = Column(Boolean, default=True)
     webhook_id = Column(String(255))
     repo_metadata = Column(JSON, default={})
-    
+
     # Relationships
-    files = relationship("File", back_populates="repository", cascade="all, delete-orphan")
-    commits = relationship("Commit", back_populates="repository", cascade="all, delete-orphan")
-    
-    __table_args__ = (
-        Index("idx_repository_owner_name", "owner", "name"),
+    files = relationship(
+        "File", back_populates="repository", cascade="all, delete-orphan",
     )
+    commits = relationship(
+        "Commit", back_populates="repository", cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (Index("idx_repository_owner_name", "owner", "name"),)
 
 
 class File(Base):
     """Source code file model."""
-    
+
     __tablename__ = "files"
-    
+
     id = Column(Integer, primary_key=True)
     repository_id = Column(Integer, ForeignKey("repositories.id"), nullable=False)
     path = Column(String(1000), nullable=False)
@@ -69,13 +69,19 @@ class File(Base):
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     is_deleted = Column(Boolean, default=False)
-    
+
     # Relationships
     repository = relationship("Repository", back_populates="files")
-    modules = relationship("Module", back_populates="file", cascade="all, delete-orphan")
-    imports = relationship("Import", back_populates="file", cascade="all, delete-orphan")
-    embeddings = relationship("CodeEmbedding", back_populates="file", cascade="all, delete-orphan")
-    
+    modules = relationship(
+        "Module", back_populates="file", cascade="all, delete-orphan",
+    )
+    imports = relationship(
+        "Import", back_populates="file", cascade="all, delete-orphan",
+    )
+    embeddings = relationship(
+        "CodeEmbedding", back_populates="file", cascade="all, delete-orphan",
+    )
+
     __table_args__ = (
         UniqueConstraint("repository_id", "path", "branch", name="uq_file_path"),
         Index("idx_file_repository", "repository_id"),
@@ -86,9 +92,9 @@ class File(Base):
 
 class Module(Base):
     """Python module model."""
-    
+
     __tablename__ = "modules"
-    
+
     id = Column(Integer, primary_key=True)
     file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
     name = Column(String(255), nullable=False)
@@ -97,17 +103,19 @@ class Module(Base):
     end_line = Column(Integer)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    
+
     # Relationships
     file = relationship("File", back_populates="modules")
-    classes = relationship("Class", back_populates="module", cascade="all, delete-orphan")
+    classes = relationship(
+        "Class", back_populates="module", cascade="all, delete-orphan",
+    )
     functions = relationship(
         "Function",
         primaryjoin="and_(Module.id==Function.module_id, Function.class_id==None)",
         back_populates="module",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
-    
+
     __table_args__ = (
         Index("idx_module_file", "file_id"),
         Index("idx_module_name", "name"),
@@ -116,9 +124,9 @@ class Module(Base):
 
 class Class(Base):
     """Class definition model."""
-    
+
     __tablename__ = "classes"
-    
+
     id = Column(Integer, primary_key=True)
     module_id = Column(Integer, ForeignKey("modules.id"), nullable=False)
     name = Column(String(255), nullable=False)
@@ -130,16 +138,16 @@ class Class(Base):
     is_abstract = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    
+
     # Relationships
     module = relationship("Module", back_populates="classes")
     methods = relationship(
         "Function",
         primaryjoin="Class.id==Function.class_id",
         back_populates="parent_class",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
-    
+
     __table_args__ = (
         Index("idx_class_module", "module_id"),
         Index("idx_class_name", "name"),
@@ -148,9 +156,9 @@ class Class(Base):
 
 class Function(Base):
     """Function/method definition model."""
-    
+
     __tablename__ = "functions"
-    
+
     id = Column(Integer, primary_key=True)
     module_id = Column(Integer, ForeignKey("modules.id"), nullable=False)
     class_id = Column(Integer, ForeignKey("classes.id"), nullable=True)
@@ -169,11 +177,15 @@ class Function(Base):
     complexity = Column(Integer)  # Cyclomatic complexity
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    
+
     # Relationships
-    module = relationship("Module", back_populates="functions", foreign_keys=[module_id])
-    parent_class = relationship("Class", back_populates="methods", foreign_keys=[class_id])
-    
+    module = relationship(
+        "Module", back_populates="functions", foreign_keys=[module_id],
+    )
+    parent_class = relationship(
+        "Class", back_populates="methods", foreign_keys=[class_id],
+    )
+
     __table_args__ = (
         Index("idx_function_module", "module_id"),
         Index("idx_function_class", "class_id"),
@@ -183,9 +195,9 @@ class Function(Base):
 
 class Import(Base):
     """Import statement model."""
-    
+
     __tablename__ = "imports"
-    
+
     id = Column(Integer, primary_key=True)
     file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
     import_statement = Column(String(500), nullable=False)
@@ -195,10 +207,10 @@ class Import(Base):
     level = Column(Integer, default=0)  # Relative import level
     line_number = Column(Integer)
     created_at = Column(DateTime, default=func.now())
-    
+
     # Relationships
     file = relationship("File", back_populates="imports")
-    
+
     __table_args__ = (
         Index("idx_import_file", "file_id"),
         Index("idx_import_module", "module_name"),
@@ -207,9 +219,9 @@ class Import(Base):
 
 class Commit(Base):
     """Git commit model."""
-    
+
     __tablename__ = "commits"
-    
+
     id = Column(Integer, primary_key=True)
     repository_id = Column(Integer, ForeignKey("repositories.id"), nullable=False)
     sha = Column(String(40), unique=True, nullable=False)
@@ -222,10 +234,10 @@ class Commit(Base):
     deletions = Column(Integer, default=0)
     processed = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
-    
+
     # Relationships
     repository = relationship("Repository", back_populates="commits")
-    
+
     __table_args__ = (
         Index("idx_commit_repository", "repository_id"),
         Index("idx_commit_timestamp", "timestamp"),
@@ -235,19 +247,18 @@ class Commit(Base):
 
 class CodeEmbedding(Base):
     """Code embedding model with pgvector."""
-    
+
     __tablename__ = "code_embeddings"
-    
+
     id = Column(Integer, primary_key=True)
     entity_type = Column(
         Enum("file", "module", "class", "function", name="code_entity_type"),
-        nullable=False
+        nullable=False,
     )
     entity_id = Column(Integer, nullable=False)
     file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
     embedding_type = Column(
-        Enum("raw", "interpreted", name="embedding_type"),
-        nullable=False
+        Enum("raw", "interpreted", name="embedding_type"), nullable=False,
     )
     embedding = Column(Vector(1536), nullable=False)  # OpenAI ada-002 dimension
     content = Column(Text, nullable=False)
@@ -255,10 +266,10 @@ class CodeEmbedding(Base):
     repo_metadata = Column(JSON, default={})
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    
+
     # Relationships
     file = relationship("File", back_populates="embeddings")
-    
+
     __table_args__ = (
         Index("idx_embedding_entity", "entity_type", "entity_id"),
         Index("idx_embedding_file", "file_id"),
@@ -269,9 +280,9 @@ class CodeEmbedding(Base):
 
 class SearchHistory(Base):
     """Search query history for analytics."""
-    
+
     __tablename__ = "search_history"
-    
+
     id = Column(Integer, primary_key=True)
     query = Column(Text, nullable=False)
     query_type = Column(String(50))  # search_code, find_definition, etc.
@@ -280,7 +291,7 @@ class SearchHistory(Base):
     user_id = Column(String(255))  # Optional user tracking
     session_id = Column(String(255))
     created_at = Column(DateTime, default=func.now())
-    
+
     __table_args__ = (
         Index("idx_search_created", "created_at"),
         Index("idx_search_user", "user_id"),
