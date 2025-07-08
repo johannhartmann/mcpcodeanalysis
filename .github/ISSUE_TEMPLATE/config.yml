@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: GitHub Discussions
+    url: https://github.com/johannhartmann/mcp-code-analysis-server/discussions
+    about: Please ask and answer questions here
+  - name: Documentation
+    url: https://github.com/johannhartmann/mcp-code-analysis-server/blob/main/README.md
+    about: Check our documentation for common questions
+  - name: Email Support
+    url: mailto:johann-peter.hartmann@mayflower.de
+    about: Contact the maintainer directly for sensitive issues

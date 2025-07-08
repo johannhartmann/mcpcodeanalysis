@@ -1,0 +1,292 @@
+"""GitHub API client for repository monitoring."""
+
+import asyncio
+import json
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
+import httpx
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
+
+from src.mcp_server.config import get_settings
+from src.utils.exceptions import GitHubError, RateLimitError
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+class GitHubClient:
+    """Asynchronous GitHub API client."""
+    
+    def __init__(self, access_token: Optional[str] = None):
+        self.access_token = access_token
+        self.settings = get_settings()
+        self.base_url = "https://api.github.com"
+        self._client: Optional[httpx.AsyncClient] = None
+        self._rate_limit_remaining = self.settings.github.api_rate_limit
+        self._rate_limit_reset: Optional[datetime] = None
+    
+    async def __aenter__(self):
+        """Async context manager entry."""
+        self._client = httpx.AsyncClient(
+            headers=self._get_headers(),
+            timeout=30.0,
+        )
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit."""
+        if self._client:
+            await self._client.aclose()
+    
+    def _get_headers(self) -> Dict[str, str]:
+        """Get request headers."""
+        headers = {
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "MCP-Code-Analysis-Server/0.1.0",
+        }
+        if self.access_token:
+            headers["Authorization"] = f"token {self.access_token}"
+        return headers
+    
+    async def _check_rate_limit(self):
+        """Check and handle rate limiting."""
+        if self._rate_limit_remaining <= 10:
+            if self._rate_limit_reset and datetime.now(timezone.utc) < self._rate_limit_reset:
+                wait_seconds = (self._rate_limit_reset - datetime.now(timezone.utc)).total_seconds()
+                logger.warning(
+                    "Rate limit nearly exhausted, waiting",
+                    remaining=self._rate_limit_remaining,
+                    reset_in_seconds=wait_seconds,
+                )
+                await asyncio.sleep(wait_seconds)
+    
+    def _update_rate_limit(self, response: httpx.Response):
+        """Update rate limit info from response headers."""
+        if "X-RateLimit-Remaining" in response.headers:
+            self._rate_limit_remaining = int(response.headers["X-RateLimit-Remaining"])
+        if "X-RateLimit-Reset" in response.headers:
+            self._rate_limit_reset = datetime.fromtimestamp(
+                int(response.headers["X-RateLimit-Reset"]),
+                tz=timezone.utc,
+            )
+    
+    @retry(
+        retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10),
+    )
+    async def _request(
+        self,
+        method: str,
+        endpoint: str,
+        **kwargs,
+    ) -> httpx.Response:
+        """Make an API request with retry logic."""
+        await self._check_rate_limit()
+        
+        url = f"{self.base_url}{endpoint}"
+        response = await self._client.request(method, url, **kwargs)
+        
+        self._update_rate_limit(response)
+        
+        if response.status_code == 429:
+            retry_after = int(response.headers.get("Retry-After", 60))
+            raise RateLimitError(
+                "GitHub API rate limit exceeded",
+                retry_after=retry_after,
+                limit=int(response.headers.get("X-RateLimit-Limit", 0)),
+                remaining=0,
+            )
+        
+        if response.status_code >= 400:
+            error_data = {}
+            try:
+                error_data = response.json()
+            except Exception:
+                pass
+            
+            raise GitHubError(
+                f"GitHub API error: {response.status_code}",
+                status_code=response.status_code,
+                github_error=error_data,
+            )
+        
+        return response
+    
+    async def get_repository(self, owner: str, repo: str) -> Dict[str, Any]:
+        """Get repository information."""
+        logger.info("Fetching repository info", owner=owner, repo=repo)
+        response = await self._request("GET", f"/repos/{owner}/{repo}")
+        return response.json()
+    
+    async def get_default_branch(self, owner: str, repo: str) -> str:
+        """Get repository's default branch."""
+        repo_info = await self.get_repository(owner, repo)
+        return repo_info.get("default_branch", "main")
+    
+    async def get_commits(
+        self,
+        owner: str,
+        repo: str,
+        branch: str = "main",
+        since: Optional[datetime] = None,
+        until: Optional[datetime] = None,
+        per_page: int = 100,
+    ) -> List[Dict[str, Any]]:
+        """Get commits from a repository."""
+        logger.info(
+            "Fetching commits",
+            owner=owner,
+            repo=repo,
+            branch=branch,
+            since=since,
+            until=until,
+        )
+        
+        params = {
+            "sha": branch,
+            "per_page": per_page,
+        }
+        if since:
+            params["since"] = since.isoformat()
+        if until:
+            params["until"] = until.isoformat()
+        
+        commits = []
+        page = 1
+        
+        while True:
+            params["page"] = page
+            response = await self._request(
+                "GET",
+                f"/repos/{owner}/{repo}/commits",
+                params=params,
+            )
+            
+            page_commits = response.json()
+            if not page_commits:
+                break
+            
+            commits.extend(page_commits)
+            
+            # Check if there are more pages
+            if "Link" not in response.headers or 'rel="next"' not in response.headers["Link"]:
+                break
+            
+            page += 1
+        
+        return commits
+    
+    async def get_commit_details(
+        self,
+        owner: str,
+        repo: str,
+        sha: str,
+    ) -> Dict[str, Any]:
+        """Get detailed information about a specific commit."""
+        logger.debug("Fetching commit details", owner=owner, repo=repo, sha=sha)
+        response = await self._request("GET", f"/repos/{owner}/{repo}/commits/{sha}")
+        return response.json()
+    
+    async def get_tree(
+        self,
+        owner: str,
+        repo: str,
+        tree_sha: str,
+        recursive: bool = True,
+    ) -> Dict[str, Any]:
+        """Get repository tree structure."""
+        logger.debug("Fetching tree", owner=owner, repo=repo, tree_sha=tree_sha)
+        params = {"recursive": 1} if recursive else {}
+        response = await self._request(
+            "GET",
+            f"/repos/{owner}/{repo}/git/trees/{tree_sha}",
+            params=params,
+        )
+        return response.json()
+    
+    async def get_file_content(
+        self,
+        owner: str,
+        repo: str,
+        path: str,
+        ref: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get file content from repository."""
+        logger.debug("Fetching file content", owner=owner, repo=repo, path=path, ref=ref)
+        params = {"ref": ref} if ref else {}
+        response = await self._request(
+            "GET",
+            f"/repos/{owner}/{repo}/contents/{path}",
+            params=params,
+        )
+        return response.json()
+    
+    async def create_webhook(
+        self,
+        owner: str,
+        repo: str,
+        url: str,
+        events: List[str],
+        secret: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a webhook for repository events."""
+        logger.info("Creating webhook", owner=owner, repo=repo, url=url, events=events)
+        
+        config = {"url": url, "content_type": "json"}
+        if secret:
+            config["secret"] = secret
+        
+        data = {
+            "name": "web",
+            "active": True,
+            "events": events,
+            "config": config,
+        }
+        
+        response = await self._request(
+            "POST",
+            f"/repos/{owner}/{repo}/hooks",
+            json=data,
+        )
+        return response.json()
+    
+    async def delete_webhook(self, owner: str, repo: str, hook_id: int):
+        """Delete a webhook."""
+        logger.info("Deleting webhook", owner=owner, repo=repo, hook_id=hook_id)
+        await self._request("DELETE", f"/repos/{owner}/{repo}/hooks/{hook_id}")
+    
+    async def get_rate_limit(self) -> Dict[str, Any]:
+        """Get current rate limit status."""
+        response = await self._request("GET", "/rate_limit")
+        return response.json()
+    
+    async def get_changed_files(
+        self,
+        owner: str,
+        repo: str,
+        base_sha: str,
+        head_sha: str,
+    ) -> List[Dict[str, Any]]:
+        """Get files changed between two commits."""
+        logger.info(
+            "Getting changed files",
+            owner=owner,
+            repo=repo,
+            base_sha=base_sha,
+            head_sha=head_sha,
+        )
+        
+        response = await self._request(
+            "GET",
+            f"/repos/{owner}/{repo}/compare/{base_sha}...{head_sha}",
+        )
+        
+        data = response.json()
+        return data.get("files", [])
