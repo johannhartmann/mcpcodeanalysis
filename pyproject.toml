@@ -60,6 +60,11 @@ dependencies = [
     # Data Processing
     "numpy>=1.26.0",
     "pandas>=2.1.0",
+    
+    # Graph Analysis
+    "networkx>=3.2",
+    "igraph>=0.11.3",
+    "leidenalg>=0.10.1",
 ]
 
 [project.urls]
