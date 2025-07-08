@@ -1,10 +1,8 @@
 """Service for managing embeddings in the database."""
 
-import json
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-import numpy as np
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -15,7 +13,6 @@ from src.database.models import (
     File,
     Function,
     Module,
-    Repository,
 )
 from src.embeddings.embedding_generator import EmbeddingGenerator
 from src.embeddings.openai_client import OpenAIClient
@@ -27,14 +24,14 @@ logger = get_logger(__name__)
 
 class EmbeddingService:
     """Service for creating and managing code embeddings."""
-    
+
     def __init__(
         self,
         db_session: AsyncSession,
-        openai_client: Optional[OpenAIClient] = None,
-    ):
+        openai_client: OpenAIClient | None = None,
+    ) -> None:
         """Initialize embedding service.
-        
+
         Args:
             db_session: Database session
             openai_client: OpenAI client instance
@@ -42,27 +39,25 @@ class EmbeddingService:
         self.db_session = db_session
         self.openai_client = openai_client or OpenAIClient()
         self.embedding_generator = EmbeddingGenerator(self.openai_client)
-    
-    async def create_file_embeddings(self, file_id: int) -> Dict[str, Any]:
+
+    async def create_file_embeddings(self, file_id: int) -> dict[str, Any]:
         """Create embeddings for all entities in a file.
-        
+
         Args:
             file_id: File ID to process
-            
+
         Returns:
             Summary of created embeddings
         """
         logger.info(f"Creating embeddings for file {file_id}")
-        
+
         # Get file record
-        result = await self.db_session.execute(
-            select(File).where(File.id == file_id)
-        )
+        result = await self.db_session.execute(select(File).where(File.id == file_id))
         file_record = result.scalar_one_or_none()
-        
+
         if not file_record:
             raise ValueError(f"File {file_id} not found")
-        
+
         stats = {
             "file_id": file_id,
             "file_path": file_record.path,
@@ -72,7 +67,7 @@ class EmbeddingService:
             "total": 0,
             "errors": [],
         }
-        
+
         try:
             # Process modules
             modules = await self._get_file_modules(file_id)
@@ -81,9 +76,11 @@ class EmbeddingService:
                     await self._create_module_embedding(module, file_record.path)
                     stats["modules"] += 1
                 except Exception as e:
-                    logger.error(f"Failed to create embedding for module {module.id}: {e}")
-                    stats["errors"].append(f"Module {module.name}: {str(e)}")
-            
+                    logger.exception(
+                        f"Failed to create embedding for module {module.id}: {e}",
+                    )
+                    stats["errors"].append(f"Module {module.name}: {e!s}")
+
             # Process classes
             classes = await self._get_file_classes(file_id)
             for cls in classes:
@@ -91,9 +88,9 @@ class EmbeddingService:
                     await self._create_class_embedding(cls, file_record.path)
                     stats["classes"] += 1
                 except Exception as e:
-                    logger.error(f"Failed to create embedding for class {cls.id}: {e}")
-                    stats["errors"].append(f"Class {cls.name}: {str(e)}")
-            
+                    logger.exception(f"Failed to create embedding for class {cls.id}: {e}")
+                    stats["errors"].append(f"Class {cls.name}: {e!s}")
+
             # Process functions
             functions = await self._get_file_functions(file_id)
             for func in functions:
@@ -101,87 +98,91 @@ class EmbeddingService:
                     await self._create_function_embedding(func, file_record.path)
                     stats["functions"] += 1
                 except Exception as e:
-                    logger.error(f"Failed to create embedding for function {func.id}: {e}")
-                    stats["errors"].append(f"Function {func.name}: {str(e)}")
-            
+                    logger.exception(
+                        f"Failed to create embedding for function {func.id}: {e}",
+                    )
+                    stats["errors"].append(f"Function {func.name}: {e!s}")
+
             stats["total"] = stats["modules"] + stats["classes"] + stats["functions"]
-            
+
             logger.info(
                 f"Created {stats['total']} embeddings for file {file_id} "
-                f"({stats['errors']} errors)"
+                f"({stats['errors']} errors)",
             )
-            
+
         except Exception as e:
-            logger.error(f"Failed to create embeddings for file {file_id}: {e}")
+            logger.exception(f"Failed to create embeddings for file {file_id}: {e}")
             raise EmbeddingError(f"Failed to create embeddings: {e}")
-        
+
         return stats
-    
+
     async def create_repository_embeddings(
         self,
         repository_id: int,
-        limit: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        limit: int | None = None,
+    ) -> dict[str, Any]:
         """Create embeddings for all files in a repository.
-        
+
         Args:
             repository_id: Repository ID to process
             limit: Optional limit on number of files to process
-            
+
         Returns:
             Summary of created embeddings
         """
         logger.info(f"Creating embeddings for repository {repository_id}")
-        
+
         # Get repository files
         query = select(File).where(
             and_(
                 File.repository_id == repository_id,
-                File.is_deleted == False,
-            )
+                not File.is_deleted,
+            ),
         )
-        
+
         if limit:
             query = query.limit(limit)
-        
+
         result = await self.db_session.execute(query)
         files = result.scalars().all()
-        
+
         stats = {
             "repository_id": repository_id,
             "files_processed": 0,
             "total_embeddings": 0,
             "errors": [],
         }
-        
+
         for file_record in files:
             try:
                 file_stats = await self.create_file_embeddings(file_record.id)
                 stats["files_processed"] += 1
                 stats["total_embeddings"] += file_stats["total"]
                 if file_stats["errors"]:
-                    stats["errors"].extend([
-                        f"File {file_record.path}: {err}"
-                        for err in file_stats["errors"]
-                    ])
+                    stats["errors"].extend(
+                        [
+                            f"File {file_record.path}: {err}"
+                            for err in file_stats["errors"]
+                        ],
+                    )
             except Exception as e:
-                logger.error(f"Failed to process file {file_record.id}: {e}")
-                stats["errors"].append(f"File {file_record.path}: {str(e)}")
-        
+                logger.exception(f"Failed to process file {file_record.id}: {e}")
+                stats["errors"].append(f"File {file_record.path}: {e!s}")
+
         logger.info(
             f"Created {stats['total_embeddings']} embeddings for "
-            f"{stats['files_processed']} files in repository {repository_id}"
+            f"{stats['files_processed']} files in repository {repository_id}",
         )
-        
+
         return stats
-    
+
     async def _create_module_embedding(self, module: Module, file_path: str) -> int:
         """Create embedding for a module.
-        
+
         Args:
             module: Module record
             file_path: Path to the source file
-            
+
         Returns:
             Created embedding ID
         """
@@ -190,7 +191,7 @@ class EmbeddingService:
         if existing:
             logger.debug(f"Embedding already exists for module {module.id}")
             return existing.id
-        
+
         # Prepare module data
         module_data = {
             "name": module.name,
@@ -198,15 +199,15 @@ class EmbeddingService:
             "start_line": module.start_line,
             "end_line": module.end_line,
         }
-        
+
         # Get module statistics
         stats = await self._get_module_stats(module.id)
-        
+
         # Generate embedding
         result = await self.embedding_generator.generate_module_embedding(
-            module_data, file_path, stats
+            module_data, file_path, stats,
         )
-        
+
         # Store embedding
         embedding = CodeEmbedding(
             entity_type="module",
@@ -219,19 +220,19 @@ class EmbeddingService:
             repo_metadata=result["metadata"],
             created_at=datetime.utcnow(),
         )
-        
+
         self.db_session.add(embedding)
         await self.db_session.commit()
-        
+
         return embedding.id
-    
+
     async def _create_class_embedding(self, cls: Class, file_path: str) -> int:
         """Create embedding for a class.
-        
+
         Args:
             cls: Class record
             file_path: Path to the source file
-            
+
         Returns:
             Created embedding ID
         """
@@ -240,10 +241,10 @@ class EmbeddingService:
         if existing:
             logger.debug(f"Embedding already exists for class {cls.id}")
             return existing.id
-        
+
         # Prepare class data with methods
         methods = await self._get_class_methods(cls.id)
-        
+
         class_data = {
             "name": cls.name,
             "docstring": cls.docstring,
@@ -261,17 +262,17 @@ class EmbeddingService:
                 for method in methods
             ],
         }
-        
+
         # Generate embedding
         results = await self.embedding_generator.generate_class_embeddings(
-            [class_data], file_path
+            [class_data], file_path,
         )
-        
+
         if not results or not results[0].get("embedding"):
             raise EmbeddingError(f"Failed to generate embedding for class {cls.name}")
-        
+
         result = results[0]
-        
+
         # Store embedding
         embedding = CodeEmbedding(
             entity_type="class",
@@ -284,19 +285,19 @@ class EmbeddingService:
             repo_metadata=result["metadata"],
             created_at=datetime.utcnow(),
         )
-        
+
         self.db_session.add(embedding)
         await self.db_session.commit()
-        
+
         return embedding.id
-    
+
     async def _create_function_embedding(self, func: Function, file_path: str) -> int:
         """Create embedding for a function.
-        
+
         Args:
             func: Function record
             file_path: Path to the source file
-            
+
         Returns:
             Created embedding ID
         """
@@ -305,7 +306,7 @@ class EmbeddingService:
         if existing:
             logger.debug(f"Embedding already exists for function {func.id}")
             return existing.id
-        
+
         # Prepare function data
         func_data = {
             "name": func.name,
@@ -322,17 +323,19 @@ class EmbeddingService:
             "end_line": func.end_line,
             "class_name": func.parent_class.name if func.class_id else None,
         }
-        
+
         # Generate embedding
         results = await self.embedding_generator.generate_function_embeddings(
-            [func_data], file_path
+            [func_data], file_path,
         )
-        
+
         if not results or not results[0].get("embedding"):
-            raise EmbeddingError(f"Failed to generate embedding for function {func.name}")
-        
+            raise EmbeddingError(
+                f"Failed to generate embedding for function {func.name}",
+            )
+
         result = results[0]
-        
+
         # Store embedding
         embedding = CodeEmbedding(
             entity_type="function",
@@ -345,23 +348,23 @@ class EmbeddingService:
             repo_metadata=result["metadata"],
             created_at=datetime.utcnow(),
         )
-        
+
         self.db_session.add(embedding)
         await self.db_session.commit()
-        
+
         return embedding.id
-    
+
     async def _get_existing_embedding(
         self,
         entity_type: str,
         entity_id: int,
-    ) -> Optional[CodeEmbedding]:
+    ) -> CodeEmbedding | None:
         """Check if embedding already exists.
-        
+
         Args:
             entity_type: Type of entity
             entity_id: Entity ID
-            
+
         Returns:
             Existing embedding or None
         """
@@ -370,31 +373,31 @@ class EmbeddingService:
                 and_(
                     CodeEmbedding.entity_type == entity_type,
                     CodeEmbedding.entity_id == entity_id,
-                )
-            )
+                ),
+            ),
         )
         return result.scalar_one_or_none()
-    
-    async def _get_file_modules(self, file_id: int) -> List[Module]:
+
+    async def _get_file_modules(self, file_id: int) -> list[Module]:
         """Get modules for a file."""
         result = await self.db_session.execute(
             select(Module)
             .where(Module.file_id == file_id)
-            .options(selectinload(Module.file))
+            .options(selectinload(Module.file)),
         )
         return result.scalars().all()
-    
-    async def _get_file_classes(self, file_id: int) -> List[Class]:
+
+    async def _get_file_classes(self, file_id: int) -> list[Class]:
         """Get classes for a file."""
         result = await self.db_session.execute(
             select(Class)
             .join(Module)
             .where(Module.file_id == file_id)
-            .options(selectinload(Class.module))
+            .options(selectinload(Class.module)),
         )
         return result.scalars().all()
-    
-    async def _get_file_functions(self, file_id: int) -> List[Function]:
+
+    async def _get_file_functions(self, file_id: int) -> list[Function]:
         """Get functions for a file."""
         result = await self.db_session.execute(
             select(Function)
@@ -403,88 +406,92 @@ class EmbeddingService:
             .options(
                 selectinload(Function.module),
                 selectinload(Function.parent_class),
-            )
+            ),
         )
         return result.scalars().all()
-    
-    async def _get_class_methods(self, class_id: int) -> List[Function]:
+
+    async def _get_class_methods(self, class_id: int) -> list[Function]:
         """Get methods for a class."""
         result = await self.db_session.execute(
-            select(Function).where(Function.class_id == class_id)
+            select(Function).where(Function.class_id == class_id),
         )
         return result.scalars().all()
-    
-    async def _get_module_stats(self, module_id: int) -> Dict[str, int]:
+
+    async def _get_module_stats(self, module_id: int) -> dict[str, int]:
         """Get statistics for a module."""
         # Count classes
         class_result = await self.db_session.execute(
-            select(func.count()).select_from(Class).where(Class.module_id == module_id)
+            select(func.count()).select_from(Class).where(Class.module_id == module_id),
         )
         class_count = class_result.scalar() or 0
-        
+
         # Count functions
         func_result = await self.db_session.execute(
-            select(func.count()).select_from(Function).where(
+            select(func.count())
+            .select_from(Function)
+            .where(
                 and_(
                     Function.module_id == module_id,
                     Function.class_id.is_(None),
-                )
-            )
+                ),
+            ),
         )
         func_count = func_result.scalar() or 0
-        
+
         return {
             "classes": class_count,
             "functions": func_count,
         }
-    
+
     async def delete_entity_embeddings(
         self,
         entity_type: str,
         entity_id: int,
     ) -> int:
         """Delete embeddings for an entity.
-        
+
         Args:
             entity_type: Type of entity
             entity_id: Entity ID
-            
+
         Returns:
             Number of deleted embeddings
         """
         result = await self.db_session.execute(
-            select(CodeEmbedding).where(
+            select(CodeEmbedding)
+            .where(
                 and_(
                     CodeEmbedding.entity_type == entity_type,
                     CodeEmbedding.entity_id == entity_id,
-                )
-            ).delete()
+                ),
+            )
+            .delete(),
         )
-        
+
         await self.db_session.commit()
         return result.rowcount
-    
-    async def update_file_embeddings(self, file_id: int) -> Dict[str, Any]:
+
+    async def update_file_embeddings(self, file_id: int) -> dict[str, Any]:
         """Update embeddings for a file (delete and recreate).
-        
+
         Args:
             file_id: File ID to update
-            
+
         Returns:
             Summary of updated embeddings
         """
         logger.info(f"Updating embeddings for file {file_id}")
-        
+
         # Delete existing embeddings
         deleted = await self.db_session.execute(
-            select(CodeEmbedding).where(CodeEmbedding.file_id == file_id).delete()
+            select(CodeEmbedding).where(CodeEmbedding.file_id == file_id).delete(),
         )
         await self.db_session.commit()
-        
+
         logger.info(f"Deleted {deleted.rowcount} existing embeddings")
-        
+
         # Create new embeddings
         stats = await self.create_file_embeddings(file_id)
         stats["deleted"] = deleted.rowcount
-        
+
         return stats
