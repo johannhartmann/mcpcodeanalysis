@@ -142,6 +142,8 @@ extend-exclude = '''
 [tool.ruff]
 target-version = "py311"
 line-length = 88
+
+[tool.ruff.lint]
 select = [
     "E",    # pycodestyle errors
     "W",    # pycodestyle warnings
@@ -194,8 +196,6 @@ ignore = [
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex
     "W191",  # indentation contains tabs
-    "ANN101",# missing type annotation for self
-    "ANN102",# missing type annotation for cls
     "ANN401",# dynamically typed expressions (Any)
     "S101",  # use of assert detected
     "TD003", # missing issue link on TODO
@@ -205,24 +205,24 @@ ignore = [
 fixable = ["ALL"]
 unfixable = []
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "D104"]
 "tests/**/*.py" = ["S101", "ARG", "FBT", "PLR2004", "PLR0913"]
 "src/mcp_server/tools/*.py" = ["ANN201"]  # dynamic return types for MCP tools
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 known-third-party = ["fastapi", "pydantic", "sqlalchemy", "langchain", "langgraph", "fastmcp"]
 combine-as-imports = true
 force-wrap-aliases = true
 
-[tool.ruff.flake8-tidy-imports]
+[tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
 
-[tool.ruff.flake8-pytest-style]
+[tool.ruff.lint.flake8-pytest-style]
 fixture-parentheses = false
 mark-parentheses = false
 
-[tool.ruff.pydocstyle]
+[tool.ruff.lint.pydocstyle]
 convention = "google"
 
 [tool.mypy]

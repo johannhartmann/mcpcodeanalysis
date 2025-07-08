@@ -36,9 +36,9 @@
           ipython
           
           # Type stubs
-          pandas-stubs
           types-requests
           types-pyyaml
+          # Note: pandas-stubs removed as it pulls in PyTorch as dependency in nixpkgs
         ]);
         
         pyprojectToml = builtins.fromTOML (builtins.readFile ./pyproject.toml);
