@@ -11,6 +11,7 @@ from src.embeddings.openai_client import OpenAIClient
 from src.mcp_server.config import get_settings
 from src.mcp_server.tools.code_analysis import CodeAnalysisTools
 from src.mcp_server.tools.code_search import CodeSearchTools
+from src.mcp_server.tools.domain_tools import DomainTools
 from src.mcp_server.tools.repository_management import RepositoryManagementTools
 from src.scanner.repository_scanner import RepositoryScanner
 from src.utils.logger import get_logger
@@ -37,6 +38,7 @@ class MCPCodeAnalysisServer:
         self.code_search_tools: CodeSearchTools | None = None
         self.code_analysis_tools: CodeAnalysisTools | None = None
         self.repo_management_tools: RepositoryManagementTools | None = None
+        self.domain_tools: DomainTools | None = None
 
     async def initialize(self) -> None:
         """Initialize server resources."""
@@ -100,6 +102,10 @@ class MCPCodeAnalysisServer:
                 session, self.openai_client, self.mcp,
             )
             await self.repo_management_tools.register_tools()
+            
+            # Initialize domain-driven design tools
+            self.domain_tools = DomainTools(session, self.openai_client, self.mcp)
+            await self.domain_tools.register_tools()
 
         logger.info("All tools registered successfully")
 
@@ -143,7 +149,7 @@ class MCPCodeAnalysisServer:
             await self.initialize()
 
         async with self.get_session() as session:
-            scanner = RepositoryScanner(session)
+            scanner = RepositoryScanner(session, self.openai_client)
 
             # Create repository config
             from src.mcp_server.config import RepositoryConfig

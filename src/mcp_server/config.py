@@ -15,6 +15,10 @@ class RepositoryConfig(BaseModel):
     url: str
     branch: str | None = None
     access_token: SecretStr | None = None
+    enable_domain_analysis: bool = Field(
+        default=False, 
+        description="Enable domain-driven analysis during indexing"
+    )
 
     @field_validator("url")
     @classmethod
@@ -61,6 +65,18 @@ class EmbeddingsConfig(BaseModel):
     cache_dir: Path = Path(".embeddings_cache")
     max_tokens: int = Field(default=8000, ge=100, le=8191)
     generate_interpreted: bool = True
+
+
+class DomainAnalysisConfig(BaseModel):
+    """Domain-driven analysis configuration."""
+
+    enabled: bool = Field(default=False, description="Enable domain analysis by default")
+    chunk_size: int = Field(default=1000, ge=500, le=5000)
+    chunk_overlap: int = Field(default=200, ge=0, le=500)
+    min_confidence: float = Field(default=0.7, ge=0.0, le=1.0)
+    max_entities_per_file: int = Field(default=50, ge=1, le=200)
+    leiden_resolution: float = Field(default=1.0, ge=0.1, le=10.0)
+    min_context_size: int = Field(default=3, ge=1, le=20)
 
 
 class DatabaseConfig(BaseModel):
@@ -157,6 +173,7 @@ class Settings(BaseSettings):
     scanner: ScannerConfig = Field(default_factory=ScannerConfig)
     parser: ParserConfig = Field(default_factory=ParserConfig)
     embeddings: EmbeddingsConfig = Field(default_factory=EmbeddingsConfig)
+    domain_analysis: DomainAnalysisConfig = Field(default_factory=DomainAnalysisConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     mcp: MCPConfig = Field(default_factory=MCPConfig)
     github: GitHubConfig = Field(default_factory=GitHubConfig)
