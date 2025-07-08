@@ -1,12 +1,9 @@
 """Main entry point for the MCP Code Analysis Server."""
 
-import asyncio
-import signal
-import sys
 from contextlib import asynccontextmanager
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastmcp import FastMCP
 
@@ -35,12 +32,12 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
     logger.info("Starting MCP Code Analysis Server")
-    
+
     # Initialize database
     await init_database()
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down MCP Code Analysis Server")
 
@@ -68,8 +65,9 @@ mcp = FastMCP("Code Analysis MCP Server")
 
 # Register MCP tools
 
+
 @mcp.tool
-async def search_code(query: str, limit: int = 10) -> List[Dict[str, Any]]:
+async def search_code(query: str, limit: int = 10) -> list[dict[str, Any]]:
     """Search for code by natural language query."""
     return await search_tool.search_code(query, limit)
 
@@ -85,7 +83,7 @@ async def explain_code(path: str) -> str:
 
 
 @mcp.tool
-async def find_definition(name: str, type: str = "any") -> List[Dict[str, Any]]:
+async def find_definition(name: str, type: str = "any") -> list[dict[str, Any]]:
     """
     Find where a function/class/module is defined.
     Type can be: 'function', 'class', 'module', or 'any'
@@ -94,7 +92,9 @@ async def find_definition(name: str, type: str = "any") -> List[Dict[str, Any]]:
 
 
 @mcp.tool
-async def find_usage(function_or_class: str, repository: Optional[str] = None) -> List[Dict[str, Any]]:
+async def find_usage(
+    function_or_class: str, repository: str | None = None,
+) -> list[dict[str, Any]]:
     """
     Find all places where a function/class is used.
     Can search across all repositories or filter by specific repository.
@@ -103,37 +103,37 @@ async def find_usage(function_or_class: str, repository: Optional[str] = None) -
 
 
 @mcp.tool
-async def analyze_dependencies(module_path: str) -> Dict[str, Any]:
+async def analyze_dependencies(module_path: str) -> dict[str, Any]:
     """Analyze dependencies of a module."""
     return await analyze_tool.analyze_dependencies(module_path)
 
 
 @mcp.tool
-async def suggest_refactoring(code_path: str) -> List[Dict[str, Any]]:
+async def suggest_refactoring(code_path: str) -> list[dict[str, Any]]:
     """Suggest refactoring improvements."""
     return await analyze_tool.suggest_refactoring(code_path)
 
 
 @mcp.tool
-async def find_similar_code(code_snippet: str) -> List[Dict[str, Any]]:
+async def find_similar_code(code_snippet: str) -> list[dict[str, Any]]:
     """Find similar code patterns in the codebase."""
     return await analyze_tool.find_similar_code(code_snippet)
 
 
 @mcp.tool
-async def get_code_structure(path: str) -> Dict[str, Any]:
+async def get_code_structure(path: str) -> dict[str, Any]:
     """Get hierarchical structure of a module/package."""
     return await analyze_tool.get_code_structure(path)
 
 
 @mcp.tool
-async def list_repositories() -> List[Dict[str, Any]]:
+async def list_repositories() -> list[dict[str, Any]]:
     """List all monitored GitHub repositories with their sync status."""
     return await repository_tool.list_repositories()
 
 
 @mcp.tool
-async def sync_repository(repository_url: str) -> Dict[str, Any]:
+async def sync_repository(repository_url: str) -> dict[str, Any]:
     """Manually trigger sync for a specific repository."""
     return await repository_tool.sync_repository(repository_url)
 
@@ -154,16 +154,16 @@ mcp_asgi = mcp.get_asgi_app()
 app.mount("/mcp", mcp_asgi)
 
 
-def main():
+def main() -> None:
     """Main entry point."""
     # Set up logging
     setup_logging()
-    
+
     # Run the server
     import uvicorn
-    
+
     logger.info(f"Starting server on {settings.mcp_host}:{settings.mcp_port}")
-    
+
     uvicorn.run(
         "src.mcp_server.main:app",
         host=settings.mcp_host,

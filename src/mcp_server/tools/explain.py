@@ -1,7 +1,6 @@
 """Explain tool for MCP server."""
 
-from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from src.database import get_repositories, get_session
 from src.query.aggregator import CodeAggregator
@@ -12,169 +11,172 @@ logger = get_logger(__name__)
 
 class ExplainTool:
     """MCP tool for explaining code entities."""
-    
+
     def __init__(self) -> None:
         self.aggregator = CodeAggregator()
-    
-    async def explain_code(
-        self,
-        path: str
-    ) -> str:
+
+    async def explain_code(self, path: str) -> str:
         """
         Explain what a code element does (function, class, module, or package).
         For classes: aggregates explanations of all methods and attributes.
         For packages: provides overview of all modules and main components.
-        
+
         Args:
             path: Path to code element (e.g., "module.Class.method" or "path/to/module.py")
-            
+
         Returns:
             Detailed explanation of the code element
         """
         try:
             # Parse the path to determine entity type and location
             entity_info = await self._parse_code_path(path)
-            
+
             if not entity_info:
                 return f"Could not find code element at path: {path}"
-            
+
             # Get explanation
             explanation = await self.aggregator.explain_entity(
                 entity_type=entity_info["type"],
                 entity_id=entity_info["id"],
-                include_code=False
+                include_code=False,
             )
-            
+
             # Format explanation as text
             return self._format_explanation(explanation)
-            
+
         except Exception as e:
-            logger.error(f"Error in explain_code: {e}")
-            return f"Error explaining code: {str(e)}"
-    
-    async def _parse_code_path(self, path: str) -> Optional[Dict[str, Any]]:
+            logger.exception(f"Error in explain_code: {e}")
+            return f"Error explaining code: {e!s}"
+
+    async def _parse_code_path(self, path: str) -> dict[str, Any] | None:
         """Parse a code path to find the entity."""
-        async with get_session() as session:
-            async with get_repositories(session) as repos:
-                # Check if it's a file path
-                if "/" in path or path.endswith(".py"):
-                    # File path - look for module
-                    file = await repos["file"].get_by_path(None, path)
-                    if file:
-                        modules = await session.execute(
-                            f"SELECT * FROM modules WHERE file_id = {file.id} LIMIT 1"
-                        )
-                        module = modules.scalar_one_or_none() if modules else None
-                        if module:
-                            return {"type": "module", "id": module.id}
-                
-                # Check if it's a qualified name (module.Class.method)
-                parts = path.split(".")
-                
-                # Try to find by name
-                if len(parts) == 1:
-                    # Single name - could be function, class, or module
-                    results = await repos["code_entity"].find_by_name(parts[0])
-                    if results:
-                        entity = results[0]
-                        return {
-                            "type": entity["type"],
-                            "id": entity["entity"].id
-                        }
-                
-                elif len(parts) == 2:
-                    # Could be module.function or class.method
-                    # First try module.function
-                    module_results = await repos["code_entity"].find_by_name(parts[0], "module")
-                    if module_results:
-                        module = module_results[0]["entity"]
-                        # Look for function in this module
-                        funcs = await session.execute(
-                            f"SELECT * FROM functions WHERE module_id = {module.id} "
-                            f"AND name = '{parts[1]}' AND class_id IS NULL LIMIT 1"
-                        )
-                        func = funcs.scalar_one_or_none() if funcs else None
-                        if func:
-                            return {"type": "function", "id": func.id}
-                    
-                    # Try class.method
-                    class_results = await repos["code_entity"].find_by_name(parts[0], "class")
-                    if class_results:
-                        cls = class_results[0]["entity"]
-                        # Look for method in this class
-                        methods = await session.execute(
-                            f"SELECT * FROM functions WHERE class_id = {cls.id} "
-                            f"AND name = '{parts[1]}' LIMIT 1"
-                        )
-                        method = methods.scalar_one_or_none() if methods else None
-                        if method:
-                            return {"type": "function", "id": method.id}
-                
-                elif len(parts) >= 3:
-                    # module.class.method
-                    module_results = await repos["code_entity"].find_by_name(parts[0], "module")
-                    if module_results:
-                        module = module_results[0]["entity"]
-                        # Look for class in module
-                        classes = await session.execute(
-                            f"SELECT * FROM classes WHERE module_id = {module.id} "
-                            f"AND name = '{parts[1]}' LIMIT 1"
-                        )
-                        cls = classes.scalar_one_or_none() if classes else None
-                        if cls:
-                            if len(parts) == 3:
-                                # Look for method
-                                methods = await session.execute(
-                                    f"SELECT * FROM functions WHERE class_id = {cls.id} "
-                                    f"AND name = '{parts[2]}' LIMIT 1"
-                                )
-                                method = methods.scalar_one_or_none() if methods else None
-                                if method:
-                                    return {"type": "function", "id": method.id}
-                            else:
-                                # Return the class
-                                return {"type": "class", "id": cls.id}
-        
+        async with get_session() as session, get_repositories(session) as repos:
+            # Check if it's a file path
+            if "/" in path or path.endswith(".py"):
+                # File path - look for module
+                file = await repos["file"].get_by_path(None, path)
+                if file:
+                    modules = await session.execute(
+                        f"SELECT * FROM modules WHERE file_id = {file.id} LIMIT 1",
+                    )
+                    module = modules.scalar_one_or_none() if modules else None
+                    if module:
+                        return {"type": "module", "id": module.id}
+
+            # Check if it's a qualified name (module.Class.method)
+            parts = path.split(".")
+
+            # Try to find by name
+            if len(parts) == 1:
+                # Single name - could be function, class, or module
+                results = await repos["code_entity"].find_by_name(parts[0])
+                if results:
+                    entity = results[0]
+                    return {"type": entity["type"], "id": entity["entity"].id}
+
+            elif len(parts) == 2:
+                # Could be module.function or class.method
+                # First try module.function
+                module_results = await repos["code_entity"].find_by_name(
+                    parts[0], "module",
+                )
+                if module_results:
+                    module = module_results[0]["entity"]
+                    # Look for function in this module
+                    funcs = await session.execute(
+                        f"SELECT * FROM functions WHERE module_id = {module.id} "
+                        f"AND name = '{parts[1]}' AND class_id IS NULL LIMIT 1",
+                    )
+                    func = funcs.scalar_one_or_none() if funcs else None
+                    if func:
+                        return {"type": "function", "id": func.id}
+
+                # Try class.method
+                class_results = await repos["code_entity"].find_by_name(
+                    parts[0], "class",
+                )
+                if class_results:
+                    cls = class_results[0]["entity"]
+                    # Look for method in this class
+                    methods = await session.execute(
+                        f"SELECT * FROM functions WHERE class_id = {cls.id} "
+                        f"AND name = '{parts[1]}' LIMIT 1",
+                    )
+                    method = methods.scalar_one_or_none() if methods else None
+                    if method:
+                        return {"type": "function", "id": method.id}
+
+            elif len(parts) >= 3:
+                # module.class.method
+                module_results = await repos["code_entity"].find_by_name(
+                    parts[0], "module",
+                )
+                if module_results:
+                    module = module_results[0]["entity"]
+                    # Look for class in module
+                    classes = await session.execute(
+                        f"SELECT * FROM classes WHERE module_id = {module.id} "
+                        f"AND name = '{parts[1]}' LIMIT 1",
+                    )
+                    cls = classes.scalar_one_or_none() if classes else None
+                    if cls:
+                        if len(parts) == 3:
+                            # Look for method
+                            methods = await session.execute(
+                                f"SELECT * FROM functions WHERE class_id = {cls.id} "
+                                f"AND name = '{parts[2]}' LIMIT 1",
+                            )
+                            method = (
+                                methods.scalar_one_or_none() if methods else None
+                            )
+                            if method:
+                                return {"type": "function", "id": method.id}
+                        else:
+                            # Return the class
+                            return {"type": "class", "id": cls.id}
+
         return None
-    
-    def _format_explanation(self, explanation: Dict[str, Any]) -> str:
+
+    def _format_explanation(self, explanation: dict[str, Any]) -> str:
         """Format explanation dictionary as readable text."""
         if "error" in explanation:
             return explanation["error"]
-        
+
         parts = []
-        
+
         # Header
         entity_type = explanation.get("type", "entity")
         name = explanation.get("name", "unknown")
         qualified_name = explanation.get("qualified_name", name)
-        
+
         parts.append(f"# {entity_type.capitalize()}: {qualified_name}")
         parts.append("")
-        
+
         # Location
         location = explanation.get("location", {})
         if location.get("repository"):
             parts.append(f"**Repository**: {location['repository']}")
             parts.append(f"**File**: {location.get('file', 'unknown')}")
-            parts.append(f"**Lines**: {location.get('start_line', '?')}-{location.get('end_line', '?')}")
+            parts.append(
+                f"**Lines**: {location.get('start_line', '?')}-{location.get('end_line', '?')}",
+            )
             parts.append("")
-        
+
         # Docstring
         if explanation.get("docstring"):
             parts.append("## Documentation")
             parts.append(explanation["docstring"])
             parts.append("")
-        
+
         # Type-specific information
-        if entity_type == "function" or entity_type == "method":
+        if entity_type in {"function", "method"}:
             # Signature
             parts.append("## Signature")
-            parts.append(f"```python")
+            parts.append("```python")
             parts.append(explanation.get("signature", f"{name}()"))
             parts.append("```")
             parts.append("")
-            
+
             # Parameters
             if explanation.get("parameters"):
                 parts.append("## Parameters")
@@ -186,7 +188,7 @@ class ExplainTool:
                         param_str += f" = {param['default']}"
                     parts.append(param_str)
                 parts.append("")
-            
+
             # Properties
             props = explanation.get("properties", {})
             special = []
@@ -200,30 +202,38 @@ class ExplainTool:
                 special.append("static method")
             if props.get("is_classmethod"):
                 special.append("class method")
-            
+
             if special:
                 parts.append(f"**Type**: {', '.join(special)}")
                 parts.append("")
-        
+
         elif entity_type == "class":
             # Inheritance
             if explanation.get("base_classes"):
                 parts.append("## Inheritance")
                 parts.append(f"Inherits from: {', '.join(explanation['base_classes'])}")
                 parts.append("")
-            
+
             # Methods
-            for method_type in ["methods", "properties", "class_methods", "static_methods", "special_methods"]:
+            for method_type in [
+                "methods",
+                "properties",
+                "class_methods",
+                "static_methods",
+                "special_methods",
+            ]:
                 method_list = explanation.get(method_type, [])
                 if method_list:
                     title = method_type.replace("_", " ").title()
                     parts.append(f"## {title}")
                     for method in method_list:
-                        parts.append(f"- **{method['name']}**: {method.get('signature', method['name'] + '()')}")
+                        parts.append(
+                            f"- **{method['name']}**: {method.get('signature', method['name'] + '()')}",
+                        )
                         if method.get("docstring"):
                             parts.append(f"  {method['docstring'].split('.')[0]}.")
                     parts.append("")
-        
+
         elif entity_type == "module":
             # Imports
             if explanation.get("imports"):
@@ -233,7 +243,7 @@ class ExplainTool:
                 if len(explanation["imports"]) > 10:
                     parts.append(f"- ... and {len(explanation['imports']) - 10} more")
                 parts.append("")
-            
+
             # Classes
             if explanation.get("classes"):
                 parts.append("## Classes")
@@ -242,7 +252,7 @@ class ExplainTool:
                     if cls.get("docstring"):
                         parts.append(f"  {cls['docstring'].split('.')[0]}.")
                 parts.append("")
-            
+
             # Functions
             if explanation.get("functions"):
                 parts.append("## Functions")
@@ -251,10 +261,10 @@ class ExplainTool:
                     if func.get("docstring"):
                         parts.append(f"  {func['docstring'].split('.')[0]}.")
                 parts.append("")
-        
+
         # Interpretation
         if explanation.get("interpretation"):
             parts.append("## Summary")
             parts.append(explanation["interpretation"])
-        
+
         return "\n".join(parts)

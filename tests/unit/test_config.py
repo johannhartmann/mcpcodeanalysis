@@ -1,6 +1,5 @@
 """Tests for configuration management."""
 
-import os
 import tempfile
 from pathlib import Path
 
@@ -9,9 +8,6 @@ from pydantic import SecretStr, ValidationError
 
 from src.mcp_server.config import (
     DatabaseConfig,
-    GitHubConfig,
-    LoggingConfig,
-    MCPConfig,
     QueryConfig,
     RepositoryConfig,
     ScannerConfig,
@@ -23,8 +19,8 @@ from src.mcp_server.config import (
 
 class TestRepositoryConfig:
     """Test RepositoryConfig model."""
-    
-    def test_valid_github_url(self):
+
+    def test_valid_github_url(self) -> None:
         """Test valid GitHub URL."""
         config = RepositoryConfig(
             url="https://github.com/owner/repo",
@@ -33,22 +29,22 @@ class TestRepositoryConfig:
         assert config.url == "https://github.com/owner/repo"
         assert config.branch == "main"
         assert config.access_token is None
-    
-    def test_github_ssh_url(self):
+
+    def test_github_ssh_url(self) -> None:
         """Test GitHub SSH URL."""
         config = RepositoryConfig(
             url="git@github.com:owner/repo.git",
         )
         assert config.url == "git@github.com:owner/repo.git"
-    
-    def test_invalid_url(self):
+
+    def test_invalid_url(self) -> None:
         """Test invalid repository URL."""
         with pytest.raises(ValidationError) as exc_info:
             RepositoryConfig(url="https://gitlab.com/owner/repo")
-        
+
         assert "Invalid GitHub URL" in str(exc_info.value)
-    
-    def test_with_access_token(self):
+
+    def test_with_access_token(self) -> None:
         """Test repository with access token."""
         config = RepositoryConfig(
             url="https://github.com/owner/private-repo",
@@ -59,16 +55,16 @@ class TestRepositoryConfig:
 
 class TestScannerConfig:
     """Test ScannerConfig model."""
-    
-    def test_defaults(self):
+
+    def test_defaults(self) -> None:
         """Test default values."""
         config = ScannerConfig()
         assert config.sync_interval == 300
         assert config.storage_path == Path("./repositories")
         assert "__pycache__" in config.exclude_patterns
         assert "node_modules" in config.exclude_patterns
-    
-    def test_custom_values(self):
+
+    def test_custom_values(self) -> None:
         """Test custom values."""
         config = ScannerConfig(
             sync_interval=600,
@@ -78,8 +74,8 @@ class TestScannerConfig:
         assert config.sync_interval == 600
         assert config.storage_path == Path("/custom/path")
         assert config.exclude_patterns == ["*.tmp", "build/"]
-    
-    def test_sync_interval_validation(self):
+
+    def test_sync_interval_validation(self) -> None:
         """Test sync interval validation."""
         with pytest.raises(ValidationError):
             ScannerConfig(sync_interval=30)  # Less than minimum
@@ -87,8 +83,8 @@ class TestScannerConfig:
 
 class TestDatabaseConfig:
     """Test DatabaseConfig model."""
-    
-    def test_defaults(self):
+
+    def test_defaults(self) -> None:
         """Test default values."""
         config = DatabaseConfig()
         assert config.host == "localhost"
@@ -97,8 +93,8 @@ class TestDatabaseConfig:
         assert config.user == "codeanalyzer"
         assert config.pool_size == 10
         assert config.vector_dimension == 1536
-    
-    def test_port_validation(self):
+
+    def test_port_validation(self) -> None:
         """Test port number validation."""
         with pytest.raises(ValidationError):
             DatabaseConfig(port=70000)  # Invalid port
@@ -106,19 +102,19 @@ class TestDatabaseConfig:
 
 class TestQueryConfig:
     """Test QueryConfig model."""
-    
-    def test_ranking_weights_default(self):
+
+    def test_ranking_weights_default(self) -> None:
         """Test default ranking weights."""
         config = QueryConfig()
         assert config.ranking_weights["semantic_similarity"] == 0.6
         assert config.ranking_weights["keyword_match"] == 0.2
         assert config.ranking_weights["recency"] == 0.1
         assert config.ranking_weights["popularity"] == 0.1
-        
+
         # Sum should be 1.0
         assert sum(config.ranking_weights.values()) == 1.0
-    
-    def test_similarity_threshold_validation(self):
+
+    def test_similarity_threshold_validation(self) -> None:
         """Test similarity threshold validation."""
         with pytest.raises(ValidationError):
             QueryConfig(similarity_threshold=1.5)  # Out of range
@@ -126,24 +122,24 @@ class TestQueryConfig:
 
 class TestSettings:
     """Test Settings model."""
-    
-    def test_from_yaml(self, test_config_file, monkeypatch):
+
+    def test_from_yaml(self, test_config_file, monkeypatch) -> None:
         """Test loading settings from YAML."""
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-        
+
         settings = Settings.from_yaml(test_config_file)
-        
+
         assert len(settings.repositories) == 2
         assert settings.repositories[0].url == "https://github.com/test/repo1"
         assert settings.scanner.sync_interval == 60
         assert settings.embeddings.model == "text-embedding-ada-002"
         assert settings.openai_api_key.get_secret_value() == "sk-test"
-    
-    def test_env_var_expansion(self, monkeypatch):
+
+    def test_env_var_expansion(self, monkeypatch) -> None:
         """Test environment variable expansion in YAML."""
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         monkeypatch.setenv("GITHUB_TOKEN", "ghp_test")
-        
+
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("""
 repositories:
@@ -151,24 +147,24 @@ repositories:
     access_token: ${GITHUB_TOKEN}
 """)
             config_path = Path(f.name)
-        
+
         try:
             settings = Settings.from_yaml(config_path)
             assert settings.repositories[0].access_token == "ghp_test"
         finally:
             config_path.unlink()
-    
-    def test_get_database_url(self, test_settings):
+
+    def test_get_database_url(self, test_settings) -> None:
         """Test database URL generation."""
         # With DATABASE_URL env var
         url = test_settings.get_database_url()
         assert url.startswith("postgresql://")
         assert "test_code_analysis" in url
-    
-    def test_get_database_url_from_config(self, monkeypatch):
+
+    def test_get_database_url_from_config(self, monkeypatch) -> None:
         """Test database URL from configuration."""
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-        
+
         settings = Settings(
             openai_api_key=SecretStr("sk-test"),
             database=DatabaseConfig(
@@ -177,27 +173,27 @@ repositories:
                 database="mydb",
                 user="myuser",
                 password=SecretStr("mypass"),
-            )
+            ),
         )
-        
+
         url = settings.get_database_url()
         assert url == "postgresql://myuser:mypass@db.example.com:5433/mydb"
-    
-    def test_validate_config(self, test_settings, tmp_path, monkeypatch):
+
+    def test_validate_config(self, test_settings, tmp_path, monkeypatch) -> None:
         """Test configuration validation."""
         # Set paths to temp directory
         test_settings.scanner.storage_path = tmp_path / "repos"
         test_settings.embeddings.cache_dir = tmp_path / "cache"
         test_settings.logging.file_path = tmp_path / "logs" / "test.log"
-        
+
         test_settings.validate_config()
-        
+
         # Check directories were created
         assert test_settings.scanner.storage_path.exists()
         assert test_settings.embeddings.cache_dir.exists()
         assert test_settings.logging.file_path.parent.exists()
-    
-    def test_validate_ranking_weights(self, test_settings):
+
+    def test_validate_ranking_weights(self, test_settings) -> None:
         """Test ranking weights validation."""
         # Invalid weights that don't sum to 1.0
         test_settings.query.ranking_weights = {
@@ -206,51 +202,51 @@ repositories:
             "recency": 0.1,
             "popularity": 0.2,  # Sum = 1.1
         }
-        
+
         with pytest.raises(ValueError) as exc_info:
             test_settings.validate_config()
-        
+
         assert "Ranking weights must sum to 1.0" in str(exc_info.value)
 
 
 class TestSettingsSingleton:
     """Test settings singleton functionality."""
-    
-    def test_get_settings(self, test_config_file, monkeypatch):
+
+    def test_get_settings(self, test_config_file, monkeypatch) -> None:
         """Test get_settings singleton."""
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         monkeypatch.setenv("CONFIG_PATH", str(test_config_file))
-        
+
         # Clear singleton
         from src.mcp_server import config
         config._settings = None
-        
+
         # First call creates instance
         settings1 = get_settings()
         assert settings1 is not None
-        
+
         # Second call returns same instance
         settings2 = get_settings()
         assert settings2 is settings1
-    
-    def test_reload_settings(self, test_config_file, monkeypatch):
+
+    def test_reload_settings(self, test_config_file, monkeypatch) -> None:
         """Test reload_settings."""
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         monkeypatch.setenv("CONFIG_PATH", str(test_config_file))
-        
+
         # Clear singleton
         from src.mcp_server import config
         config._settings = None
-        
+
         # Get initial settings
         settings1 = get_settings()
-        
+
         # Reload settings
         settings2 = reload_settings(test_config_file)
-        
+
         # Should be different instances
         assert settings2 is not settings1
-        
+
         # get_settings should now return the new instance
         settings3 = get_settings()
         assert settings3 is settings2

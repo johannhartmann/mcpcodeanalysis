@@ -1,7 +1,7 @@
 """Tests for code extractor."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -77,48 +77,48 @@ def sample_entities():
 
 class TestCodeExtractor:
     """Tests for CodeExtractor class."""
-    
-    def test_init(self, code_extractor):
+
+    def test_init(self, code_extractor) -> None:
         """Test code extractor initialization."""
         assert code_extractor.parsers is not None
         assert ".py" in code_extractor.parsers
-    
-    def test_extract_from_file_success(self, code_extractor, tmp_path, sample_entities):
+
+    def test_extract_from_file_success(self, code_extractor, tmp_path, sample_entities) -> None:
         """Test successful entity extraction."""
         test_file = tmp_path / "test.py"
         test_file.write_text("# Test file")
-        
+
         with patch.object(
             code_extractor.parsers[".py"],
             "extract_entities",
-            return_value=sample_entities
+            return_value=sample_entities,
         ):
             result = code_extractor.extract_from_file(test_file, file_id=1)
-            
+
             assert result == sample_entities
-    
-    def test_extract_from_file_unsupported(self, code_extractor, tmp_path):
+
+    def test_extract_from_file_unsupported(self, code_extractor, tmp_path) -> None:
         """Test extraction from unsupported file type."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("Not a Python file")
-        
+
         result = code_extractor.extract_from_file(test_file, file_id=1)
         assert result is None
-    
-    def test_extract_from_file_error(self, code_extractor, tmp_path):
+
+    def test_extract_from_file_error(self, code_extractor, tmp_path) -> None:
         """Test extraction with parser error."""
         test_file = tmp_path / "test.py"
         test_file.write_text("# Test file")
-        
+
         with patch.object(
             code_extractor.parsers[".py"],
             "extract_entities",
-            side_effect=Exception("Parser error")
+            side_effect=Exception("Parser error"),
         ):
             result = code_extractor.extract_from_file(test_file, file_id=1)
             assert result is None
-    
-    def test_get_entity_content(self, code_extractor, tmp_path):
+
+    def test_get_entity_content(self, code_extractor, tmp_path) -> None:
         """Test getting entity content."""
         test_file = tmp_path / "test.py"
         test_content = """def test_function():
@@ -129,44 +129,44 @@ class TestClass:
     pass
 """
         test_file.write_text(test_content)
-        
+
         with patch.object(
             code_extractor.parsers[".py"],
-            "get_code_chunk"
+            "get_code_chunk",
         ) as mock_get_chunk:
             mock_get_chunk.side_effect = lambda f, start, end, context=0: (
                 test_content.split("\n")[start-1:end] if context == 0
                 else test_content
             )
-            
+
             # Get raw content
             raw, contextual = code_extractor.get_entity_content(
-                test_file, "function", 1, 3, include_context=False
+                test_file, "function", 1, 3, include_context=False,
             )
             assert raw == contextual
-            
+
             # Get with context
             raw, contextual = code_extractor.get_entity_content(
-                test_file, "function", 1, 3, include_context=True
+                test_file, "function", 1, 3, include_context=True,
             )
             assert contextual == test_content
-    
-    def test_build_entity_description_module(self, code_extractor):
+
+    def test_build_entity_description_module(self, code_extractor) -> None:
         """Test building module description."""
         module_data = {
             "name": "test_module",
             "docstring": "This is a test module for unit testing purposes.",
         }
-        
+
         description = code_extractor.build_entity_description(
-            "module", module_data, Path("test/module.py")
+            "module", module_data, Path("test/module.py"),
         )
-        
+
         assert "Python module 'test_module'" in description
         assert "test/module.py" in description
         assert "Purpose: This is a test module" in description
-    
-    def test_build_entity_description_class(self, code_extractor):
+
+    def test_build_entity_description_class(self, code_extractor) -> None:
         """Test building class description."""
         class_data = {
             "name": "TestClass",
@@ -174,17 +174,17 @@ class TestClass:
             "is_abstract": True,
             "docstring": "Abstract test class.",
         }
-        
+
         description = code_extractor.build_entity_description(
-            "class", class_data, Path("test.py")
+            "class", class_data, Path("test.py"),
         )
-        
+
         assert "Class 'TestClass'" in description
         assert "inherits from BaseClass, Mixin" in description
         assert "(abstract)" in description
         assert "Purpose: Abstract test class" in description
-    
-    def test_build_entity_description_function(self, code_extractor):
+
+    def test_build_entity_description_function(self, code_extractor) -> None:
         """Test building function description."""
         func_data = {
             "name": "test_function",
@@ -197,18 +197,18 @@ class TestClass:
             "is_generator": True,
             "docstring": "Test function that generates values.",
         }
-        
+
         description = code_extractor.build_entity_description(
-            "function", func_data, Path("test.py")
+            "function", func_data, Path("test.py"),
         )
-        
+
         assert "Function 'test_function'" in description
         assert "with parameters: arg1, arg2" in description
         assert "returns str" in description
         assert "(async, generator)" in description
         assert "Purpose: Test function" in description
-    
-    def test_build_entity_description_method(self, code_extractor):
+
+    def test_build_entity_description_method(self, code_extractor) -> None:
         """Test building method description."""
         method_data = {
             "name": "method",
@@ -218,22 +218,22 @@ class TestClass:
             "is_staticmethod": False,
             "docstring": "Property method.",
         }
-        
+
         description = code_extractor.build_entity_description(
-            "function", method_data, Path("test.py")
+            "function", method_data, Path("test.py"),
         )
-        
+
         assert "Method 'method'" in description
         assert "(property)" in description
-    
-    def test_aggregate_class_info(self, code_extractor):
+
+    def test_aggregate_class_info(self, code_extractor) -> None:
         """Test aggregating class information."""
         class_data = {
             "name": "TestClass",
             "docstring": "Main test class.",
             "base_classes": ["Base"],
         }
-        
+
         methods = [
             {
                 "name": f"method{i}",
@@ -243,29 +243,29 @@ class TestClass:
             }
             for i in range(15)
         ]
-        
+
         result = code_extractor.aggregate_class_info(class_data, methods)
-        
+
         assert "Class 'TestClass'" in result
         assert "Methods (15):" in result
         assert "- Method 'method0'" in result
         assert "- Method 'method9'" in result
         assert "... and 5 more methods" in result
-    
-    def test_aggregate_module_info(self, code_extractor):
+
+    def test_aggregate_module_info(self, code_extractor) -> None:
         """Test aggregating module information."""
         module_data = {
             "name": "test_module",
             "docstring": "Test module.",
         }
-        
+
         classes = [{"name": f"Class{i}", "docstring": f"Class {i}"} for i in range(7)]
         functions = [{"name": f"func{i}", "parameters": []} for i in range(8)]
-        
+
         result = code_extractor.aggregate_module_info(
-            module_data, classes, functions, Path("test.py")
+            module_data, classes, functions, Path("test.py"),
         )
-        
+
         assert "Python module 'test_module'" in result
         assert "Classes (7):" in result
         assert "- Class 'Class0'" in result

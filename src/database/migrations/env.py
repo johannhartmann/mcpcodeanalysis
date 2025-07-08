@@ -1,6 +1,5 @@
 """Alembic environment configuration."""
 
-import os
 import sys
 from logging.config import fileConfig
 from pathlib import Path
@@ -70,7 +69,7 @@ def run_migrations_online() -> None:
     """
     configuration = config.get_section(config.config_ini_section)
     configuration["sqlalchemy.url"] = get_url()
-    
+
     connectable = engine_from_config(
         configuration,
         prefix="sqlalchemy.",
@@ -79,7 +78,7 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, 
+            connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
             compare_server_default=True,
@@ -91,7 +90,7 @@ def run_migrations_online() -> None:
                 context.execute("CREATE EXTENSION IF NOT EXISTS vector")
             else:
                 connection.execute("CREATE EXTENSION IF NOT EXISTS vector")
-            
+
             context.run_migrations()
 
 

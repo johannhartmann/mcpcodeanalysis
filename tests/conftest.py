@@ -1,10 +1,9 @@
 """Shared pytest fixtures and configuration."""
 
 import asyncio
-import os
 import tempfile
+from collections.abc import AsyncGenerator, Generator
 from pathlib import Path
-from typing import AsyncGenerator, Generator
 
 import pytest
 import pytest_asyncio
@@ -59,9 +58,9 @@ logging:
   console_enabled: true
 """)
         temp_path = Path(f.name)
-    
+
     yield temp_path
-    
+
     # Cleanup
     if temp_path.exists():
         temp_path.unlink()
@@ -74,13 +73,12 @@ def test_settings(test_config_file, monkeypatch) -> Settings:
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test-key")
     monkeypatch.setenv("DATABASE_URL", "postgresql://test_user:test_pass@localhost:5432/test_code_analysis")
     monkeypatch.setenv("CONFIG_PATH", str(test_config_file))
-    
+
     # Clear singleton
     from src.mcp_server import config
     config._settings = None
-    
-    settings = Settings.from_yaml(test_config_file)
-    return settings
+
+    return Settings.from_yaml(test_config_file)
 
 
 @pytest.fixture
@@ -106,14 +104,14 @@ async def async_engine(test_db_url):
         async_url = test_db_url.replace("sqlite://", "sqlite+aiosqlite://")
     else:
         async_url = test_db_url.replace("postgresql://", "postgresql+asyncpg://")
-    
+
     engine = create_async_engine(async_url)
-    
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     yield engine
-    
+
     await engine.dispose()
 
 
@@ -125,7 +123,7 @@ async def async_session(async_engine) -> AsyncGenerator[AsyncSession, None]:
         class_=AsyncSession,
         expire_on_commit=False,
     )
-    
+
     async with async_session_maker() as session:
         yield session
         await session.rollback()
@@ -139,7 +137,7 @@ def mock_github_response():
             "limit": 5000,
             "remaining": 4999,
             "reset": 1234567890,
-        }
+        },
     }
 
 
@@ -151,12 +149,12 @@ def mock_openai_response():
             {"id": "text-embedding-ada-002"},
             {"id": "text-embedding-3-small"},
             {"id": "text-embedding-3-large"},
-        ]
+        ],
     }
 
 
 @pytest.fixture
-def sample_python_code():
+def sample_python_code() -> str:
     """Sample Python code for testing."""
     return '''
 """Sample module for testing."""
@@ -167,14 +165,14 @@ from typing import List, Optional
 
 class SampleClass:
     """A sample class for testing."""
-    
+
     def __init__(self, name: str):
         self.name = name
-    
+
     def greet(self, greeting: str = "Hello") -> str:
         """Return a greeting message."""
         return f"{greeting}, {self.name}!"
-    
+
     @property
     def uppercase_name(self) -> str:
         """Get name in uppercase."""
@@ -195,7 +193,7 @@ async def async_sample(value: int) -> int:
 
 
 @pytest.fixture(autouse=True)
-def setup_test_logging():
+def setup_test_logging() -> None:
     """Set up logging for tests."""
     setup_logging()
 

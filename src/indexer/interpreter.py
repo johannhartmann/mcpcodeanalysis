@@ -1,6 +1,6 @@
 """Code interpreter for generating natural language descriptions."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from langchain_core.callbacks import get_openai_callback
 from langchain_core.prompts import PromptTemplate
@@ -14,14 +14,14 @@ logger = get_logger(__name__)
 
 class CodeInterpreter:
     """Generate natural language interpretations of code."""
-    
+
     def __init__(self) -> None:
         self.llm = ChatOpenAI(
             model="gpt-3.5-turbo",
             temperature=0.1,
             openai_api_key=settings.openai_api_key,
         )
-        
+
         # Prompts for different entity types
         self.function_prompt = PromptTemplate(
             input_variables=["code", "name", "params", "return_type", "docstring"],
@@ -43,9 +43,9 @@ Provide a clear, concise description (2-3 sentences) explaining:
 3. What it returns
 4. Any important side effects or behaviors
 
-Description:"""
+Description:""",
         )
-        
+
         self.class_prompt = PromptTemplate(
             input_variables=["code", "name", "base_classes", "docstring", "methods"],
             template="""Analyze this Python class and provide a concise natural language description.
@@ -66,9 +66,9 @@ Provide a clear, concise description (3-4 sentences) explaining:
 3. How it relates to its base classes (if any)
 4. The main operations it supports
 
-Description:"""
+Description:""",
         )
-        
+
         self.module_prompt = PromptTemplate(
             input_variables=["name", "docstring", "imports", "classes", "functions"],
             template="""Analyze this Python module and provide a concise natural language description.
@@ -85,110 +85,107 @@ Provide a clear, concise description (3-5 sentences) explaining:
 3. The main components (classes and functions)
 4. How it fits into the larger system
 
-Description:"""
+Description:""",
         )
-    
+
     async def interpret_function(
         self,
         code: str,
         name: str,
-        params: List[Dict[str, Any]],
-        return_type: Optional[str] = None,
-        docstring: Optional[str] = None
+        params: list[dict[str, Any]],
+        return_type: str | None = None,
+        docstring: str | None = None,
     ) -> str:
         """Generate natural language interpretation of a function."""
         try:
             # Format parameters
-            param_str = ", ".join([
-                f"{p['name']}: {p.get('type', 'Any')}"
-                for p in params
-            ])
-            
+            param_str = ", ".join(
+                [f"{p['name']}: {p.get('type', 'Any')}" for p in params],
+            )
+
             chain = LLMChain(llm=self.llm, prompt=self.function_prompt)
-            
+
             with get_openai_callback() as cb:
                 result = await chain.arun(
                     code=code,
                     name=name,
                     params=param_str or "None",
                     return_type=return_type or "None",
-                    docstring=docstring or "No docstring provided"
+                    docstring=docstring or "No docstring provided",
                 )
-                
+
                 logger.debug(f"Function interpretation used {cb.total_tokens} tokens")
-            
+
             return result.strip()
-            
+
         except Exception as e:
-            logger.error(f"Error interpreting function {name}: {e}")
+            logger.exception(f"Error interpreting function {name}: {e}")
             return f"Function {name} that takes {len(params)} parameters"
-    
+
     async def interpret_class(
         self,
         code: str,
         name: str,
-        base_classes: List[str],
-        docstring: Optional[str] = None,
-        methods: Optional[List[str]] = None
+        base_classes: list[str],
+        docstring: str | None = None,
+        methods: list[str] | None = None,
     ) -> str:
         """Generate natural language interpretation of a class."""
         try:
             chain = LLMChain(llm=self.llm, prompt=self.class_prompt)
-            
+
             with get_openai_callback() as cb:
                 result = await chain.arun(
                     code=code[:3000],  # Limit code length
                     name=name,
                     base_classes=", ".join(base_classes) if base_classes else "None",
                     docstring=docstring or "No docstring provided",
-                    methods=", ".join(methods[:10]) if methods else "None"
+                    methods=", ".join(methods[:10]) if methods else "None",
                 )
-                
+
                 logger.debug(f"Class interpretation used {cb.total_tokens} tokens")
-            
+
             return result.strip()
-            
+
         except Exception as e:
-            logger.error(f"Error interpreting class {name}: {e}")
+            logger.exception(f"Error interpreting class {name}: {e}")
             return f"Class {name} with {len(methods or [])} methods"
-    
+
     async def interpret_module(
         self,
         name: str,
-        docstring: Optional[str] = None,
-        imports: Optional[List[str]] = None,
-        classes: Optional[List[str]] = None,
-        functions: Optional[List[str]] = None
+        docstring: str | None = None,
+        imports: list[str] | None = None,
+        classes: list[str] | None = None,
+        functions: list[str] | None = None,
     ) -> str:
         """Generate natural language interpretation of a module."""
         try:
             chain = LLMChain(llm=self.llm, prompt=self.module_prompt)
-            
+
             with get_openai_callback() as cb:
                 result = await chain.arun(
                     name=name,
                     docstring=docstring or "No module docstring",
                     imports=", ".join(imports[:10]) if imports else "None",
                     classes=", ".join(classes[:10]) if classes else "None",
-                    functions=", ".join(functions[:10]) if functions else "None"
+                    functions=", ".join(functions[:10]) if functions else "None",
                 )
-                
+
                 logger.debug(f"Module interpretation used {cb.total_tokens} tokens")
-            
+
             return result.strip()
-            
+
         except Exception as e:
-            logger.error(f"Error interpreting module {name}: {e}")
+            logger.exception(f"Error interpreting module {name}: {e}")
             return f"Module {name} containing {len(classes or [])} classes and {len(functions or [])} functions"
-    
+
     async def batch_interpret(
-        self,
-        entities: List[Dict[str, Any]],
-        entity_type: str
-    ) -> List[str]:
+        self, entities: list[dict[str, Any]], entity_type: str,
+    ) -> list[str]:
         """Interpret multiple entities in batch."""
         interpretations = []
-        
+
         for entity in entities:
             if entity_type == "function":
                 interpretation = await self.interpret_function(
@@ -196,7 +193,7 @@ Description:"""
                     entity.get("name", "unknown"),
                     entity.get("parameters", []),
                     entity.get("return_type"),
-                    entity.get("docstring")
+                    entity.get("docstring"),
                 )
             elif entity_type == "class":
                 interpretation = await self.interpret_class(
@@ -204,7 +201,7 @@ Description:"""
                     entity.get("name", "unknown"),
                     entity.get("base_classes", []),
                     entity.get("docstring"),
-                    entity.get("method_names", [])
+                    entity.get("method_names", []),
                 )
             elif entity_type == "module":
                 interpretation = await self.interpret_module(
@@ -212,11 +209,13 @@ Description:"""
                     entity.get("docstring"),
                     entity.get("import_names", []),
                     entity.get("class_names", []),
-                    entity.get("function_names", [])
+                    entity.get("function_names", []),
                 )
             else:
-                interpretation = f"A {entity_type} named {entity.get('name', 'unknown')}"
-            
+                interpretation = (
+                    f"A {entity_type} named {entity.get('name', 'unknown')}"
+                )
+
             interpretations.append(interpretation)
-        
+
         return interpretations

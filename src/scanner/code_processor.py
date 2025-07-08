@@ -3,16 +3,15 @@
 import asyncio
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import delete
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from src.database.models import Class, File, Function, Import, Module
 from src.parser.code_extractor import CodeExtractor
 from src.parser.parser_factory import ParserFactory
-from src.utils.exceptions import ParserError
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -20,26 +19,30 @@ logger = get_logger(__name__)
 
 class CodeProcessor:
     """Process code files to extract and store code entities."""
-    
-    def __init__(self, db_session: AsyncSession, repository_path: Optional[Union[Path, str]] = None):
+
+    def __init__(
+        self,
+        db_session: AsyncSession,
+        repository_path: Path | str | None = None,
+    ) -> None:
         self.db_session = db_session
         self.repository_path = Path(repository_path) if repository_path else None
         self.code_extractor = CodeExtractor()
         self.parser_factory = ParserFactory()
-    
-    async def process_file(self, file_record: File) -> Dict[str, Any]:
+
+    async def process_file(self, file_record: File) -> dict[str, Any]:
         """Process a file to extract code entities."""
         logger.info(f"Processing file: {file_record.path}")
-        
+
         # Check if file is supported
         file_path = Path(file_record.path)
-        
+
         # Get absolute path if repository path is set
         if self.repository_path:
             absolute_path = self.repository_path / file_path
         else:
             absolute_path = file_path
-            
+
         if not self.parser_factory.is_supported(file_path):
             logger.debug(f"Skipping unsupported file type: {file_path}")
             return {
@@ -47,7 +50,7 @@ class CodeProcessor:
                 "status": "skipped",
                 "reason": "unsupported_file_type",
             }
-        
+
         try:
             # Extract entities
             entities = await self._extract_entities(absolute_path, file_record.id)
@@ -57,51 +60,49 @@ class CodeProcessor:
                     "status": "failed",
                     "reason": "extraction_failed",
                 }
-            
+
             # Store entities in database
             stats = await self._store_entities(entities, file_record)
-            
+
             # Update file processing status
             file_record.last_modified = datetime.utcnow()
             await self.db_session.commit()
-            
+
             return {
                 "file_id": file_record.id,
                 "status": "success",
                 "statistics": stats,
             }
-            
+
         except Exception as e:
-            logger.error(f"Error processing file {file_record.path}: {e}")
+            logger.exception(f"Error processing file {file_record.path}: {e}")
             import traceback
+
             logger.debug(f"Traceback: {traceback.format_exc()}")
-            
+
             # Update file with error
             await self.db_session.commit()
-            
+
             return {
                 "file_id": file_record.id,
                 "status": "failed",
                 "reason": "processing_error",
                 "error": str(e),
             }
-    
-    async def _extract_entities(self, file_path: Path, file_id: int) -> Optional[Dict[str, List[Any]]]:
+
+    async def _extract_entities(
+        self, file_path: Path, file_id: int,
+    ) -> dict[str, list[Any]] | None:
         """Extract code entities from a file."""
         # Run extraction in thread pool to avoid blocking
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
-            None,
-            self.code_extractor.extract_from_file,
-            file_path,
-            file_id
+            None, self.code_extractor.extract_from_file, file_path, file_id,
         )
-    
+
     async def _store_entities(
-        self,
-        entities: Dict[str, List[Any]],
-        file_record: File
-    ) -> Dict[str, int]:
+        self, entities: dict[str, list[Any]], file_record: File,
+    ) -> dict[str, int]:
         """Store extracted entities in the database."""
         stats = {
             "modules": 0,
@@ -109,10 +110,10 @@ class CodeProcessor:
             "functions": 0,
             "imports": 0,
         }
-        
+
         # Clear existing entities for this file
         await self._clear_file_entities(file_record.id)
-        
+
         # Store modules
         module_map = {}
         for module_data in entities.get("modules", []):
@@ -127,7 +128,7 @@ class CodeProcessor:
             await self.db_session.flush()  # Get ID
             module_map[module_data["name"]] = module.id
             stats["modules"] += 1
-        
+
         # Store classes
         class_map = {}
         for class_data in entities.get("classes", []):
@@ -145,7 +146,7 @@ class CodeProcessor:
             await self.db_session.flush()  # Get ID
             class_map[class_data["name"]] = class_obj.id
             stats["classes"] += 1
-        
+
         # Store functions and methods
         for func_data in entities.get("functions", []):
             class_name = func_data.get("class_name")
@@ -168,7 +169,7 @@ class CodeProcessor:
             )
             self.db_session.add(function)
             stats["functions"] += 1
-        
+
         # Store imports
         for import_data in entities.get("imports", []):
             import_obj = Import(
@@ -182,42 +183,38 @@ class CodeProcessor:
             )
             self.db_session.add(import_obj)
             stats["imports"] += 1
-        
+
         await self.db_session.commit()
         return stats
-    
+
     async def _clear_file_entities(self, file_id: int) -> None:
         """Clear existing entities for a file before re-parsing."""
         # Delete in correct order to respect foreign key constraints
-        await self.db_session.execute(
-            delete(Import).where(Import.file_id == file_id)
-        )
+        await self.db_session.execute(delete(Import).where(Import.file_id == file_id))
         # Functions are linked to modules, not files directly
         # First get modules for this file
         modules = await self.db_session.execute(
-            select(Module).where(Module.file_id == file_id)
+            select(Module).where(Module.file_id == file_id),
         )
         module_ids = [m.id for m in modules.scalars()]
-        
+
         if module_ids:
             # Delete functions linked to these modules
             await self.db_session.execute(
-                delete(Function).where(Function.module_id.in_(module_ids))
+                delete(Function).where(Function.module_id.in_(module_ids)),
             )
             # Delete classes linked to these modules
             await self.db_session.execute(
-                delete(Class).where(Class.module_id.in_(module_ids))
+                delete(Class).where(Class.module_id.in_(module_ids)),
             )
-        
-        await self.db_session.execute(
-            delete(Module).where(Module.file_id == file_id)
-        )
+
+        await self.db_session.execute(delete(Module).where(Module.file_id == file_id))
         await self.db_session.commit()
-    
-    async def process_files(self, file_records: List[File]) -> Dict[str, Any]:
+
+    async def process_files(self, file_records: list[File]) -> dict[str, Any]:
         """Process multiple files."""
         logger.info(f"Processing {len(file_records)} files")
-        
+
         # Process files sequentially to avoid database session conflicts
         # TODO: Implement proper session management for parallel processing
         results = []
@@ -226,9 +223,9 @@ class CodeProcessor:
                 result = await self.process_file(file)
                 results.append(result)
             except Exception as e:
-                logger.error(f"Error processing file {file.path}: {e}")
+                logger.exception(f"Error processing file {file.path}: {e}")
                 results.append(e)
-        
+
         # Aggregate results
         summary = {
             "total": len(file_records),
@@ -243,14 +240,16 @@ class CodeProcessor:
                 "imports": 0,
             },
         }
-        
+
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 summary["failed"] += 1
-                summary["errors"].append({
-                    "file": file_records[i].path,
-                    "error": str(result),
-                })
+                summary["errors"].append(
+                    {
+                        "file": file_records[i].path,
+                        "error": str(result),
+                    },
+                )
             elif isinstance(result, dict):
                 if result["status"] == "success":
                     summary["success"] += 1
@@ -262,19 +261,21 @@ class CodeProcessor:
                 else:
                     summary["failed"] += 1
                     if "error" in result:
-                        summary["errors"].append({
-                            "file": file_records[i].path,
-                            "error": result["error"],
-                        })
-        
+                        summary["errors"].append(
+                            {
+                                "file": file_records[i].path,
+                                "error": result["error"],
+                            },
+                        )
+
         logger.info(
             f"Processing complete: {summary['success']} success, "
-            f"{summary['failed']} failed, {summary['skipped']} skipped"
+            f"{summary['failed']} failed, {summary['skipped']} skipped",
         )
-        
+
         return summary
-    
-    async def get_file_structure(self, file_record: File) -> Dict[str, Any]:
+
+    async def get_file_structure(self, file_record: File) -> dict[str, Any]:
         """Get the parsed structure of a file."""
         structure = {
             "file": {
@@ -287,10 +288,10 @@ class CodeProcessor:
             "functions": [],
             "imports": [],
         }
-        
+
         # Get modules
         modules = await self.db_session.execute(
-            select(Module).where(Module.file_id == file_record.id)
+            select(Module).where(Module.file_id == file_record.id),
         )
         structure["modules"] = [
             {
@@ -301,10 +302,10 @@ class CodeProcessor:
             }
             for m in modules.scalars()
         ]
-        
+
         # Get classes
         classes = await self.db_session.execute(
-            select(Class).where(Class.file_id == file_record.id)
+            select(Class).where(Class.file_id == file_record.id),
         )
         structure["classes"] = [
             {
@@ -317,12 +318,12 @@ class CodeProcessor:
             }
             for c in classes.scalars()
         ]
-        
+
         # Get functions through modules
         module_ids = [m["id"] for m in structure["modules"]]
         if module_ids:
             functions = await self.db_session.execute(
-                select(Function).where(Function.module_id.in_(module_ids))
+                select(Function).where(Function.module_id.in_(module_ids)),
             )
         else:
             functions = None
@@ -338,10 +339,10 @@ class CodeProcessor:
             }
             for f in (functions.scalars() if functions else [])
         ]
-        
+
         # Get imports
         imports = await self.db_session.execute(
-            select(Import).where(Import.file_id == file_record.id)
+            select(Import).where(Import.file_id == file_record.id),
         )
         structure["imports"] = [
             {
@@ -353,5 +354,5 @@ class CodeProcessor:
             }
             for i in imports.scalars()
         ]
-        
+
         return structure

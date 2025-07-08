@@ -15,13 +15,13 @@ from src.database.models import (
 
 __all__ = [
     "Base",
-    "Repository",
-    "File",
-    "Module",
     "Class",
+    "CodeEmbedding",
+    "Commit",
+    "File",
     "Function",
     "Import",
-    "Commit",
-    "CodeEmbedding",
+    "Module",
+    "Repository",
     "SearchHistory",
 ]

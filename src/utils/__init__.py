@@ -22,25 +22,25 @@ from src.utils.exceptions import (
 from src.utils.logger import get_logger, setup_logging
 
 __all__ = [
+    "AuthenticationError",
+    "AuthorizationError",
+    "ConfigurationError",
+    "DatabaseError",
+    "EmbeddingError",
+    "GitHubError",
+    # Exceptions
+    "MCPError",
+    "NotFoundError",
+    "OpenAIError",
+    "ParsingError",
+    "QueryError",
+    "RateLimitError",
+    "RepositoryError",
+    "TimeoutError",
+    "ValidationError",
+    "VectorSearchError",
+    "WebhookError",
     # Logging
     "get_logger",
     "setup_logging",
-    # Exceptions
-    "MCPError",
-    "ConfigurationError",
-    "RepositoryError",
-    "GitHubError",
-    "ParsingError",
-    "EmbeddingError",
-    "OpenAIError",
-    "DatabaseError",
-    "QueryError",
-    "VectorSearchError",
-    "RateLimitError",
-    "AuthenticationError",
-    "AuthorizationError",
-    "ValidationError",
-    "NotFoundError",
-    "TimeoutError",
-    "WebhookError",
 ]

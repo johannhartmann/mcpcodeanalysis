@@ -5,7 +5,7 @@ from src.mcp_server.tools.code_search import CodeSearchTools
 from src.mcp_server.tools.repository_management import RepositoryManagementTools
 
 __all__ = [
+    "CodeAnalysisTools",
     "CodeSearchTools",
-    "CodeAnalysisTools", 
     "RepositoryManagementTools",
 ]

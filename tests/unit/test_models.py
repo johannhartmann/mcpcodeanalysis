@@ -3,12 +3,10 @@
 from datetime import datetime
 
 import pytest
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.database.models import (
-    Base,
     Class,
     CodeEmbedding,
     Commit,
@@ -26,12 +24,12 @@ def db_session(sync_engine):
     """Create a database session for testing."""
     connection = sync_engine.connect()
     transaction = connection.begin()
-    
+
     Session_ = Session(bind=connection)
     session = Session_()
-    
+
     yield session
-    
+
     session.close()
     transaction.rollback()
     connection.close()
@@ -39,8 +37,8 @@ def db_session(sync_engine):
 
 class TestRepository:
     """Test Repository model."""
-    
-    def test_create_repository(self, db_session):
+
+    def test_create_repository(self, db_session) -> None:
         """Test creating a repository."""
         repo = Repository(
             github_url="https://github.com/test/repo",
@@ -50,13 +48,13 @@ class TestRepository:
         )
         db_session.add(repo)
         db_session.commit()
-        
+
         assert repo.id is not None
         assert repo.is_active is True
         assert repo.last_synced is not None
         assert repo.created_at is not None
-    
-    def test_unique_github_url(self, db_session):
+
+    def test_unique_github_url(self, db_session) -> None:
         """Test unique constraint on github_url."""
         repo1 = Repository(
             github_url="https://github.com/test/repo",
@@ -65,7 +63,7 @@ class TestRepository:
         )
         db_session.add(repo1)
         db_session.commit()
-        
+
         # Try to create duplicate
         repo2 = Repository(
             github_url="https://github.com/test/repo",
@@ -73,11 +71,11 @@ class TestRepository:
             name="repo",
         )
         db_session.add(repo2)
-        
+
         with pytest.raises(IntegrityError):
             db_session.commit()
-    
-    def test_repository_relationships(self, db_session):
+
+    def test_repository_relationships(self, db_session) -> None:
         """Test repository relationships."""
         repo = Repository(
             github_url="https://github.com/test/repo",
@@ -86,7 +84,7 @@ class TestRepository:
         )
         db_session.add(repo)
         db_session.commit()
-        
+
         # Add file
         file = File(
             repository_id=repo.id,
@@ -94,7 +92,7 @@ class TestRepository:
             language="python",
         )
         db_session.add(file)
-        
+
         # Add commit
         commit = Commit(
             repository_id=repo.id,
@@ -105,7 +103,7 @@ class TestRepository:
         )
         db_session.add(commit)
         db_session.commit()
-        
+
         # Test relationships
         assert len(repo.files) == 1
         assert repo.files[0].path == "test.py"
@@ -115,8 +113,8 @@ class TestRepository:
 
 class TestFile:
     """Test File model."""
-    
-    def test_create_file(self, db_session):
+
+    def test_create_file(self, db_session) -> None:
         """Test creating a file."""
         repo = Repository(
             github_url="https://github.com/test/repo",
@@ -125,7 +123,7 @@ class TestFile:
         )
         db_session.add(repo)
         db_session.commit()
-        
+
         file = File(
             repository_id=repo.id,
             path="src/main.py",
@@ -136,12 +134,12 @@ class TestFile:
         )
         db_session.add(file)
         db_session.commit()
-        
+
         assert file.id is not None
         assert file.branch == "main"
         assert file.is_deleted is False
-    
-    def test_file_unique_constraint(self, db_session):
+
+    def test_file_unique_constraint(self, db_session) -> None:
         """Test unique constraint on repository_id, path, branch."""
         repo = Repository(
             github_url="https://github.com/test/repo",
@@ -150,7 +148,7 @@ class TestFile:
         )
         db_session.add(repo)
         db_session.commit()
-        
+
         file1 = File(
             repository_id=repo.id,
             path="src/main.py",
@@ -158,7 +156,7 @@ class TestFile:
         )
         db_session.add(file1)
         db_session.commit()
-        
+
         # Same file on different branch should work
         file2 = File(
             repository_id=repo.id,
@@ -167,7 +165,7 @@ class TestFile:
         )
         db_session.add(file2)
         db_session.commit()
-        
+
         # Same file on same branch should fail
         file3 = File(
             repository_id=repo.id,
@@ -175,15 +173,15 @@ class TestFile:
             branch="main",
         )
         db_session.add(file3)
-        
+
         with pytest.raises(IntegrityError):
             db_session.commit()
 
 
 class TestModule:
     """Test Module model."""
-    
-    def test_create_module(self, db_session):
+
+    def test_create_module(self, db_session) -> None:
         """Test creating a module."""
         repo = Repository(
             github_url="https://github.com/test/repo",
@@ -192,7 +190,7 @@ class TestModule:
         )
         db_session.add(repo)
         db_session.commit()
-        
+
         file = File(
             repository_id=repo.id,
             path="src/utils.py",
@@ -200,7 +198,7 @@ class TestModule:
         )
         db_session.add(file)
         db_session.commit()
-        
+
         module = Module(
             file_id=file.id,
             name="utils",
@@ -210,15 +208,15 @@ class TestModule:
         )
         db_session.add(module)
         db_session.commit()
-        
+
         assert module.id is not None
         assert module.file.path == "src/utils.py"
 
 
 class TestClass:
     """Test Class model."""
-    
-    def test_create_class(self, db_session):
+
+    def test_create_class(self, db_session) -> None:
         """Test creating a class."""
         repo = Repository(
             github_url="https://github.com/test/repo",
@@ -226,14 +224,14 @@ class TestClass:
             name="repo",
         )
         db_session.add(repo)
-        
+
         file = File(repository_id=repo.id, path="models.py")
         db_session.add(file)
-        
+
         module = Module(file_id=file.id, name="models")
         db_session.add(module)
         db_session.commit()
-        
+
         cls = Class(
             module_id=module.id,
             name="UserModel",
@@ -246,7 +244,7 @@ class TestClass:
         )
         db_session.add(cls)
         db_session.commit()
-        
+
         assert cls.id is not None
         assert cls.base_classes == ["BaseModel", "ABC"]
         assert cls.is_abstract is True
@@ -254,8 +252,8 @@ class TestClass:
 
 class TestFunction:
     """Test Function model."""
-    
-    def test_create_function(self, db_session):
+
+    def test_create_function(self, db_session) -> None:
         """Test creating a module-level function."""
         repo = Repository(
             github_url="https://github.com/test/repo",
@@ -263,14 +261,14 @@ class TestFunction:
             name="repo",
         )
         db_session.add(repo)
-        
+
         file = File(repository_id=repo.id, path="utils.py")
         db_session.add(file)
-        
+
         module = Module(file_id=file.id, name="utils")
         db_session.add(module)
         db_session.commit()
-        
+
         func = Function(
             module_id=module.id,
             name="process_data",
@@ -288,13 +286,13 @@ class TestFunction:
         )
         db_session.add(func)
         db_session.commit()
-        
+
         assert func.id is not None
         assert func.class_id is None
         assert func.is_async is True
         assert len(func.parameters) == 2
-    
-    def test_create_method(self, db_session):
+
+    def test_create_method(self, db_session) -> None:
         """Test creating a class method."""
         repo = Repository(
             github_url="https://github.com/test/repo",
@@ -302,17 +300,17 @@ class TestFunction:
             name="repo",
         )
         db_session.add(repo)
-        
+
         file = File(repository_id=repo.id, path="models.py")
         db_session.add(file)
-        
+
         module = Module(file_id=file.id, name="models")
         db_session.add(module)
-        
+
         cls = Class(module_id=module.id, name="DataProcessor")
         db_session.add(cls)
         db_session.commit()
-        
+
         method = Function(
             module_id=module.id,
             class_id=cls.id,
@@ -326,15 +324,15 @@ class TestFunction:
         )
         db_session.add(method)
         db_session.commit()
-        
+
         assert method.parent_class.name == "DataProcessor"
         assert len(cls.methods) == 1
 
 
 class TestImport:
     """Test Import model."""
-    
-    def test_create_import(self, db_session):
+
+    def test_create_import(self, db_session) -> None:
         """Test creating an import."""
         repo = Repository(
             github_url="https://github.com/test/repo",
@@ -342,11 +340,11 @@ class TestImport:
             name="repo",
         )
         db_session.add(repo)
-        
+
         file = File(repository_id=repo.id, path="main.py")
         db_session.add(file)
         db_session.commit()
-        
+
         import_stmt = Import(
             file_id=file.id,
             import_statement="from typing import List, Dict",
@@ -357,15 +355,15 @@ class TestImport:
         )
         db_session.add(import_stmt)
         db_session.commit()
-        
+
         assert import_stmt.id is not None
         assert import_stmt.imported_names == ["List", "Dict"]
 
 
 class TestCommit:
     """Test Commit model."""
-    
-    def test_create_commit(self, db_session):
+
+    def test_create_commit(self, db_session) -> None:
         """Test creating a commit."""
         repo = Repository(
             github_url="https://github.com/test/repo",
@@ -374,7 +372,7 @@ class TestCommit:
         )
         db_session.add(repo)
         db_session.commit()
-        
+
         commit = Commit(
             repository_id=repo.id,
             sha="abc123def456",
@@ -388,7 +386,7 @@ class TestCommit:
         )
         db_session.add(commit)
         db_session.commit()
-        
+
         assert commit.id is not None
         assert commit.processed is False
         assert len(commit.files_changed) == 2
@@ -396,8 +394,8 @@ class TestCommit:
 
 class TestCodeEmbedding:
     """Test CodeEmbedding model."""
-    
-    def test_create_embedding(self, db_session):
+
+    def test_create_embedding(self, db_session) -> None:
         """Test creating a code embedding."""
         repo = Repository(
             github_url="https://github.com/test/repo",
@@ -405,17 +403,17 @@ class TestCodeEmbedding:
             name="repo",
         )
         db_session.add(repo)
-        
+
         file = File(repository_id=repo.id, path="main.py")
         db_session.add(file)
-        
+
         module = Module(file_id=file.id, name="main")
         db_session.add(module)
-        
+
         func = Function(module_id=module.id, name="main")
         db_session.add(func)
         db_session.commit()
-        
+
         # Create embedding with mock vector (normally from OpenAI)
         embedding = CodeEmbedding(
             entity_type="function",
@@ -429,15 +427,15 @@ class TestCodeEmbedding:
         )
         db_session.add(embedding)
         db_session.commit()
-        
+
         assert embedding.id is not None
         assert len(embedding.embedding) == 1536
 
 
 class TestSearchHistory:
     """Test SearchHistory model."""
-    
-    def test_create_search_history(self, db_session):
+
+    def test_create_search_history(self, db_session) -> None:
         """Test creating a search history entry."""
         search = SearchHistory(
             query="find all authentication functions",
@@ -449,6 +447,6 @@ class TestSearchHistory:
         )
         db_session.add(search)
         db_session.commit()
-        
+
         assert search.id is not None
         assert search.response_time_ms == 125.5

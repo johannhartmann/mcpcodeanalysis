@@ -1,7 +1,7 @@
 """OpenAI API client for generating embeddings."""
 
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 import openai
@@ -22,10 +22,10 @@ logger = get_logger(__name__)
 
 class OpenAIClient:
     """Client for OpenAI API operations."""
-    
-    def __init__(self, api_key: Optional[str] = None):
+
+    def __init__(self, api_key: str | None = None) -> None:
         """Initialize OpenAI client.
-        
+
         Args:
             api_key: OpenAI API key. If not provided, will use from settings.
         """
@@ -35,168 +35,169 @@ class OpenAIClient:
         self.embedding_model = self.settings.embeddings.model
         self.max_tokens = self.settings.embeddings.max_tokens
         self.batch_size = self.settings.embeddings.batch_size
-    
+
     @retry(
         retry=retry_if_exception_type((httpx.TimeoutException, openai.APIError)),
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=10),
     )
-    async def generate_embedding(self, text: str) -> List[float]:
+    async def generate_embedding(self, text: str) -> list[float]:
         """Generate embedding for a single text.
-        
+
         Args:
             text: Text to generate embedding for
-            
+
         Returns:
             Embedding vector
-            
+
         Raises:
             EmbeddingError: If embedding generation fails
         """
         try:
             # Truncate text if too long
             truncated_text = self._truncate_text(text)
-            
+
             response = await self.client.embeddings.create(
                 model=self.embedding_model,
                 input=truncated_text,
             )
-            
+
             embedding = response.data[0].embedding
             logger.debug(
                 f"Generated embedding for text of length {len(text)}, "
-                f"dimension: {len(embedding)}"
+                f"dimension: {len(embedding)}",
             )
-            
+
             return embedding
-            
+
         except openai.APIError as e:
-            logger.error(f"OpenAI API error: {e}")
+            logger.exception(f"OpenAI API error: {e}")
             raise EmbeddingError(f"Failed to generate embedding: {e}")
         except Exception as e:
-            logger.error(f"Unexpected error generating embedding: {e}")
+            logger.exception(f"Unexpected error generating embedding: {e}")
             raise EmbeddingError(f"Unexpected error: {e}")
-    
+
     async def generate_embeddings_batch(
         self,
-        texts: List[str],
-        metadata: Optional[List[Dict[str, Any]]] = None,
-    ) -> List[Dict[str, Any]]:
+        texts: list[str],
+        metadata: list[dict[str, Any]] | None = None,
+    ) -> list[dict[str, Any]]:
         """Generate embeddings for multiple texts in batches.
-        
+
         Args:
             texts: List of texts to generate embeddings for
             metadata: Optional metadata for each text
-            
+
         Returns:
             List of dicts with 'text', 'embedding', and optional 'metadata'
         """
         if not texts:
             return []
-        
+
         if metadata and len(metadata) != len(texts):
             raise ValueError("Metadata length must match texts length")
-        
+
         results = []
-        
+
         # Process in batches
         for i in range(0, len(texts), self.batch_size):
-            batch_texts = texts[i:i + self.batch_size]
+            batch_texts = texts[i : i + self.batch_size]
             batch_metadata = (
-                metadata[i:i + self.batch_size] if metadata else 
-                [None] * len(batch_texts)
+                metadata[i : i + self.batch_size]
+                if metadata
+                else [None] * len(batch_texts)
             )
-            
+
             logger.info(
                 f"Processing embedding batch {i // self.batch_size + 1} "
-                f"({len(batch_texts)} items)"
+                f"({len(batch_texts)} items)",
             )
-            
+
             # Generate embeddings concurrently within batch
             tasks = [
                 self._generate_embedding_with_metadata(text, meta)
-                for text, meta in zip(batch_texts, batch_metadata)
+                for text, meta in zip(batch_texts, batch_metadata, strict=False)
             ]
-            
+
             batch_results = await asyncio.gather(*tasks, return_exceptions=True)
-            
+
             # Handle results and errors
             for idx, result in enumerate(batch_results):
                 if isinstance(result, Exception):
                     logger.error(
-                        f"Failed to generate embedding for text {i + idx}: {result}"
+                        f"Failed to generate embedding for text {i + idx}: {result}",
                     )
                     # Store None for failed embeddings
-                    results.append({
-                        "text": batch_texts[idx],
-                        "embedding": None,
-                        "metadata": batch_metadata[idx],
-                        "error": str(result),
-                    })
+                    results.append(
+                        {
+                            "text": batch_texts[idx],
+                            "embedding": None,
+                            "metadata": batch_metadata[idx],
+                            "error": str(result),
+                        },
+                    )
                 else:
                     results.append(result)
-            
+
             # Small delay between batches to avoid rate limits
             if i + self.batch_size < len(texts):
                 await asyncio.sleep(0.1)
-        
+
         successful = sum(1 for r in results if r.get("embedding") is not None)
-        logger.info(
-            f"Generated {successful}/{len(texts)} embeddings successfully"
-        )
-        
+        logger.info(f"Generated {successful}/{len(texts)} embeddings successfully")
+
         return results
-    
+
     async def _generate_embedding_with_metadata(
         self,
         text: str,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Generate embedding with metadata.
-        
+
         Args:
             text: Text to generate embedding for
             metadata: Optional metadata
-            
+
         Returns:
             Dict with text, embedding, and metadata
         """
         embedding = await self.generate_embedding(text)
-        
+
         # Estimate tokens (rough approximation)
         tokens = len(text.split()) * 1.3
-        
+
         return {
             "text": text,
             "embedding": embedding,
             "metadata": metadata,
             "tokens": int(tokens),
         }
-    
+
     def _truncate_text(self, text: str) -> str:
         """Truncate text to fit within token limits.
-        
+
         Args:
             text: Text to truncate
-            
+
         Returns:
             Truncated text
         """
         # Simple approximation: ~4 characters per token
         max_chars = self.max_tokens * 4
-        
+
         if len(text) <= max_chars:
             return text
-        
+
         # Truncate and add ellipsis
-        truncated = text[:max_chars - 3] + "..."
+        truncated = text[: max_chars - 3] + "..."
         logger.debug(f"Truncated text from {len(text)} to {len(truncated)} chars")
-        
+
         return truncated
-    
+
     async def test_connection(self) -> bool:
         """Test connection to OpenAI API.
-        
+
         Returns:
             True if connection successful
         """
@@ -206,15 +207,15 @@ class OpenAIClient:
             logger.info("OpenAI API connection successful")
             return True
         except Exception as e:
-            logger.error(f"OpenAI API connection failed: {e}")
+            logger.exception(f"OpenAI API connection failed: {e}")
             return False
-    
-    async def estimate_cost(self, num_texts: int) -> Dict[str, float]:
+
+    async def estimate_cost(self, num_texts: int) -> dict[str, float]:
         """Estimate cost for generating embeddings.
-        
+
         Args:
             num_texts: Number of texts to generate embeddings for
-            
+
         Returns:
             Dict with cost estimates
         """
@@ -224,15 +225,15 @@ class OpenAIClient:
             "text-embedding-3-small": 0.00002,  # per 1K tokens
             "text-embedding-3-large": 0.00013,  # per 1K tokens
         }
-        
+
         price_per_1k = pricing.get(self.embedding_model, 0.0001)
-        
+
         # Estimate average tokens per text
         avg_tokens_per_text = self.max_tokens * 0.5  # Assume 50% usage
         total_tokens = num_texts * avg_tokens_per_text
-        
+
         estimated_cost = (total_tokens / 1000) * price_per_1k
-        
+
         return {
             "model": self.embedding_model,
             "num_texts": num_texts,
