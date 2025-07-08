@@ -44,6 +44,13 @@ An intelligent MCP (Model Context Protocol) server that provides advanced code a
 - `find_bounded_contexts` - Discover all bounded contexts
 - `generate_context_map` - Generate context maps (JSON, Mermaid, PlantUML)
 
+### Advanced Analysis Tools
+- `analyze_coupling` - Analyze coupling between bounded contexts with metrics
+- `detect_anti_patterns` - Detect DDD anti-patterns (anemic models, god objects, etc.)
+- `suggest_context_splits` - Suggest how to split large bounded contexts
+- `analyze_domain_evolution` - Track domain model changes over time
+- `get_domain_metrics` - Get comprehensive domain health metrics
+
 ### Repository Management Tools
 - `add_repository` - Add a new GitHub repository to track
 - `list_repositories` - List all tracked repositories

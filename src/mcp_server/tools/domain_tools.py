@@ -231,7 +231,8 @@ class DomainTools:
                     }
                 
                 # Extract new domain model
-                indexer = DomainIndexer(session, self.openai_client)
+                from src.domain.indexer import DomainIndexer
+                indexer = DomainIndexer(self.db_session, self.openai_client)
                 result = await indexer.index_file(file.id)
                 
                 if result["status"] != "success":
