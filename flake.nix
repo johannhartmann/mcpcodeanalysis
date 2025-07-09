@@ -14,7 +14,7 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        python = pkgs.python311;
+        python = pkgs.python313;
         
         # PostgreSQL with pgvector extension
         postgresqlWithExtensions = pkgs.postgresql_16.withPackages (p: [
@@ -49,6 +49,10 @@
             # Python environment
             pythonEnv
             uv
+            
+            # System libraries needed for Python packages
+            stdenv.cc.cc.lib  # Provides libstdc++.so.6
+            zlib
             
             # Database
             postgresqlWithExtensions
@@ -104,6 +108,9 @@
             
             # Set Python path
             export PYTHONPATH="$PWD/src:$PYTHONPATH"
+            
+            # Set library path for dynamic libraries
+            export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
             
             # Check if .env exists
             if [ ! -f .env ]; then
