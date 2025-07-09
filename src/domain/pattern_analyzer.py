@@ -19,6 +19,19 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Constants for coupling thresholds
+HIGH_COUPLING_THRESHOLD = 5
+VERY_HIGH_COUPLING_THRESHOLD = 10
+HIGH_COUPLING_SCORE = 3
+ENTITY_GROWTH_RATE_THRESHOLD = 20
+GOD_OBJECT_RESPONSIBILITIES_THRESHOLD = 7
+RAPID_COUPLING_THRESHOLD = 20
+CONTEXT_SHARE_THRESHOLD = 2
+
+# Constants for coupling buckets
+LOW_COUPLING_THRESHOLD = 1
+MEDIUM_COUPLING_THRESHOLD = 3
+
 
 class DomainPatternAnalyzer:
     """Analyze domain patterns, anti-patterns, and evolution."""
@@ -153,7 +166,7 @@ class DomainPatternAnalyzer:
         # Find high coupling pairs
         for ctx1_metrics in context_metrics.values():
             for ctx2_id, count in ctx1_metrics["coupling_details"].items():
-                if count > 5:  # Threshold for high coupling
+                if count > HIGH_COUPLING_THRESHOLD:
                     ctx2_metrics = context_metrics.get(ctx2_id, {})
                     cast(
                         "list[dict[str, Any]]",
@@ -186,9 +199,9 @@ class DomainPatternAnalyzer:
 
             # Distribution
             for score in coupling_scores:
-                if score < 1:
+                if score < LOW_COUPLING_THRESHOLD:
                     bucket = "low"
-                elif score < 3:
+                elif score < MEDIUM_COUPLING_THRESHOLD:
                     bucket = "medium"
                 else:
                     bucket = "high"
@@ -233,10 +246,11 @@ class DomainPatternAnalyzer:
             .options(selectinload(BoundedContext.memberships)),
         )
 
-        candidates = []
-        for context in result.scalars().all():
-            if len(context.memberships) >= min_entities:
-                candidates.append(context)
+        candidates = [
+            context
+            for context in result.scalars().all()
+            if len(context.memberships) >= min_entities
+        ]
 
         suggestions = []
 
@@ -351,7 +365,7 @@ class DomainPatternAnalyzer:
 
         # 2. Detect god objects (entities with too many responsibilities)
         query = select(DomainEntity).where(
-            func.array_length(DomainEntity.responsibilities, 1) > 7,
+            func.array_length(DomainEntity.responsibilities, 1) > GOD_OBJECT_RESPONSIBILITIES_THRESHOLD,
         )
 
         result = await self.db_session.execute(query)
@@ -493,7 +507,7 @@ class DomainPatternAnalyzer:
             evolution["trends"]["entity_growth_rate"] = round(growth_rate * 100, 1)
 
         # Generate insights
-        if evolution["trends"]["entity_growth_rate"] > 20:
+        if evolution["trends"]["entity_growth_rate"] > ENTITY_GROWTH_RATE_THRESHOLD:
             cast("list[str]", evolution["insights"]).append(
                 "Rapid growth in domain entities indicates active feature development",
             )
@@ -511,13 +525,13 @@ class DomainPatternAnalyzer:
         relationship_types: list[str],
     ) -> str:
         """Generate recommendation for coupling issues."""
-        if relationship_count > 10:
+        if relationship_count > VERY_HIGH_COUPLING_THRESHOLD:
             if "orchestrates" in relationship_types:
                 return "Consider using events or a saga pattern to reduce orchestration coupling"
             if "depends_on" in relationship_types:
                 return "High dependency coupling - consider introducing an anti-corruption layer"
             return "Very high coupling - evaluate if these contexts should be merged or use shared kernel pattern"
-        if relationship_count > 5:
+        if relationship_count > HIGH_COUPLING_THRESHOLD:
             return (
                 "Moderate coupling - consider if all these relationships are necessary"
             )
@@ -534,7 +548,7 @@ class DomainPatternAnalyzer:
         high_coupling = [
             (ctx_id, metrics)
             for ctx_id, metrics in context_metrics.items()
-            if metrics["coupling_score"] > 3
+            if metrics["coupling_score"] > HIGH_COUPLING_SCORE
         ]
 
         if high_coupling:
@@ -554,7 +568,7 @@ class DomainPatternAnalyzer:
                     .get(ctx_id, 0)
                 )
 
-                if count > 5 and reverse_count == 0:
+                if count > HIGH_COUPLING_THRESHOLD and reverse_count == 0:
                     recommendations.append(
                         f"{metrics['name']} has one-way dependency on another context - "
                         "consider if this is a customer-supplier relationship",
@@ -718,7 +732,7 @@ class DomainPatternAnalyzer:
                 DomainEntity.id == DomainRelationship.source_entity_id,
             )
             .group_by(BoundedContextMembership.bounded_context_id)
-            .having(func.count(DomainRelationship.id) > 20),
+            .having(func.count(DomainRelationship.id) > RAPID_COUPLING_THRESHOLD),
         )
 
         chatty = []
@@ -760,7 +774,7 @@ class DomainPatternAnalyzer:
         # Find entities in multiple contexts
         shared_kernel_issues = []
         for entity_id, contexts in entity_contexts.items():
-            if len(contexts) > 2:
+            if len(contexts) > CONTEXT_SHARE_THRESHOLD:
                 entity_result = await self.db_session.execute(
                     select(DomainEntity).where(DomainEntity.id == entity_id),
                 )

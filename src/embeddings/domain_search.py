@@ -19,6 +19,9 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Constants
+MIN_CONCEPT_WORD_LENGTH = 3
+
 
 class DomainSearchScope(Enum):
     """Scope for domain-aware search."""
@@ -51,6 +54,7 @@ class DomainAwareSearch:
     async def search_with_domain_context(
         self,
         query: str,
+        *,
         scope: DomainSearchScope = DomainSearchScope.ALL,
         bounded_context: str | None = None,
         limit: int = 10,
@@ -220,7 +224,7 @@ class DomainAwareSearch:
         except Exception:
             logger.exception("Error extracting concepts: %s")
             # Fallback to simple extraction
-            return [word.capitalize() for word in query.split() if len(word) > 3]
+            return [word.capitalize() for word in query.split() if len(word) > MIN_CONCEPT_WORD_LENGTH]
 
     async def _find_relevant_entities(
         self,
