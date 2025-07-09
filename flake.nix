@@ -21,6 +21,11 @@
       inputs.uv2nix.follows = "uv2nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    
+    viberdash = {
+      url = "github:johannhartmann/viberdash";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -30,6 +35,7 @@
       pyproject-nix,
       uv2nix,
       pyproject-build-systems,
+      viberdash,
     }:
     let
       inherit (nixpkgs) lib;
@@ -121,6 +127,9 @@
               pkgs.httpie
               pkgs.pgcli
               pkgs.mdbook
+              
+              # ViberDash for code quality monitoring
+              viberdash.packages.${system}.default
             ];
 
             shellHook = ''
@@ -136,6 +145,7 @@
               echo "  ruff check .         - Run linter"
               echo "  mypy .               - Type checking"
               echo "  black .              - Format code"
+              echo "  viberdash monitor --interval 300 - Monitor code quality metrics (5 min updates)"
               echo ""
               echo "Server commands:"
               echo "  mcp-code-server      - Start MCP server"
@@ -192,6 +202,9 @@
               httpie
               pgcli
               mdbook
+              
+              # ViberDash for code quality monitoring
+              viberdash.packages.${system}.default
             ];
             
             shellHook = ''
@@ -206,6 +219,7 @@
               echo "  uv run ruff check .  - Run linter"
               echo "  uv run mypy .        - Type checking"
               echo "  uv run black .       - Format code"
+              echo "  uv run viberdash monitor --interval 300 - Monitor code quality metrics (5 min updates)"
               echo ""
               
               export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
