@@ -55,6 +55,7 @@ class SemanticGraphBuilder:
 
     async def build_graph(
         self,
+        *,
         include_weak_relationships: bool = False,
         min_confidence: float = 0.5,
     ) -> nx.Graph:
@@ -94,7 +95,7 @@ class SemanticGraphBuilder:
         )
         if not include_weak_relationships:
             rel_query = rel_query.where(
-                DomainRelationship.strength >= DEFAULT_MIN_CONFIDENCE
+                DomainRelationship.strength >= DEFAULT_MIN_CONFIDENCE,
             )
 
         result = await self.db_session.execute(rel_query)
@@ -127,6 +128,7 @@ class SemanticGraphBuilder:
     async def detect_bounded_contexts(
         self,
         graph: nx.Graph,
+        *,
         resolution: float = 1.0,
         use_embeddings: bool = True,
     ) -> list[dict[str, Any]]:

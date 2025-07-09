@@ -33,8 +33,8 @@ class CodeExtractor:
 
         try:
             return parser.extract_entities(file_path, file_id)
-        except Exception as e:
-            logger.exception("Failed to extract entities from %s: %s", file_path, e)
+        except Exception:
+            logger.exception("Failed to extract entities from %s", file_path)
             return None
 
     def get_entity_content(
@@ -43,6 +43,7 @@ class CodeExtractor:
         entity_type: str,
         start_line: int,
         end_line: int,
+        *,
         include_context: bool = True,
     ) -> tuple[str, str]:
         """Get the raw and contextual content for a code entity."""

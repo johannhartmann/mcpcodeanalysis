@@ -1,6 +1,6 @@
 """Result ranking and scoring for search queries."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from src.mcp_server.config import config
@@ -53,7 +53,7 @@ class ResultRanker:
         if isinstance(last_modified, str):
             last_modified = datetime.fromisoformat(last_modified)
 
-        age_days = (datetime.now(tz=timezone.utc) - last_modified).days
+        age_days = (datetime.now(tz=UTC) - last_modified).days
 
         # Score decays over time
         if age_days < 7:
@@ -213,6 +213,7 @@ class ResultRanker:
     def format_results(
         self,
         results: list[dict[str, Any]],
+        *,
         include_scores: bool = False,
         include_context: bool = True,
     ) -> list[dict[str, Any]]:

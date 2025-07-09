@@ -23,24 +23,26 @@ class CodeAggregator:
         self,
         entity_type: str,
         entity_id: int,
+        *,
         include_code: bool = False,
     ) -> dict[str, Any]:
         """Generate comprehensive explanation for a code entity."""
         async with get_session() as session, get_repositories(session) as repos:
             if entity_type == "function":
-                return await self._explain_function(repos, entity_id, include_code)
+                return await self._explain_function(repos, entity_id, include_code=include_code)
             if entity_type == "class":
-                return await self._explain_class(repos, entity_id, include_code)
+                return await self._explain_class(repos, entity_id, include_code=include_code)
             if entity_type == "module":
-                return await self._explain_module(repos, entity_id, include_code)
+                return await self._explain_module(repos, entity_id, include_code=include_code)
             if entity_type == "package":
-                return await self._explain_package(repos, entity_id, include_code)
+                return await self._explain_package(repos, entity_id, include_code=include_code)
             raise ValueError(f"Unknown entity type: {entity_type}")
 
     async def _explain_function(
         self,
         repos: dict[str, Any],
         function_id: int,
+        *,
         include_code: bool,
     ) -> dict[str, Any]:
         """Explain a function."""
@@ -117,6 +119,7 @@ class CodeAggregator:
         self,
         repos: dict[str, Any],
         class_id: int,
+        *,
         include_code: bool,
     ) -> dict[str, Any]:
         """Explain a class with all its methods."""
@@ -204,6 +207,7 @@ class CodeAggregator:
         self,
         repos: dict[str, Any],
         module_id: int,
+        *,
         include_code: bool,
     ) -> dict[str, Any]:
         """Explain a module with all its contents."""
@@ -289,6 +293,7 @@ class CodeAggregator:
         self,
         repos: dict[str, Any],
         package_path: str,
+        *,
         include_code: bool,
     ) -> dict[str, Any]:
         """Explain a package (directory with multiple modules)."""

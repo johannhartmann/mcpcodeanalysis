@@ -14,6 +14,7 @@ from src.database.domain_models import (
 )
 from src.database.models import Class, Function, Module
 from src.embeddings.openai_client import OpenAIClient
+from src.utils.exceptions import NotFoundError
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -39,6 +40,7 @@ class HierarchicalSummarizer:
     async def summarize_function(
         self,
         function_id: int,
+        *,
         include_domain_context: bool = True,
     ) -> DomainSummary:
         """Generate domain-aware summary of a function.
@@ -62,7 +64,7 @@ class HierarchicalSummarizer:
         function = result.scalar_one_or_none()
 
         if not function:
-            raise ValueError(f"Function {function_id} not found")
+            raise NotFoundError("Function not found", resource_type="function", resource_id=str(function_id))
 
         # Get related domain entities
         domain_entities = []
@@ -96,6 +98,7 @@ class HierarchicalSummarizer:
     async def summarize_class(
         self,
         class_id: int,
+        *,
         include_methods: bool = True,
     ) -> DomainSummary:
         """Generate domain-aware summary of a class.
@@ -119,7 +122,7 @@ class HierarchicalSummarizer:
         class_obj = result.scalar_one_or_none()
 
         if not class_obj:
-            raise ValueError(f"Class {class_id} not found")
+            raise NotFoundError("Class not found", resource_type="class", resource_id=str(class_id))
 
         # Get method summaries if requested
         method_summaries = []
@@ -192,7 +195,7 @@ class HierarchicalSummarizer:
         module = result.scalar_one_or_none()
 
         if not module:
-            raise ValueError(f"Module {module_id} not found")
+            raise NotFoundError("Module not found", resource_type="module", resource_id=str(module_id))
 
         # Get summaries for classes and functions
         class_summaries = []
@@ -275,7 +278,7 @@ class HierarchicalSummarizer:
         context = result.scalar_one_or_none()
 
         if not context:
-            raise ValueError(f"Bounded context {context_id} not found")
+            raise NotFoundError("Bounded context not found", resource_type="bounded_context", resource_id=str(context_id))
 
         # Load domain entities
         entity_ids = [m.domain_entity_id for m in context.memberships]

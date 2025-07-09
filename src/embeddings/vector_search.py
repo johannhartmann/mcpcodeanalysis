@@ -119,6 +119,7 @@ class VectorSearch:
     async def search_similar(
         self,
         embedding_id: int,
+        *,
         limit: int = 10,
         exclude_same_file: bool = False,
     ) -> list[dict[str, Any]]:

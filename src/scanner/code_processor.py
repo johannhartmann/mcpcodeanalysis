@@ -1,7 +1,7 @@
 """Code processing integration between scanner and parser."""
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +25,7 @@ class CodeProcessor:
     def __init__(
         self,
         db_session: AsyncSession,
+        *,
         repository_path: Path | str | None = None,
         enable_domain_analysis: bool = False,
         openai_client: OpenAIClient | None = None,
@@ -74,7 +75,7 @@ class CodeProcessor:
             stats = await self._store_entities(entities, file_record)
 
             # Update file processing status
-            file_record.last_modified = datetime.now(tz=timezone.utc)
+            file_record.last_modified = datetime.now(tz=UTC)
             await self.db_session.commit()
 
             # Run domain analysis if enabled
@@ -103,7 +104,7 @@ class CodeProcessor:
             }
 
         except Exception as e:
-            logger.exception("Error processing file %s: %s", file_record.path, e)
+            logger.exception("Error processing file %s", file_record.path)
             import traceback
 
             logger.debug("Traceback: %s", traceback.format_exc())
@@ -258,7 +259,7 @@ class CodeProcessor:
                 result = await self.process_file(file)
                 results.append(result)
             except Exception as e:
-                logger.exception("Error processing file %s: %s", file.path, e)
+                logger.exception("Error processing file %s", file.path)
                 results.append(e)
 
         # Aggregate results

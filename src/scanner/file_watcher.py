@@ -2,7 +2,7 @@
 
 import asyncio
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -61,13 +61,13 @@ class CodeFileHandler(FileSystemEventHandler):
     def on_modified(self, event) -> None:
         """Handle file modification."""
         if not event.is_directory and self.should_process(event.src_path):
-            self.pending_changes[event.src_path] = datetime.now(tz=timezone.utc)
+            self.pending_changes[event.src_path] = datetime.now(tz=UTC)
             self._schedule_callback(event.src_path, "modified")
 
     def on_created(self, event) -> None:
         """Handle file creation."""
         if not event.is_directory and self.should_process(event.src_path):
-            self.pending_changes[event.src_path] = datetime.now(tz=timezone.utc)
+            self.pending_changes[event.src_path] = datetime.now(tz=UTC)
             self._schedule_callback(event.src_path, "created")
 
     def on_deleted(self, event) -> None:
@@ -84,7 +84,7 @@ class CodeFileHandler(FileSystemEventHandler):
                 self.pending_changes.pop(event.src_path, None)
 
             if self.should_process(event.dest_path):
-                self.pending_changes[event.dest_path] = datetime.now()
+                self.pending_changes[event.dest_path] = datetime.now(tz=UTC)
                 self._schedule_callback(event.dest_path, "created")
 
     def _schedule_callback(self, path: str, event_type: str) -> None:
@@ -97,7 +97,7 @@ class CodeFileHandler(FileSystemEventHandler):
             if path in self.pending_changes:
                 change_time = self.pending_changes[path]
                 if (
-                    datetime.now() - change_time
+                    datetime.now(tz=UTC) - change_time
                 ).total_seconds() >= self.debounce_seconds:
                     self.callback(path, event_type)
                     self.pending_changes.pop(path, None)
@@ -116,6 +116,7 @@ class FileWatcher:
         self,
         path: Path,
         callback: Callable[[str, str], None],
+        *,
         recursive: bool = True,
         extensions: set[str] | None = None,
     ) -> str:

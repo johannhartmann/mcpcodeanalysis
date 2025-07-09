@@ -19,6 +19,11 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Constants
+MIN_RATE_LIMIT_THRESHOLD = 10
+HTTP_TOO_MANY_REQUESTS = 429
+HTTP_ERROR_THRESHOLD = 400
+
 
 class GitHubClient:
     """Asynchronous GitHub API client."""
@@ -56,7 +61,7 @@ class GitHubClient:
 
     async def _check_rate_limit(self) -> None:
         """Check and handle rate limiting."""
-        if self._rate_limit_remaining <= 10 and (
+        if self._rate_limit_remaining <= MIN_RATE_LIMIT_THRESHOLD and (
             self._rate_limit_reset and datetime.now(UTC) < self._rate_limit_reset
         ):
             wait_seconds = (self._rate_limit_reset - datetime.now(UTC)).total_seconds()
@@ -96,7 +101,7 @@ class GitHubClient:
 
         self._update_rate_limit(response)
 
-        if response.status_code == 429:
+        if response.status_code == HTTP_TOO_MANY_REQUESTS:
             retry_after = int(response.headers.get("Retry-After", 60))
             raise RateLimitError(
                 "GitHub API rate limit exceeded",
@@ -105,7 +110,7 @@ class GitHubClient:
                 remaining=0,
             )
 
-        if response.status_code >= 400:
+        if response.status_code >= HTTP_ERROR_THRESHOLD:
             error_data = {}
             with contextlib.suppress(Exception):
                 error_data = response.json()
@@ -201,6 +206,7 @@ class GitHubClient:
         owner: str,
         repo: str,
         tree_sha: str,
+        *,
         recursive: bool = True,
     ) -> dict[str, Any]:
         """Get repository tree structure."""

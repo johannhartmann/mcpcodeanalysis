@@ -12,6 +12,7 @@ from src.domain.entity_extractor import DomainEntityExtractor
 from src.domain.graph_builder import SemanticGraphBuilder
 from src.domain.summarizer import HierarchicalSummarizer
 from src.embeddings.openai_client import OpenAIClient
+from src.utils.exceptions import DomainError, NotFoundError
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -42,6 +43,7 @@ class DomainIndexer:
     async def index_file(
         self,
         file_id: int,
+        *,
         force_reindex: bool = False,
     ) -> dict[str, Any]:
         """Index a single file for domain entities.
@@ -58,7 +60,7 @@ class DomainIndexer:
         file = result.scalar_one_or_none()
 
         if not file:
-            raise ValueError(f"File {file_id} not found")
+            raise NotFoundError("File not found", resource_type="file", resource_id=str(file_id))
 
         # Check if already indexed
         if not force_reindex:
@@ -171,7 +173,7 @@ class DomainIndexer:
                 else:
                     results["failed"] += 1
 
-            except Exception as e:
+            except Exception:
                 logger.exception("Error indexing file %s", file.path)
                 results["failed"] += 1
 
@@ -251,7 +253,7 @@ class DomainIndexer:
                 try:
                     await self.summarizer.summarize_module(module.id)
                     count += 1
-                except Exception as e:
+                except Exception:
                     logger.exception("Error summarizing module %d", module.id)
 
         elif entity_type == "context":
@@ -269,7 +271,7 @@ class DomainIndexer:
                 try:
                     await self.summarizer.summarize_bounded_context(context.id)
                     count += 1
-                except Exception as e:
+                except Exception:
                     logger.exception("Error summarizing context %d", context.id)
 
         logger.info("Generated %d summaries for %s", count, entity_type)
@@ -341,7 +343,7 @@ class DomainIndexer:
 
             if not source_entity or not target_entity:
                 logger.warning(
-                    "Skipping relationship %s -> %s: " "entity not found",
+                    "Skipping relationship %s -> %s: entity not found",
                     rel_data["source"],
                     rel_data["target"],
                 )
@@ -404,7 +406,7 @@ class DomainIndexer:
             try:
                 embedding = await self.openai_client.generate_embedding(text)
                 entity.concept_embedding = embedding
-            except Exception as e:
+            except Exception:
                 logger.exception(
-                    "Error generating embedding for %s", entity.name
+                    "Error generating embedding for %s", entity.name,
                 )

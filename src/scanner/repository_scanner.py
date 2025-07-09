@@ -1,6 +1,6 @@
 """Repository scanner that integrates GitHub monitoring, Git sync, and database."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -41,6 +41,7 @@ class RepositoryScanner:
     async def scan_repository(
         self,
         repo_config: RepositoryConfig,
+        *,
         force_full_scan: bool = False,
     ) -> dict[str, any]:
         """Scan a single repository."""
@@ -52,7 +53,7 @@ class RepositoryScanner:
         )
 
         # Extract owner and repo name
-        owner, repo_name = self.git_sync._extract_owner_repo(repo_config.url)
+        owner, repo_name = self.git_sync.extract_owner_repo(repo_config.url)
 
         # Get or create repository record
         repo_record = await self._get_or_create_repository(
@@ -150,7 +151,7 @@ class RepositoryScanner:
 
         # Update repository last sync time
         repo_record.last_synced = datetime.now(
-            tz=datetime.UTC
+            tz=datetime.UTC,
         )  # PostgreSQL expects naive datetime
         await self.db_session.commit()
 
@@ -351,7 +352,7 @@ class RepositoryScanner:
                     "path": file_path,
                     "absolute_path": str(full_path),
                     "size": full_path.stat().st_size,
-                    "modified_time": datetime.fromtimestamp(full_path.stat().st_mtime),
+                    "modified_time": datetime.fromtimestamp(full_path.stat().st_mtime, tz=UTC),
                     "content_hash": self.git_sync.get_file_hash(full_path),
                     "git_hash": None,  # Will be set by _update_or_create_file
                     "language": "python",
@@ -406,6 +407,7 @@ class RepositoryScanner:
 
     async def scan_all_repositories(
         self,
+        *,
         force_full_scan: bool = False,
     ) -> dict[str, any]:
         """Scan all configured repositories."""
@@ -414,7 +416,7 @@ class RepositoryScanner:
         results = []
         for repo_config in self.settings.repositories:
             try:
-                result = await self.scan_repository(repo_config, force_full_scan)
+                result = await self.scan_repository(repo_config, force_full_scan=force_full_scan)
                 results.append(
                     {
                         "url": repo_config.url,
@@ -453,7 +455,7 @@ class RepositoryScanner:
 
         for repo_config in self.settings.repositories:
             try:
-                owner, repo_name = self.git_sync._extract_owner_repo(repo_config.url)
+                owner, repo_name = self.git_sync.extract_owner_repo(repo_config.url)
                 access_token = (
                     repo_config.access_token.get_secret_value()
                     if repo_config.access_token
