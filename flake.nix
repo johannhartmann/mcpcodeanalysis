@@ -1,208 +1,202 @@
 {
-  description = "MCP Code Analysis Server - Intelligent code analysis and search";
+  description = "MCP Code Analysis Server";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
+    nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
+    
+    pyproject-nix = {
+      url = "github:pyproject-nix/pyproject.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    
+    uv2nix = {
+      url = "github:pyproject-nix/uv2nix";
+      inputs.pyproject-nix.follows = "pyproject-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    
+    pyproject-build-systems = {
+      url = "github:pyproject-nix/build-system-pkgs";
+      inputs.pyproject-nix.follows = "pyproject-nix";
+      inputs.uv2nix.follows = "uv2nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        pkgs = nixpkgs.legacyPackages.${system};
-        python = pkgs.python313;
-        
-        # PostgreSQL with pgvector extension
-        postgresqlWithExtensions = pkgs.postgresql_16.withPackages (p: [
-          p.pgvector
-        ]);
+  outputs =
+    {
+      self,
+      nixpkgs,
+      pyproject-nix,
+      uv2nix,
+      pyproject-build-systems,
+    }:
+    let
+      inherit (nixpkgs) lib;
 
-        pythonEnv = python.withPackages (ps: with ps; [
-          # Core dependencies (minimal for nix shell)
-          pip
-          setuptools
-          wheel
-          
-          # Development tools
-          black
-          ruff
-          mypy
-          pytest
-          pytest-asyncio
-          ipython
-          
-          # Type stubs
-          types-requests
-          types-pyyaml
-          # Note: pandas-stubs removed as it pulls in PyTorch as dependency in nixpkgs
-        ]);
-        
-        pyprojectToml = builtins.fromTOML (builtins.readFile ./pyproject.toml);
-      in
-      {
-        devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            # Python environment
-            pythonEnv
-            uv
-            
-            # System libraries needed for Python packages
-            stdenv.cc.cc.lib  # Provides libstdc++.so.6
-            zlib
-            
-            # Database
-            postgresqlWithExtensions
-            
-            # Development tools
-            git
-            docker
-            docker-compose
-            
-            # Code analysis tools
-            tree-sitter
-            
-            # Utilities
-            jq
-            curl
-            httpie
-            pgcli
-            
-            # Documentation
-            mdbook
-          ];
+      # Load the uv workspace from uv.lock
+      workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = ./.; };
 
-          shellHook = ''
-            echo "────────────────────────────────────────────"
-            echo "    MCP Code Analysis Server Development"
-            echo "────────────────────────────────────────────"
-            echo ""
-            echo "Available commands:"
-            echo "  uv sync              - Install Python dependencies"
-            echo "  uv run pytest        - Run tests"
-            echo "  uv run ruff check .  - Run linter"
-            echo "  uv run mypy .        - Type checking"
-            echo "  uv run black .       - Format code"
-            echo ""
-            echo "Server commands:"
-            echo "  uv run mcp-code-server  - Start MCP server"
-            echo "  uv run mcp-scanner      - Run code scanner"
-            echo "  uv run mcp-indexer      - Run indexer"
-            echo ""
-            echo "Database:"
-            echo "  docker-compose up -d postgres  - Start PostgreSQL"
-            echo "  pgcli -h localhost -U codeanalyzer -d code_analysis"
-            echo ""
-            echo "Environment setup:"
-            echo "  cp .env.example .env  - Create environment file"
-            echo "  cp config.example.yaml config.yaml"
-            echo ""
-            
-            # Create project directories if they don't exist
-            mkdir -p src/{scanner,parser,embeddings,mcp_server,query,database}
-            mkdir -p tests
-            mkdir -p docs
-            
-            # Set Python path
-            export PYTHONPATH="$PWD/src:$PYTHONPATH"
-            
-            # Set library path for dynamic libraries
-            export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
-            
-            # Check if .env exists
-            if [ ! -f .env ]; then
-              echo "⚠️  No .env file found. Create one with:"
-              echo "   cp .env.example .env"
-            fi
-            
-            # Check if config.yaml exists
-            if [ ! -f config.yaml ]; then
-              echo "⚠️  No config.yaml found. Create one with:"
-              echo "   cp config.example.yaml config.yaml"
-            fi
-          '';
+      # Create package overlay from workspace
+      overlay = workspace.mkPyprojectOverlay {
+        sourcePreference = "wheel";  # Prefer pre-built wheels
+      };
 
-          PYTHONPATH = "./src";
+      # Override sets
+      pyprojectOverrides = _final: _prev: {
+        # Add any specific package overrides here if needed
+      };
+
+      # Generate outputs for each system
+      eachSystem = nixpkgs.lib.genAttrs [
+        "x86_64-linux"
+        "aarch64-linux"
+        "x86_64-darwin"
+        "aarch64-darwin"
+      ];
+
+    in
+    {
+      # Expose the overlay
+      overlays.default = nixpkgs.lib.composeManyExtensions [
+        pyproject-nix.overlays.default
+        pyproject-build-systems.overlays.default
+        overlay
+        pyprojectOverrides
+      ];
+
+      # Development shells
+      devShells = eachSystem (system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
           
-          # Development environment variables
-          POSTGRES_HOST = "localhost";
-          POSTGRES_PORT = "5432";
-          POSTGRES_DB = "code_analysis";
-          POSTGRES_USER = "codeanalyzer";
-        };
-        
-        packages.default = python.pkgs.buildPythonPackage {
-          pname = "mcp-code-analysis-server";
-          version = pyprojectToml.project.version;
-          
-          src = ./.;
-          
-          format = "pyproject";
-          
-          nativeBuildInputs = with python.pkgs; [
-            hatchling
-          ];
-          
-          propagatedBuildInputs = with python.pkgs; [
-            # Core dependencies from pyproject.toml
-            fastapi
-            uvicorn
-            httpx
-            pydantic
-            pydantic-settings
-            sqlalchemy
-            alembic
-            asyncpg
-            psycopg2
-            gitpython
-            pyyaml
-            click
-            python-dotenv
-            rich
-            tenacity
-            openai
-            tiktoken
-            numpy
-            pandas
-            
-            # Note: Some packages like fastmcp, langchain, langgraph, pgvector, 
-            # and tree-sitter-python may need to be installed via pip/uv
-          ];
-          
-          checkInputs = with python.pkgs; [
-            pytest
-            pytest-asyncio
-            pytest-cov
-            pytest-mock
-          ];
-          
-          meta = with pkgs.lib; {
-            description = pyprojectToml.project.description;
-            homepage = pyprojectToml.project.urls.Homepage;
-            license = licenses.mit;
-            maintainers = [];
-          };
-        };
-        
-        # Docker image
-        dockerImage = pkgs.dockerTools.buildImage {
-          name = "mcp-code-analysis-server";
-          tag = "latest";
-          
-          contents = [
-            self.packages.${system}.default
-            pkgs.bash
-            pkgs.coreutils
-          ];
-          
-          config = {
-            Cmd = [ "${self.packages.${system}.default}/bin/mcp-code-server" ];
-            Env = [
-              "PYTHONUNBUFFERED=1"
+          # Apply overlays to get Python packages
+          python = pkgs.python313;
+          pythonPkgs = (pkgs.appendOverlays [
+            self.overlays.default
+          ]).python313Packages;
+
+          # PostgreSQL with pgvector
+          postgresqlWithExtensions = pkgs.postgresql_16.withPackages (p: [
+            p.pgvector
+          ]);
+
+        in
+        {
+          # Pure development shell with dependencies from uv.lock
+          default = pkgs.mkShell {
+            packages = [
+              # Python with all workspace dependencies
+              (python.withPackages (ps: workspace.deps.all ps))
+              
+              # System libraries
+              pkgs.stdenv.cc.cc.lib
+              pkgs.zlib
+              
+              # Database
+              postgresqlWithExtensions
+              
+              # Development tools
+              pkgs.git
+              pkgs.docker
+              pkgs.docker-compose
+              pkgs.tree-sitter
+              
+              # Utilities
+              pkgs.jq
+              pkgs.curl
+              pkgs.httpie
+              pkgs.pgcli
+              pkgs.mdbook
             ];
-            ExposedPorts = {
-              "8080/tcp" = {};
-            };
+
+            shellHook = ''
+              echo "────────────────────────────────────────────"
+              echo "    MCP Code Analysis Server Development"
+              echo "────────────────────────────────────────────"
+              echo ""
+              echo "Python environment is ready!"
+              echo ""
+              echo "Available commands:"
+              echo "  pytest               - Run tests"
+              echo "  ruff check .         - Run linter"
+              echo "  mypy .               - Type checking"
+              echo "  black .              - Format code"
+              echo ""
+              echo "Server commands:"
+              echo "  mcp-code-server      - Start MCP server"
+              echo "  mcp-scanner          - Run code scanner"
+              echo "  mcp-indexer          - Run indexer"
+              echo ""
+              
+              # Set up environment
+              export PYTHONPATH="$PWD/src:$PYTHONPATH"
+              export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
+              
+              # Check configuration files
+              if [ ! -f .env ]; then
+                echo "⚠️  No .env file found. Create one with:"
+                echo "   cp .env.example .env"
+              fi
+              
+              if [ ! -f config.yaml ]; then
+                echo "⚠️  No config.yaml found. Create one with:"
+                echo "   cp config.example.yaml config.yaml"
+              fi
+            '';
+            
+            # Environment variables
+            POSTGRES_HOST = "localhost";
+            POSTGRES_PORT = "5432";
+            POSTGRES_DB = "code_analysis";
+            POSTGRES_USER = "codeanalyzer";
           };
-        };
-      });
+          
+          # Impure shell for using uv directly
+          impure = pkgs.mkShell {
+            packages = with pkgs; [
+              python313
+              uv
+              
+              # System libraries
+              stdenv.cc.cc.lib
+              zlib
+              
+              # Database
+              postgresqlWithExtensions
+              
+              # Development tools
+              git
+              docker
+              docker-compose
+              tree-sitter
+              
+              # Utilities
+              jq
+              curl
+              httpie
+              pgcli
+              mdbook
+            ];
+            
+            shellHook = ''
+              echo "────────────────────────────────────────────"
+              echo "    MCP Code Analysis Server Development"
+              echo "      (Impure shell - using uv directly)"
+              echo "────────────────────────────────────────────"
+              echo ""
+              echo "Available commands:"
+              echo "  uv sync              - Install Python dependencies"
+              echo "  uv run pytest        - Run tests"
+              echo "  uv run ruff check .  - Run linter"
+              echo "  uv run mypy .        - Type checking"
+              echo "  uv run black .       - Format code"
+              echo ""
+              
+              export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
+            '';
+          };
+        }
+      );
+    };
 }
