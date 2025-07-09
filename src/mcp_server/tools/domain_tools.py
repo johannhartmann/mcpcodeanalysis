@@ -536,8 +536,7 @@ class DomainTools:
 
             # Check for anemic domain models
             for entity in entities:
-                if entity.entity_type in ["entity", "aggregate_root"]:
-                    if not entity.business_rules and not entity.invariants:
+                if entity.entity_type in ["entity", "aggregate_root"] and not entity.business_rules and not entity.invariants:
                         suggestions.append(
                             {
                                 "type": "anemic_domain_model",

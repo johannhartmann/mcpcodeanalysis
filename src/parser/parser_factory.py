@@ -1,6 +1,7 @@
 """Factory for creating language-specific parsers."""
 
 from pathlib import Path
+from typing import ClassVar
 
 from src.parser.python_parser import PythonCodeParser
 from src.utils.logger import get_logger
@@ -12,14 +13,14 @@ class ParserFactory:
     """Factory for creating language-specific parsers."""
 
     # Mapping of file extensions to parser classes
-    _parsers: dict[str, type] = {
+    _parsers: ClassVar[dict[str, type]] = {
         ".py": PythonCodeParser,
         ".pyw": PythonCodeParser,
         ".pyi": PythonCodeParser,
     }
 
     # Mapping of language names to parser classes
-    _language_parsers: dict[str, type] = {
+    _language_parsers: ClassVar[dict[str, type]] = {
         "python": PythonCodeParser,
     }
 
