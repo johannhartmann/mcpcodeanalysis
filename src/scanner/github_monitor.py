@@ -83,7 +83,9 @@ class GitHubMonitor:
             if e.response.status_code == HTTP_NOT_FOUND:
                 raise GitHubError(f"Repository not found: {repo_url}") from e
             if e.response.status_code == HTTP_UNAUTHORIZED:
-                raise GitHubError(f"Authentication failed for repository: {repo_url}") from e
+                raise GitHubError(
+                    f"Authentication failed for repository: {repo_url}"
+                ) from e
             raise GitHubError(f"GitHub API error: {e}") from e
         except Exception as e:
             raise GitHubError(f"Failed to get repository info: {e}") from e
@@ -150,7 +152,9 @@ class GitHubMonitor:
                 # Rate limit check
                 if page > MAX_PAGES:  # Max 1000 commits
                     logger.warning(
-                        f"Too many commits for {owner}/{repo}, stopping at 1000",
+                        "Too many commits for %s/%s, stopping at 1000",
+                        owner,
+                        repo,
                     )
                     break
 

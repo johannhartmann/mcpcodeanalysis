@@ -93,7 +93,9 @@ class CodeProcessor:
                     }
                 except Exception as e:
                     logger.warning(
-                        f"Domain analysis failed for {file_record.path}: {e}",
+                        "Domain analysis failed for %s: %s",
+                        file_record.path,
+                        e,
                     )
 
             return {
@@ -305,8 +307,10 @@ class CodeProcessor:
                         )
 
         logger.info(
-            f"Processing complete: {summary['success']} success, "
-            f"{summary['failed']} failed, {summary['skipped']} skipped",
+            "Processing complete: %s success, %s failed, %s skipped",
+            summary["success"],
+            summary["failed"],
+            summary["skipped"],
         )
 
         return summary

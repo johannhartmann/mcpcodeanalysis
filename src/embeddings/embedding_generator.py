@@ -129,9 +129,13 @@ class EmbeddingGenerator:
         if methods:
             method_names = [m["name"] for m in methods if not m["name"].startswith("_")]
             if method_names:
-                parts.append(f"Public methods: {', '.join(method_names[:MAX_DISPLAY_METHODS])}")
+                parts.append(
+                    f"Public methods: {', '.join(method_names[:MAX_DISPLAY_METHODS])}"
+                )
                 if len(method_names) > MAX_DISPLAY_METHODS:
-                    parts.append(f"... and {len(method_names) - MAX_DISPLAY_METHODS} more")
+                    parts.append(
+                        f"... and {len(method_names) - MAX_DISPLAY_METHODS} more"
+                    )
 
         return "\n".join(parts)
 
@@ -357,8 +361,11 @@ class EmbeddingGenerator:
             Embedding result
         """
         logger.debug(
-            f"Generating embedding for {entity_type}: {entity_name} "
-            f"({start_line}-{end_line})",
+            "Generating embedding for %s: %s (%s-%s)",
+            entity_type,
+            entity_name,
+            start_line,
+            end_line,
         )
 
         text = self.prepare_code_chunk_text(

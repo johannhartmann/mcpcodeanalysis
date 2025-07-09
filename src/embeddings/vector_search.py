@@ -72,8 +72,11 @@ class VectorSearch:
             List of search results with similarity scores
         """
         logger.info(
-            f"Searching for '{query}' in scope {scope.value} "
-            f"(repo={repository_id}, file={file_id})",
+            "Searching for '%s' in scope %s (repo=%s, file=%s)",
+            query,
+            scope.value,
+            repository_id,
+            file_id,
         )
 
         # Generate query embedding

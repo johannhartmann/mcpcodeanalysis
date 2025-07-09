@@ -44,7 +44,9 @@ class ParserFactory:
         parser_class = cls._language_parsers.get(language_lower)
         if parser_class:
             logger.debug(
-                "Creating %s for language: %s", parser_class.__name__, language,
+                "Creating %s for language: %s",
+                parser_class.__name__,
+                language,
             )
             return parser_class()
 
@@ -76,7 +78,9 @@ class ParserFactory:
         """Register a new parser for a file extension."""
         cls._parsers[extension.lower()] = parser_class
         logger.info(
-            f"Registered parser {parser_class.__name__} for extension: {extension}",
+            "Registered parser %s for extension: %s",
+            parser_class.__name__,
+            extension,
         )
 
     @classmethod
@@ -84,5 +88,7 @@ class ParserFactory:
         """Register a new parser for a language."""
         cls._language_parsers[language.lower()] = parser_class
         logger.info(
-            f"Registered parser {parser_class.__name__} for language: {language}",
+            "Registered parser %s for language: %s",
+            parser_class.__name__,
+            language,
         )

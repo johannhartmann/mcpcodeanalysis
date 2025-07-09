@@ -110,8 +110,9 @@ class OpenAIClient:
             )
 
             logger.info(
-                f"Processing embedding batch {i // self.batch_size + 1} "
-                f"({len(batch_texts)} items)",
+                "Processing embedding batch %s (%s items)",
+                i // self.batch_size + 1,
+                len(batch_texts),
             )
 
             # Generate embeddings concurrently within batch
@@ -126,7 +127,9 @@ class OpenAIClient:
             for idx, result in enumerate(batch_results):
                 if isinstance(result, Exception):
                     logger.error(
-                        f"Failed to generate embedding for text {i + idx}: {result}",
+                        "Failed to generate embedding for text %s: %s",
+                        i + idx,
+                        result,
                     )
                     # Store None for failed embeddings
                     results.append(

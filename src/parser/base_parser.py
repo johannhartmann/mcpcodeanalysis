@@ -179,8 +179,9 @@ class BaseParser(ABC):
             )
 
             logger.info(
-                f"Successfully parsed {file_path}: "
-                f"{len(result.all_elements)} elements found",
+                "Successfully parsed %s: %s elements found",
+                file_path,
+                len(result.all_elements),
             )
 
             return result

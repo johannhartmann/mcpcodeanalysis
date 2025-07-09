@@ -77,7 +77,8 @@ class EmbeddingService:
                     stats["modules"] += 1
                 except Exception as e:
                     logger.exception(
-                        "Failed to create embedding for module %s", module.id,
+                        "Failed to create embedding for module %s",
+                        module.id,
                     )
                     stats["errors"].append(f"Module {module.name}: {e!s}")
 
@@ -89,7 +90,8 @@ class EmbeddingService:
                     stats["classes"] += 1
                 except Exception as e:
                     logger.exception(
-                        "Failed to create embedding for class %s", cls.id,
+                        "Failed to create embedding for class %s",
+                        cls.id,
                     )
                     stats["errors"].append(f"Class {cls.name}: {e!s}")
 
@@ -101,15 +103,18 @@ class EmbeddingService:
                     stats["functions"] += 1
                 except Exception as e:
                     logger.exception(
-                        "Failed to create embedding for function %s", func.id,
+                        "Failed to create embedding for function %s",
+                        func.id,
                     )
                     stats["errors"].append(f"Function {func.name}: {e!s}")
 
             stats["total"] = stats["modules"] + stats["classes"] + stats["functions"]
 
             logger.info(
-                f"Created {stats['total']} embeddings for file {file_id} "
-                f"({stats['errors']} errors)",
+                "Created %s embeddings for file %s (%s errors)",
+                stats["total"],
+                file_id,
+                stats["errors"],
             )
 
         except Exception as e:
@@ -172,8 +177,10 @@ class EmbeddingService:
                 stats["errors"].append(f"File {file_record.path}: {e!s}")
 
         logger.info(
-            f"Created {stats['total_embeddings']} embeddings for "
-            f"{stats['files_processed']} files in repository {repository_id}",
+            "Created %s embeddings for %s files in repository %s",
+            stats["total_embeddings"],
+            stats["files_processed"],
+            repository_id,
         )
 
         return stats
