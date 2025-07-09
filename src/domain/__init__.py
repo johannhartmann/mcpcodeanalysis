@@ -7,7 +7,7 @@ from src.domain.summarizer import HierarchicalSummarizer
 
 __all__ = [
     "DomainEntityExtractor",
-    "SemanticGraphBuilder",
     "DomainPatternAnalyzer",
     "HierarchicalSummarizer",
+    "SemanticGraphBuilder",
 ]

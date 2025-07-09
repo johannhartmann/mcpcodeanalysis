@@ -28,13 +28,16 @@ class EmbeddingGenerator:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
 
     @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10),
     )
     async def generate_embedding(self, text: str) -> np.ndarray:
         """Generate embedding for a single text."""
         try:
             response = await self.client.embeddings.create(
-                model=self.config.model, input=text, encoding_format="float",
+                model=self.config.model,
+                input=text,
+                encoding_format="float",
             )
 
             embedding = response.data[0].embedding
@@ -74,14 +77,17 @@ class EmbeddingGenerator:
                         encoding_format="float",
                     )
 
-                    for idx, embedding_data in zip(uncached_indices, response.data, strict=False):
+                    for idx, embedding_data in zip(
+                        uncached_indices, response.data, strict=False,
+                    ):
                         embedding = np.array(embedding_data.embedding, dtype=np.float32)
                         batch_embeddings.append((idx, embedding))
 
                         # Cache the embedding
                         if self.cache_dir:
                             await self._cache_embedding(
-                                uncached_texts[uncached_indices.index(idx)], embedding,
+                                uncached_texts[uncached_indices.index(idx)],
+                                embedding,
                             )
 
                 # Sort by original index and extract embeddings
@@ -139,7 +145,8 @@ class EmbeddingGenerator:
                 interpreted_text = f"{context}\n\n{description}"
 
             interpreted_text = self.truncate_text(
-                interpreted_text, self.config.max_tokens,
+                interpreted_text,
+                self.config.max_tokens,
             )
             interpreted_embedding = await self.generate_embedding(interpreted_text)
 

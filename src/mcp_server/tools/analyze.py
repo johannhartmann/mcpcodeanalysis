@@ -172,14 +172,19 @@ class AnalyzeTool:
                 async with get_repositories(session) as repos:
                     # Search for similar embeddings
                     similar = await repos["embedding"].search_similar(
-                        snippet_embedding, limit=20, threshold=0.8, embedding_type="raw",
+                        snippet_embedding,
+                        limit=20,
+                        threshold=0.8,
+                        embedding_type="raw",
                     )
 
                     results = []
                     for embedding, similarity in similar:
                         # Get entity details
                         entity_data = await self._get_entity_details(
-                            repos, embedding.entity_type, embedding.entity_id,
+                            repos,
+                            embedding.entity_type,
+                            embedding.entity_id,
                         )
 
                         if entity_data:
@@ -222,7 +227,9 @@ class AnalyzeTool:
             return {"error": str(e), "path": path}
 
     async def _find_importers(
-        self, repos: dict[str, Any], module_path: str,
+        self,
+        repos: dict[str, Any],
+        module_path: str,
     ) -> list[str]:
         """Find modules that import this module."""
         session = repos["repository"].session
@@ -246,7 +253,9 @@ class AnalyzeTool:
         return importers[:10]  # Limit to 10
 
     async def _find_entity_by_path(
-        self, repos: dict[str, Any], path: str,
+        self,
+        repos: dict[str, Any],
+        path: str,
     ) -> dict[str, Any] | None:
         """Find entity by path."""
         # This is simplified - would need proper path parsing
@@ -312,7 +321,9 @@ class AnalyzeTool:
         return suggestions
 
     async def _analyze_class(
-        self, repos: dict[str, Any], cls: Class,
+        self,
+        repos: dict[str, Any],
+        cls: Class,
     ) -> list[dict[str, Any]]:
         """Analyze a class for refactoring suggestions."""
         suggestions = []
@@ -371,7 +382,9 @@ class AnalyzeTool:
         return suggestions
 
     async def _analyze_module(
-        self, repos: dict[str, Any], module: Module,
+        self,
+        repos: dict[str, Any],
+        module: Module,
     ) -> list[dict[str, Any]]:
         """Analyze a module for refactoring suggestions."""
         suggestions = []
@@ -409,7 +422,10 @@ class AnalyzeTool:
         return suggestions
 
     async def _get_entity_details(
-        self, repos: dict[str, Any], entity_type: str, entity_id: int,
+        self,
+        repos: dict[str, Any],
+        entity_type: str,
+        entity_id: int,
     ) -> dict[str, Any] | None:
         """Get entity details for similarity results."""
         session = repos["repository"].session
@@ -439,7 +455,9 @@ class AnalyzeTool:
         return None
 
     async def _get_module_structure(
-        self, repos: dict[str, Any], module_path: str,
+        self,
+        repos: dict[str, Any],
+        module_path: str,
     ) -> dict[str, Any]:
         """Get structure of a single module."""
         session = repos["repository"].session
@@ -527,7 +545,9 @@ class AnalyzeTool:
         return structure
 
     async def _get_package_structure(
-        self, repos: dict[str, Any], package_path: str,
+        self,
+        repos: dict[str, Any],
+        package_path: str,
     ) -> dict[str, Any]:
         """Get structure of a package (directory)."""
         # This would need implementation to scan directory structure

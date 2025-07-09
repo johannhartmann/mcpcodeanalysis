@@ -18,7 +18,9 @@ class CodeExtractor:
         }
 
     def extract_from_file(
-        self, file_path: Path, file_id: int,
+        self,
+        file_path: Path,
+        file_id: int,
     ) -> dict[str, list[Any]] | None:
         """Extract code entities from a file."""
         suffix = file_path.suffix
@@ -60,13 +62,19 @@ class CodeExtractor:
         # Get contextual content based on entity type
         context_lines = 3 if entity_type == "function" else 5
         contextual_content = parser.get_code_chunk(
-            file_path, start_line, end_line, context_lines,
+            file_path,
+            start_line,
+            end_line,
+            context_lines,
         )
 
         return raw_content, contextual_content
 
     def build_entity_description(
-        self, entity_type: str, entity_data: dict[str, Any], file_path: Path,
+        self,
+        entity_type: str,
+        entity_data: dict[str, Any],
+        file_path: Path,
     ) -> str:
         """Build a natural language description of a code entity."""
         if entity_type == "module":
@@ -139,7 +147,9 @@ class CodeExtractor:
         return ". ".join(parts)
 
     def aggregate_class_info(
-        self, class_data: dict[str, Any], methods: list[dict[str, Any]],
+        self,
+        class_data: dict[str, Any],
+        methods: list[dict[str, Any]],
     ) -> str:
         """Aggregate information about a class and its methods."""
         parts = [self._describe_class(class_data)]

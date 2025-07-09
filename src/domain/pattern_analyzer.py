@@ -155,7 +155,9 @@ class DomainPatternAnalyzer:
             for ctx2_id, count in ctx1_metrics["coupling_details"].items():
                 if count > 5:  # Threshold for high coupling
                     ctx2_metrics = context_metrics.get(ctx2_id, {})
-                    cast("list[dict[str, Any]]", coupling_analysis["high_coupling_pairs"]).append(
+                    cast(
+                        "list[dict[str, Any]]", coupling_analysis["high_coupling_pairs"],
+                    ).append(
                         {
                             "source": ctx1_metrics["name"],
                             "target": ctx2_metrics.get("name", "Unknown"),
@@ -177,7 +179,8 @@ class DomainPatternAnalyzer:
                 2,
             )
             coupling_analysis["metrics"]["max_coupling"] = round(
-                max(coupling_scores), 2,
+                max(coupling_scores),
+                2,
             )
 
             # Distribution
@@ -189,7 +192,10 @@ class DomainPatternAnalyzer:
                 else:
                     bucket = "high"
 
-                cast("dict[str, int]", coupling_analysis["metrics"]["coupling_distribution"])[bucket] = (
+                cast(
+                    "dict[str, int]",
+                    coupling_analysis["metrics"]["coupling_distribution"],
+                )[bucket] = (
                     coupling_analysis["metrics"]["coupling_distribution"].get(bucket, 0)
                     + 1
                 )
@@ -281,7 +287,8 @@ class DomainPatternAnalyzer:
 
                     # Determine cluster theme
                     cluster_name = self._suggest_cluster_name(
-                        cluster_entities, aggregate_roots,
+                        cluster_entities,
+                        aggregate_roots,
                     )
 
                     suggestion["suggested_splits"].append(

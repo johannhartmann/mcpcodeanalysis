@@ -24,13 +24,16 @@ class AddRepositoryRequest(BaseModel):
     url: str = Field(..., description="GitHub repository URL")
     branch: str | None = Field(None, description="Branch to track")
     access_token: SecretStr | None = Field(
-        None, description="GitHub access token for private repos",
+        None,
+        description="GitHub access token for private repos",
     )
     scan_immediately: bool = Field(
-        default=True, description="Start scanning immediately",
+        default=True,
+        description="Start scanning immediately",
     )
     generate_embeddings: bool = Field(
-        default=True, description="Generate embeddings after scanning",
+        default=True,
+        description="Generate embeddings after scanning",
     )
 
 
@@ -39,10 +42,12 @@ class ScanRepositoryRequest(BaseModel):
 
     repository_id: int = Field(..., description="Repository ID to scan")
     force_full_scan: bool = Field(
-        default=False, description="Force full scan instead of incremental",
+        default=False,
+        description="Force full scan instead of incremental",
     )
     generate_embeddings: bool = Field(
-        default=True, description="Generate embeddings after scanning",
+        default=True,
+        description="Generate embeddings after scanning",
     )
 
 
@@ -51,7 +56,8 @@ class UpdateEmbeddingsRequest(BaseModel):
 
     repository_id: int = Field(..., description="Repository ID")
     file_limit: int | None = Field(
-        None, description="Limit number of files to process",
+        None,
+        description="Limit number of files to process",
     )
 
 
@@ -60,7 +66,8 @@ class RepositoryStatsRequest(BaseModel):
 
     repository_id: int = Field(..., description="Repository ID")
     include_commit_history: bool = Field(
-        default=False, description="Include recent commit history",
+        default=False,
+        description="Include recent commit history",
     )
 
 
@@ -91,7 +98,8 @@ class RepositoryManagementTools:
         """Register all repository management tools."""
 
         @self.mcp.tool(
-            name="add_repository", description="Add a new repository to track",
+            name="add_repository",
+            description="Add a new repository to track",
         )
         async def add_repository(request: AddRepositoryRequest) -> dict[str, Any]:
             """Add a new repository for tracking and analysis.
@@ -152,11 +160,13 @@ class RepositoryManagementTools:
                 }
 
         @self.mcp.tool(
-            name="list_repositories", description="List all tracked repositories",
+            name="list_repositories",
+            description="List all tracked repositories",
         )
         async def list_repositories(
             include_stats: bool = Field(
-                default=False, description="Include repository statistics",
+                default=False,
+                description="Include repository statistics",
             ),
         ) -> dict[str, Any]:
             """List all tracked repositories.
@@ -198,7 +208,8 @@ class RepositoryManagementTools:
                         # Get embedding count
                         if self.embedding_service:
                             vector_search = VectorSearch(
-                                self.db_session, self.openai_client,
+                                self.db_session,
+                                self.openai_client,
                             )
                             stats = await vector_search.get_repository_stats(repo.id)
                             repo_info["stats"] = {
@@ -228,7 +239,8 @@ class RepositoryManagementTools:
                 }
 
         @self.mcp.tool(
-            name="scan_repository", description="Scan or rescan a repository",
+            name="scan_repository",
+            description="Scan or rescan a repository",
         )
         async def scan_repository(request: ScanRepositoryRequest) -> dict[str, Any]:
             """Scan or rescan a repository.
@@ -266,7 +278,8 @@ class RepositoryManagementTools:
                 # Scan repository
                 scanner = RepositoryScanner(self.db_session, self.openai_client)
                 scan_result = await scanner.scan_repository(
-                    repo_config, force_full_scan=request.force_full_scan,
+                    repo_config,
+                    force_full_scan=request.force_full_scan,
                 )
 
                 # Generate embeddings if requested
@@ -296,7 +309,8 @@ class RepositoryManagementTools:
                 }
 
         @self.mcp.tool(
-            name="update_embeddings", description="Update embeddings for a repository",
+            name="update_embeddings",
+            description="Update embeddings for a repository",
         )
         async def update_embeddings(request: UpdateEmbeddingsRequest) -> dict[str, Any]:
             """Update embeddings for repository files.
@@ -329,7 +343,8 @@ class RepositoryManagementTools:
                 # Generate embeddings
                 embedding_result = (
                     await self.embedding_service.create_repository_embeddings(
-                        request.repository_id, limit=request.file_limit,
+                        request.repository_id,
+                        limit=request.file_limit,
                     )
                 )
 
@@ -487,12 +502,14 @@ class RepositoryManagementTools:
                 }
 
         @self.mcp.tool(
-            name="delete_repository", description="Delete a repository and all its data",
+            name="delete_repository",
+            description="Delete a repository and all its data",
         )
         async def delete_repository(
             repository_id: int = Field(..., description="Repository ID to delete"),
             confirm: bool = Field(
-                default=False, description="Confirm deletion (required)",
+                default=False,
+                description="Confirm deletion (required)",
             ),
         ) -> dict[str, Any]:
             """Delete a repository and all associated data.

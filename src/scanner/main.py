@@ -82,7 +82,8 @@ class ScannerService:
 
             # Get repository info from GitHub
             repo_info = await self.github_monitor.get_repository_info(
-                repo_url, repo_config.get("access_token"),
+                repo_url,
+                repo_config.get("access_token"),
             )
 
             async with get_session() as session:
@@ -102,7 +103,8 @@ class ScannerService:
 
                     # Clone or update repository
                     if not self.git_sync.get_repo_path(
-                        repo_info["owner"], repo_info["name"],
+                        repo_info["owner"],
+                        repo_info["name"],
                     ).exists():
                         # Initial clone
                         git_repo = self.git_sync.clone_repository(
@@ -115,7 +117,9 @@ class ScannerService:
 
                         # Process all files
                         await self.process_all_files(
-                            db_repo, repo_info["owner"], repo_info["name"],
+                            db_repo,
+                            repo_info["owner"],
+                            repo_info["name"],
                         )
                     else:
                         # Get commits since last sync
@@ -155,7 +159,8 @@ class ScannerService:
                         last_commit = await repos["commit"].get_latest(db_repo.id)
                         if last_commit:
                             changed_files = self.git_sync.get_changed_files(
-                                git_repo, last_commit.sha,
+                                git_repo,
+                                last_commit.sha,
                             )
 
                             await self.process_changed_files(
@@ -167,7 +172,9 @@ class ScannerService:
                         else:
                             # No previous commits, process all files
                             await self.process_all_files(
-                                db_repo, repo_info["owner"], repo_info["name"],
+                                db_repo,
+                                repo_info["owner"],
+                                repo_info["name"],
                             )
 
                     # Update last synced time
@@ -175,7 +182,8 @@ class ScannerService:
 
                     # Add file watcher for this repository
                     repo_path = self.git_sync.get_repo_path(
-                        repo_info["owner"], repo_info["name"],
+                        repo_info["owner"],
+                        repo_info["name"],
                     )
 
                     def file_changed(path: str, event_type: str) -> None:
@@ -206,7 +214,11 @@ class ScannerService:
                 await self.process_file(repos, db_repo.id, owner, name, file_path)
 
     async def process_changed_files(
-        self, db_repo: Any, owner: str, name: str, changed_files: set,
+        self,
+        db_repo: Any,
+        owner: str,
+        name: str,
+        changed_files: set,
     ) -> None:
         """Process changed files in a repository."""
         logger.info(f"Processing {len(changed_files)} changed files for {owner}/{name}")
@@ -219,7 +231,11 @@ class ScannerService:
 
                 if full_path.suffix == ".py" and full_path.exists():
                     await self.process_file(
-                        repos, db_repo.id, owner, name, full_path,
+                        repos,
+                        db_repo.id,
+                        owner,
+                        name,
+                        full_path,
                     )
 
     async def process_file(
@@ -269,12 +285,14 @@ class ScannerService:
                 # This is simplified - in practice, we'd need to track IDs
                 for class_data in entities["classes"]:
                     await repos["code_entity"].create_class(
-                        module_id=1, **class_data,  # TODO: Get actual module ID
+                        module_id=1,
+                        **class_data,  # TODO: Get actual module ID
                     )
 
                 for func_data in entities["functions"]:
                     await repos["code_entity"].create_function(
-                        module_id=1, **func_data,  # TODO: Get actual module ID
+                        module_id=1,
+                        **func_data,  # TODO: Get actual module ID
                     )
 
             logger.debug(f"Processed file: {relative_path}")
@@ -283,7 +301,10 @@ class ScannerService:
             logger.exception(f"Error processing file {file_path}: {e}")
 
     async def handle_file_change(
-        self, repo_id: int, file_path: str, event_type: str,
+        self,
+        repo_id: int,
+        file_path: str,
+        event_type: str,
     ) -> None:
         """Handle a file change event."""
         try:

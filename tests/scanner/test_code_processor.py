@@ -42,45 +42,53 @@ def mock_file_record():
 def sample_entities():
     """Sample extracted entities."""
     return {
-        "modules": [{
-            "name": "test",
-            "docstring": "Test module",
-            "start_line": 1,
-            "end_line": 100,
-        }],
-        "classes": [{
-            "name": "TestClass",
-            "docstring": "Test class",
-            "base_classes": ["Base"],
-            "decorators": [],
-            "start_line": 10,
-            "end_line": 50,
-            "is_abstract": False,
-        }],
-        "functions": [{
-            "name": "test_func",
-            "parameters": [],
-            "return_type": "str",
-            "docstring": "Test function",
-            "decorators": [],
-            "is_async": False,
-            "is_generator": False,
-            "is_property": False,
-            "is_staticmethod": False,
-            "is_classmethod": False,
-            "start_line": 60,
-            "end_line": 65,
-            "complexity": 1,
-            "class_name": None,
-        }],
-        "imports": [{
-            "import_statement": "import os",
-            "imported_from": None,
-            "imported_names": ["os"],
-            "is_relative": False,
-            "level": 0,
-            "line_number": 3,
-        }],
+        "modules": [
+            {
+                "name": "test",
+                "docstring": "Test module",
+                "start_line": 1,
+                "end_line": 100,
+            },
+        ],
+        "classes": [
+            {
+                "name": "TestClass",
+                "docstring": "Test class",
+                "base_classes": ["Base"],
+                "decorators": [],
+                "start_line": 10,
+                "end_line": 50,
+                "is_abstract": False,
+            },
+        ],
+        "functions": [
+            {
+                "name": "test_func",
+                "parameters": [],
+                "return_type": "str",
+                "docstring": "Test function",
+                "decorators": [],
+                "is_async": False,
+                "is_generator": False,
+                "is_property": False,
+                "is_staticmethod": False,
+                "is_classmethod": False,
+                "start_line": 60,
+                "end_line": 65,
+                "complexity": 1,
+                "class_name": None,
+            },
+        ],
+        "imports": [
+            {
+                "import_statement": "import os",
+                "imported_from": None,
+                "imported_names": ["os"],
+                "is_relative": False,
+                "level": 0,
+                "line_number": 3,
+            },
+        ],
     }
 
 
@@ -88,11 +96,15 @@ class TestCodeProcessor:
     """Tests for CodeProcessor class."""
 
     @pytest.mark.asyncio
-    async def test_process_file_unsupported(self, code_processor, mock_file_record) -> None:
+    async def test_process_file_unsupported(
+        self, code_processor, mock_file_record,
+    ) -> None:
         """Test processing unsupported file type."""
         mock_file_record.path = "test.txt"
 
-        with patch.object(code_processor.parser_factory, "is_supported", return_value=False):
+        with patch.object(
+            code_processor.parser_factory, "is_supported", return_value=False,
+        ):
             result = await code_processor.process_file(mock_file_record)
 
             assert result["status"] == "skipped"
@@ -107,7 +119,9 @@ class TestCodeProcessor:
         mock_db_session,
     ) -> None:
         """Test successful file processing."""
-        with patch.object(code_processor.parser_factory, "is_supported", return_value=True):
+        with patch.object(
+            code_processor.parser_factory, "is_supported", return_value=True,
+        ):
             with patch.object(
                 code_processor,
                 "_extract_entities",
@@ -116,7 +130,12 @@ class TestCodeProcessor:
                 with patch.object(
                     code_processor,
                     "_store_entities",
-                    return_value={"modules": 1, "classes": 1, "functions": 1, "imports": 1},
+                    return_value={
+                        "modules": 1,
+                        "classes": 1,
+                        "functions": 1,
+                        "imports": 1,
+                    },
                 ):
                     result = await code_processor.process_file(mock_file_record)
 
@@ -133,7 +152,9 @@ class TestCodeProcessor:
         mock_file_record,
     ) -> None:
         """Test file processing with extraction failure."""
-        with patch.object(code_processor.parser_factory, "is_supported", return_value=True):
+        with patch.object(
+            code_processor.parser_factory, "is_supported", return_value=True,
+        ):
             with patch.object(code_processor, "_extract_entities", return_value=None):
                 result = await code_processor.process_file(mock_file_record)
 
@@ -148,7 +169,9 @@ class TestCodeProcessor:
         mock_db_session,
     ) -> None:
         """Test file processing with error."""
-        with patch.object(code_processor.parser_factory, "is_supported", return_value=True):
+        with patch.object(
+            code_processor.parser_factory, "is_supported", return_value=True,
+        ):
             with patch.object(
                 code_processor,
                 "_extract_entities",
@@ -185,7 +208,9 @@ class TestCodeProcessor:
     ) -> None:
         """Test storing entities in database."""
         with patch.object(code_processor, "_clear_file_entities"):
-            stats = await code_processor._store_entities(sample_entities, mock_file_record)
+            stats = await code_processor._store_entities(
+                sample_entities, mock_file_record,
+            )
 
             assert stats["modules"] == 1
             assert stats["classes"] == 1
@@ -232,13 +257,23 @@ class TestCodeProcessor:
             assert len(result["errors"]) == 1
 
     @pytest.mark.asyncio
-    async def test_get_file_structure(self, code_processor, mock_file_record, mock_db_session) -> None:
+    async def test_get_file_structure(
+        self, code_processor, mock_file_record, mock_db_session,
+    ) -> None:
         """Test getting file structure."""
         # Mock database queries
-        mock_modules = [MagicMock(id=1, name="test", docstring="Test", start_line=1, end_line=100)]
-        mock_classes = [MagicMock(id=1, name="TestClass", base_classes=["Base"], is_abstract=False)]
-        mock_functions = [MagicMock(id=1, name="test_func", class_id=None, parameters=[])]
-        mock_imports = [MagicMock(id=1, import_statement="import os", imported_from=None)]
+        mock_modules = [
+            MagicMock(id=1, name="test", docstring="Test", start_line=1, end_line=100),
+        ]
+        mock_classes = [
+            MagicMock(id=1, name="TestClass", base_classes=["Base"], is_abstract=False),
+        ]
+        mock_functions = [
+            MagicMock(id=1, name="test_func", class_id=None, parameters=[]),
+        ]
+        mock_imports = [
+            MagicMock(id=1, import_statement="import os", imported_from=None),
+        ]
 
         mock_db_session.execute.side_effect = [
             MagicMock(scalars=lambda: mock_modules),

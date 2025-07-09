@@ -49,14 +49,14 @@ class DomainEntity(Base):
     invariants = Column(JSON, default=[])  # List of invariants to maintain
     responsibilities = Column(JSON, default=[])  # What this entity is responsible for
     ubiquitous_language = Column(JSON, default={})  # Domain terms used
-    
+
     # Tracking which code entities implement this domain entity
     source_entities = Column(ARRAY(Integer), default=[])  # IDs from code_entities
     confidence_score = Column(Float, default=1.0)  # LLM confidence in extraction
-    
+
     # Embeddings for semantic search
     concept_embedding = Column(Vector(1536))  # Semantic embedding of the concept
-    
+
     # Metadata
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
@@ -96,7 +96,7 @@ class DomainRelationship(Base):
     id = Column(Integer, primary_key=True)
     source_entity_id = Column(Integer, ForeignKey("domain_entities.id"), nullable=False)
     target_entity_id = Column(Integer, ForeignKey("domain_entities.id"), nullable=False)
-    
+
     relationship_type = Column(
         Enum(
             "uses",
@@ -118,18 +118,20 @@ class DomainRelationship(Base):
         ),
         nullable=False,
     )
-    
+
     description = Column(Text)
     strength = Column(Float, default=1.0)  # Relationship strength (0-1)
     confidence_score = Column(Float, default=1.0)  # LLM confidence
-    
+
     # Evidence from code supporting this relationship
-    evidence = Column(JSON, default=[])  # List of {file_path, line_number, code_snippet}
-    
+    evidence = Column(
+        JSON, default=[],
+    )  # List of {file_path, line_number, code_snippet}
+
     # Additional semantic information
     interaction_patterns = Column(JSON, default=[])  # How they interact
     data_flow = Column(JSON, default={})  # What data flows between them
-    
+
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -166,15 +168,15 @@ class BoundedContext(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False, unique=True)
     description = Column(Text)
-    
+
     # Domain language and concepts
     ubiquitous_language = Column(JSON, default={})  # Term -> Definition mapping
     core_concepts = Column(JSON, default=[])  # Main concepts in this context
-    
+
     # Boundaries and interfaces
     published_language = Column(JSON, default={})  # Public API/events
     anti_corruption_layer = Column(JSON, default={})  # External term mappings
-    
+
     # Context metadata
     context_type = Column(
         Enum(
@@ -186,16 +188,16 @@ class BoundedContext(Base):
         ),
         default="supporting",
     )
-    
+
     # Summarization
     summary = Column(Text)  # LLM-generated summary
     responsibilities = Column(JSON, default=[])  # What this context handles
-    
+
     # Graph analysis metadata
     cohesion_score = Column(Float)  # Internal cohesion (0-1)
     coupling_score = Column(Float)  # External coupling (0-1)
     modularity_score = Column(Float)  # From community detection
-    
+
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -225,16 +227,20 @@ class BoundedContextMembership(Base):
 
     id = Column(Integer, primary_key=True)
     domain_entity_id = Column(Integer, ForeignKey("domain_entities.id"), nullable=False)
-    bounded_context_id = Column(Integer, ForeignKey("bounded_contexts.id"), nullable=False)
-    
+    bounded_context_id = Column(
+        Integer, ForeignKey("bounded_contexts.id"), nullable=False,
+    )
+
     # Role of entity within context
     role = Column(String(100))  # e.g., "aggregate_root", "service", etc.
     importance_score = Column(Float, default=1.0)  # How central to the context
-    
+
     created_at = Column(DateTime, default=func.now())
 
     # Relationships
-    domain_entity = relationship("DomainEntity", back_populates="bounded_context_memberships")
+    domain_entity = relationship(
+        "DomainEntity", back_populates="bounded_context_memberships",
+    )
     bounded_context = relationship("BoundedContext", back_populates="memberships")
 
     __table_args__ = (
@@ -254,9 +260,13 @@ class ContextRelationship(Base):
     __tablename__ = "context_relationships"
 
     id = Column(Integer, primary_key=True)
-    source_context_id = Column(Integer, ForeignKey("bounded_contexts.id"), nullable=False)
-    target_context_id = Column(Integer, ForeignKey("bounded_contexts.id"), nullable=False)
-    
+    source_context_id = Column(
+        Integer, ForeignKey("bounded_contexts.id"), nullable=False,
+    )
+    target_context_id = Column(
+        Integer, ForeignKey("bounded_contexts.id"), nullable=False,
+    )
+
     relationship_type = Column(
         Enum(
             "shared_kernel",
@@ -271,10 +281,10 @@ class ContextRelationship(Base):
         ),
         nullable=False,
     )
-    
+
     description = Column(Text)
     interface_description = Column(JSON, default={})  # How contexts integrate
-    
+
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -311,19 +321,19 @@ class DomainSummary(Base):
         Enum("function", "class", "module", "package", "context", name="summary_level"),
         nullable=False,
     )
-    
+
     # Reference to original code entity
     entity_type = Column(String(50))  # e.g., "function", "class", etc.
     entity_id = Column(Integer)  # ID in respective table
-    
+
     # LLM-generated summaries
     business_summary = Column(Text)  # What it does in business terms
     technical_summary = Column(Text)  # Technical implementation details
     domain_concepts = Column(JSON, default=[])  # Extracted concepts
-    
+
     # Hierarchical reference
     parent_summary_id = Column(Integer, ForeignKey("domain_summaries.id"))
-    
+
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 

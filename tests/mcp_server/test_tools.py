@@ -48,7 +48,9 @@ class TestCodeSearchTools:
         await search_tools.register_tools()
 
         # Should register multiple tools
-        assert mock_mcp.tool.call_count >= 3  # semantic_search, find_similar, keyword_search
+        assert (
+            mock_mcp.tool.call_count >= 3
+        )  # semantic_search, find_similar, keyword_search
 
     @pytest.mark.asyncio
     async def test_semantic_search(self, search_tools) -> None:

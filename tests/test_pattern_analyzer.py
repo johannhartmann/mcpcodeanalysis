@@ -1,10 +1,8 @@
 """Tests for pattern analyzer functionality."""
 
-import asyncio
 from datetime import datetime, timedelta
 
 import pytest
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.domain_models import (
@@ -28,7 +26,7 @@ async def sample_domain_data(db_session: AsyncSession):
     )
     db_session.add(repo)
     await db_session.flush()
-    
+
     # Create files
     file1 = File(
         repository_id=repo.id,
@@ -44,7 +42,7 @@ async def sample_domain_data(db_session: AsyncSession):
     )
     db_session.add_all([file1, file2])
     await db_session.flush()
-    
+
     # Create bounded contexts
     sales_ctx = BoundedContext(
         name="Sales",
@@ -60,7 +58,7 @@ async def sample_domain_data(db_session: AsyncSession):
     )
     db_session.add_all([sales_ctx, inventory_ctx])
     await db_session.flush()
-    
+
     # Create entities
     order_entity = DomainEntity(
         name="Order",
@@ -71,7 +69,7 @@ async def sample_domain_data(db_session: AsyncSession):
         invariants=["items.count > 0", "total > 0"],
         responsibilities=["Manage order lifecycle", "Calculate totals"],
     )
-    
+
     order_item_entity = DomainEntity(
         name="OrderItem",
         entity_type="entity",
@@ -81,7 +79,7 @@ async def sample_domain_data(db_session: AsyncSession):
         invariants=[],
         responsibilities=["Track item quantity"],
     )
-    
+
     product_entity = DomainEntity(
         name="Product",
         entity_type="aggregate_root",
@@ -91,7 +89,7 @@ async def sample_domain_data(db_session: AsyncSession):
         invariants=["stock >= 0"],
         responsibilities=["Manage product info", "Track inventory"],
     )
-    
+
     # Anemic entity for testing
     customer_entity = DomainEntity(
         name="Customer",
@@ -102,7 +100,7 @@ async def sample_domain_data(db_session: AsyncSession):
         invariants=[],  # No invariants - anemic
         responsibilities=["Store customer data"],
     )
-    
+
     # God object for testing
     service_entity = DomainEntity(
         name="OrderService",
@@ -120,37 +118,39 @@ async def sample_domain_data(db_session: AsyncSession):
             "Validate addresses",
         ],  # Too many responsibilities
     )
-    
-    db_session.add_all([
-        order_entity, order_item_entity, product_entity,
-        customer_entity, service_entity
-    ])
+
+    db_session.add_all(
+        [
+            order_entity,
+            order_item_entity,
+            product_entity,
+            customer_entity,
+            service_entity,
+        ],
+    )
     await db_session.flush()
-    
+
     # Create context memberships
-    db_session.add_all([
-        BoundedContextMembership(
-            bounded_context_id=sales_ctx.id,
-            domain_entity_id=order_entity.id
-        ),
-        BoundedContextMembership(
-            bounded_context_id=sales_ctx.id,
-            domain_entity_id=order_item_entity.id
-        ),
-        BoundedContextMembership(
-            bounded_context_id=sales_ctx.id,
-            domain_entity_id=customer_entity.id
-        ),
-        BoundedContextMembership(
-            bounded_context_id=sales_ctx.id,
-            domain_entity_id=service_entity.id
-        ),
-        BoundedContextMembership(
-            bounded_context_id=inventory_ctx.id,
-            domain_entity_id=product_entity.id
-        ),
-    ])
-    
+    db_session.add_all(
+        [
+            BoundedContextMembership(
+                bounded_context_id=sales_ctx.id, domain_entity_id=order_entity.id,
+            ),
+            BoundedContextMembership(
+                bounded_context_id=sales_ctx.id, domain_entity_id=order_item_entity.id,
+            ),
+            BoundedContextMembership(
+                bounded_context_id=sales_ctx.id, domain_entity_id=customer_entity.id,
+            ),
+            BoundedContextMembership(
+                bounded_context_id=sales_ctx.id, domain_entity_id=service_entity.id,
+            ),
+            BoundedContextMembership(
+                bounded_context_id=inventory_ctx.id, domain_entity_id=product_entity.id,
+            ),
+        ],
+    )
+
     # Create relationships
     # Order aggregates OrderItem
     rel1 = DomainRelationship(
@@ -159,7 +159,7 @@ async def sample_domain_data(db_session: AsyncSession):
         relationship_type="aggregates",
         description="Order contains items",
     )
-    
+
     # Order depends on Product (cross-context)
     rel2 = DomainRelationship(
         source_entity_id=order_entity.id,
@@ -167,7 +167,7 @@ async def sample_domain_data(db_session: AsyncSession):
         relationship_type="depends_on",
         description="Order references products",
     )
-    
+
     # Multiple relationships for high coupling
     for i in range(10):
         db_session.add(
@@ -176,12 +176,12 @@ async def sample_domain_data(db_session: AsyncSession):
                 target_entity_id=product_entity.id,
                 relationship_type="depends_on",
                 description=f"Dependency {i}",
-            )
+            ),
         )
-    
+
     db_session.add_all([rel1, rel2])
     await db_session.commit()
-    
+
     return {
         "repository": repo,
         "sales_context": sales_ctx,
@@ -192,24 +192,26 @@ async def sample_domain_data(db_session: AsyncSession):
             "product": product_entity,
             "customer": customer_entity,
             "service": service_entity,
-        }
+        },
     }
 
 
 @pytest.mark.asyncio
-async def test_analyze_cross_context_coupling(db_session: AsyncSession, sample_domain_data):
+async def test_analyze_cross_context_coupling(
+    db_session: AsyncSession, sample_domain_data,
+):
     """Test cross-context coupling analysis."""
     analyzer = DomainPatternAnalyzer(db_session)
-    
+
     result = await analyzer.analyze_cross_context_coupling(
-        sample_domain_data["repository"].id
+        sample_domain_data["repository"].id,
     )
-    
+
     assert "contexts" in result
     assert "high_coupling_pairs" in result
     assert "recommendations" in result
     assert "metrics" in result
-    
+
     # Should find high coupling between Sales and Inventory
     assert len(result["high_coupling_pairs"]) > 0
     pair = result["high_coupling_pairs"][0]
@@ -222,21 +224,19 @@ async def test_analyze_cross_context_coupling(db_session: AsyncSession, sample_d
 async def test_detect_anti_patterns(db_session: AsyncSession, sample_domain_data):
     """Test anti-pattern detection."""
     analyzer = DomainPatternAnalyzer(db_session)
-    
-    result = await analyzer.detect_anti_patterns(
-        sample_domain_data["repository"].id
-    )
-    
+
+    result = await analyzer.detect_anti_patterns(sample_domain_data["repository"].id)
+
     assert "anemic_domain_models" in result
     assert "god_objects" in result
     assert "circular_dependencies" in result
     assert "missing_aggregate_roots" in result
-    
+
     # Should find anemic Customer entity
     anemic = result["anemic_domain_models"]
     assert len(anemic) > 0
     assert any(p["entity"] == "Customer" for p in anemic)
-    
+
     # Should find god object OrderService
     god_objects = result["god_objects"]
     assert len(god_objects) > 0
@@ -254,7 +254,7 @@ async def test_suggest_context_splits(db_session: AsyncSession, sample_domain_da
     )
     db_session.add(large_ctx)
     await db_session.flush()
-    
+
     # Add many entities to it
     for i in range(25):
         entity = DomainEntity(
@@ -265,23 +265,21 @@ async def test_suggest_context_splits(db_session: AsyncSession, sample_domain_da
         )
         db_session.add(entity)
         await db_session.flush()
-        
+
         db_session.add(
             BoundedContextMembership(
-                bounded_context_id=large_ctx.id,
-                domain_entity_id=entity.id
-            )
+                bounded_context_id=large_ctx.id, domain_entity_id=entity.id,
+            ),
         )
-    
+
     await db_session.commit()
-    
+
     analyzer = DomainPatternAnalyzer(db_session)
-    
+
     result = await analyzer.suggest_context_splits(
-        min_entities=20,
-        max_cohesion_threshold=0.4
+        min_entities=20, max_cohesion_threshold=0.4,
     )
-    
+
     assert len(result) > 0
     suggestion = result[0]
     assert suggestion["context"] == "LargeContext"
@@ -293,7 +291,7 @@ async def test_suggest_context_splits(db_session: AsyncSession, sample_domain_da
 async def test_analyze_evolution(db_session: AsyncSession, sample_domain_data):
     """Test domain evolution analysis."""
     analyzer = DomainPatternAnalyzer(db_session)
-    
+
     # Create some recent entities
     recent_entity = DomainEntity(
         name="RecentEntity",
@@ -304,16 +302,15 @@ async def test_analyze_evolution(db_session: AsyncSession, sample_domain_data):
     )
     db_session.add(recent_entity)
     await db_session.commit()
-    
+
     result = await analyzer.analyze_evolution(
-        sample_domain_data["repository"].id,
-        days=30
+        sample_domain_data["repository"].id, days=30,
     )
-    
+
     assert "entity_changes" in result
     assert "context_changes" in result
     assert "trends" in result
     assert "insights" in result
-    
+
     # Should include the recent entity
     assert len(result["entity_changes"]["added"]) > 0

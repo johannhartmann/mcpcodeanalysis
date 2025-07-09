@@ -263,12 +263,12 @@ class VectorSearch:
         # Apply similarity threshold
         if threshold:
             query = query.where(
-                (1 - CodeEmbedding.embedding.cosine_distance(query_vector)) >= threshold,
+                (1 - CodeEmbedding.embedding.cosine_distance(query_vector))
+                >= threshold,
             )
 
         # Order by similarity and limit
         return query.order_by(text("similarity DESC")).limit(limit)
-
 
     async def _load_embedding_with_entity(
         self,

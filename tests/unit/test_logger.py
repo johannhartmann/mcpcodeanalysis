@@ -41,6 +41,7 @@ class TestJSONFormatter:
             raise ValueError("Test error")
         except ValueError:
             import sys
+
             exc_info = sys.exc_info()
 
         record = logging.LogRecord(
@@ -178,7 +179,9 @@ class TestLoggingSetup:
         assert root_logger.level == logging.DEBUG
 
         # Should have console handler
-        handlers = [h for h in root_logger.handlers if isinstance(h, logging.StreamHandler)]
+        handlers = [
+            h for h in root_logger.handlers if isinstance(h, logging.StreamHandler)
+        ]
         assert len(handlers) >= 1
 
     def test_setup_file_logging(self, tmp_path) -> None:
@@ -221,8 +224,7 @@ class TestLoggingSetup:
 
         root_logger = logging.getLogger()
         console_handlers = [
-            h for h in root_logger.handlers
-            if isinstance(h, logging.StreamHandler)
+            h for h in root_logger.handlers if isinstance(h, logging.StreamHandler)
         ]
 
         assert len(console_handlers) > 0

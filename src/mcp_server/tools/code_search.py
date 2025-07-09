@@ -23,20 +23,27 @@ class SearchRequest(BaseModel):
         description="Search scope: all, functions, classes, modules, repository, file",
     )
     repository_id: int | None = Field(
-        None, description="Repository ID to limit search",
+        None,
+        description="Repository ID to limit search",
     )
     file_id: int | None = Field(None, description="File ID to limit search")
     limit: int = Field(
-        default=10, ge=1, le=100, description="Maximum number of results",
+        default=10,
+        ge=1,
+        le=100,
+        description="Maximum number of results",
     )
     threshold: float | None = Field(
-        None, ge=0.0, le=1.0, description="Minimum similarity threshold",
+        None,
+        ge=0.0,
+        le=1.0,
+        description="Minimum similarity threshold",
     )
     use_domain_knowledge: bool = Field(
-        default=False, description="Use domain knowledge to enhance search"
+        default=False, description="Use domain knowledge to enhance search",
     )
     bounded_context: str | None = Field(
-        None, description="Limit search to specific bounded context"
+        None, description="Limit search to specific bounded context",
     )
 
 
@@ -46,13 +53,14 @@ class SimilarCodeRequest(BaseModel):
     embedding_id: int = Field(..., description="ID of embedding to find similar to")
     limit: int = Field(default=10, ge=1, le=50, description="Maximum number of results")
     exclude_same_file: bool = Field(
-        default=False, description="Exclude results from the same file",
+        default=False,
+        description="Exclude results from the same file",
     )
 
 
 class BusinessCapabilitySearchRequest(BaseModel):
     """Search by business capability request."""
-    
+
     capability: str = Field(..., description="Business capability description")
     limit: int = Field(default=10, ge=1, le=50, description="Maximum number of results")
 
@@ -62,10 +70,12 @@ class CodeSnippetSearchRequest(BaseModel):
 
     code_snippet: str = Field(..., description="Code snippet to search for")
     scope: str = Field(
-        default="all", description="Search scope: all, functions, classes, modules",
+        default="all",
+        description="Search scope: all, functions, classes, modules",
     )
     repository_id: int | None = Field(
-        None, description="Repository ID to limit search",
+        None,
+        description="Repository ID to limit search",
     )
     limit: int = Field(default=10, ge=1, le=50, description="Maximum number of results")
 
@@ -124,10 +134,9 @@ class CodeSearchTools:
                             "modules": DomainSearchScope.BOUNDED_CONTEXT,
                         }
                         domain_scope = domain_scope_map.get(
-                            request.scope.lower(), 
-                            DomainSearchScope.ALL
+                            request.scope.lower(), DomainSearchScope.ALL,
                         )
-                        
+
                         results = await self.domain_search.search_with_domain_context(
                             query=request.query,
                             scope=domain_scope,
@@ -152,7 +161,11 @@ class CodeSearchTools:
                         "query": request.query,
                         "results": results,
                         "count": len(results),
-                        "search_type": "domain-aware" if request.use_domain_knowledge else "standard",
+                        "search_type": (
+                            "domain-aware"
+                            if request.use_domain_knowledge
+                            else "standard"
+                        ),
                     }
 
                 except Exception as e:
@@ -238,37 +251,40 @@ class CodeSearchTools:
                         "error": str(e),
                         "results": [],
                     }
-            
+
             # Business capability search
             if self.domain_search:
+
                 @self.mcp.tool(
                     name="search_by_business_capability",
-                    description="Search for code that implements a business capability"
+                    description="Search for code that implements a business capability",
                 )
                 async def search_by_business_capability(
-                    request: BusinessCapabilitySearchRequest
+                    request: BusinessCapabilitySearchRequest,
                 ) -> dict[str, Any]:
                     """Search for code by business capability.
-                    
+
                     Args:
                         request: Business capability search parameters
-                        
+
                     Returns:
                         Code implementing the capability
                     """
                     try:
-                        results = await self.domain_search.search_by_business_capability(
-                            capability=request.capability,
-                            limit=request.limit,
+                        results = (
+                            await self.domain_search.search_by_business_capability(
+                                capability=request.capability,
+                                limit=request.limit,
+                            )
                         )
-                        
+
                         return {
                             "success": True,
                             "capability": request.capability,
                             "results": results,
                             "count": len(results),
                         }
-                        
+
                     except Exception as e:
                         logger.exception(f"Business capability search failed: {e}")
                         return {
@@ -279,15 +295,18 @@ class CodeSearchTools:
 
         # Keyword search tools (always available)
         @self.mcp.tool(
-            name="keyword_search", description="Search for code using keywords",
+            name="keyword_search",
+            description="Search for code using keywords",
         )
         async def keyword_search(
             query: str = Field(..., description="Keyword search query"),
             entity_type: str | None = Field(
-                None, description="Entity type: function, class, module",
+                None,
+                description="Entity type: function, class, module",
             ),
             repository_id: int | None = Field(
-                None, description="Repository ID to limit search",
+                None,
+                description="Repository ID to limit search",
             ),
             limit: int = Field(default=20, ge=1, le=100),
         ) -> dict[str, Any]:

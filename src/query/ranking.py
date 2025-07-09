@@ -149,7 +149,9 @@ class ResultRanker:
         return min(1.0, score)
 
     def _calculate_context_score(
-        self, result: dict[str, Any], user_context: dict[str, Any] | None,
+        self,
+        result: dict[str, Any],
+        user_context: dict[str, Any] | None,
     ) -> float:
         """Calculate score based on user context (e.g., current file, recent searches)."""
         if not user_context:
@@ -249,17 +251,20 @@ class ResultRanker:
                 # Add type-specific context
                 if entity_data.get("type") == "function":
                     formatted_result["context"]["parameters"] = entity_data.get(
-                        "parameters", [],
+                        "parameters",
+                        [],
                     )
                     formatted_result["context"]["return_type"] = entity_data.get(
                         "return_type",
                     )
                 elif entity_data.get("type") == "class":
                     formatted_result["context"]["base_classes"] = entity_data.get(
-                        "base_classes", [],
+                        "base_classes",
+                        [],
                     )
                     formatted_result["context"]["is_abstract"] = entity_data.get(
-                        "is_abstract", False,
+                        "is_abstract",
+                        False,
                     )
 
             formatted.append(formatted_result)

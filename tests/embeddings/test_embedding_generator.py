@@ -92,7 +92,10 @@ class TestEmbeddingGenerator:
 
         assert "Function: test_function" in text
         assert "File: test.py" in text
-        assert "Signature: test_function(arg1: str, arg2: int = 10) -> Optional[str]" in text
+        assert (
+            "Signature: test_function(arg1: str, arg2: int = 10) -> Optional[str]"
+            in text
+        )
         assert "Type: async" in text
         assert "Description: Test function that does something" in text
         assert "Decorators: lru_cache" in text

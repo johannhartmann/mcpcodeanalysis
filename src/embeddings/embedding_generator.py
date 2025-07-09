@@ -22,7 +22,9 @@ class EmbeddingGenerator:
         self.code_extractor = CodeExtractor()
 
     def prepare_function_text(
-        self, function_data: dict[str, Any], file_path: str,
+        self,
+        function_data: dict[str, Any],
+        file_path: str,
     ) -> str:
         """Prepare function text for embedding.
 
@@ -246,7 +248,6 @@ class EmbeddingGenerator:
         # Generate embeddings
         return await self.openai_client.generate_embeddings_batch(texts, metadata)
 
-
     async def generate_class_embeddings(
         self,
         classes: list[dict[str, Any]],
@@ -287,7 +288,6 @@ class EmbeddingGenerator:
 
         # Generate embeddings
         return await self.openai_client.generate_embeddings_batch(texts, metadata)
-
 
     async def generate_module_embedding(
         self,
@@ -359,7 +359,12 @@ class EmbeddingGenerator:
         )
 
         text = self.prepare_code_chunk_text(
-            code, entity_type, entity_name, file_path, start_line, end_line,
+            code,
+            entity_type,
+            entity_name,
+            file_path,
+            start_line,
+            end_line,
         )
 
         metadata = {

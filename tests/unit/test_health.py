@@ -51,6 +51,7 @@ class TestHealthCheck:
     @pytest.mark.asyncio
     async def test_failed_check(self) -> None:
         """Test failed health check."""
+
         class FailingCheck(HealthCheck):
             async def _perform_check(self) -> Never:
                 raise ValueError("Test error")
@@ -65,6 +66,7 @@ class TestHealthCheck:
     @pytest.mark.asyncio
     async def test_boolean_result(self) -> None:
         """Test health check with boolean result."""
+
         class BooleanCheck(HealthCheck):
             async def _perform_check(self) -> bool:
                 return False
@@ -85,7 +87,9 @@ class TestDatabaseHealthCheck:
         with patch("src.utils.health.create_async_engine") as mock_engine:
             # Mock the engine and connection
             mock_conn = AsyncMock()
-            mock_engine.return_value.begin.return_value.__aenter__.return_value = mock_conn
+            mock_engine.return_value.begin.return_value.__aenter__.return_value = (
+                mock_conn
+            )
             mock_engine.return_value.dispose = AsyncMock()
 
             # Mock query results
@@ -93,11 +97,15 @@ class TestDatabaseHealthCheck:
                 AsyncMock(scalar=MagicMock(return_value=1)),  # SELECT 1
                 AsyncMock(scalar=MagicMock(return_value="0.2.5")),  # pgvector version
                 AsyncMock(scalar=MagicMock(return_value=1048576)),  # database size
-                AsyncMock(first=MagicMock(return_value=MagicMock(
-                    repositories=5,
-                    files=100,
-                    embeddings=500,
-                ))),  # table counts
+                AsyncMock(
+                    first=MagicMock(
+                        return_value=MagicMock(
+                            repositories=5,
+                            files=100,
+                            embeddings=500,
+                        ),
+                    ),
+                ),  # table counts
             ]
 
             check = DatabaseHealthCheck()
@@ -274,11 +282,13 @@ class TestHealthCheckManager:
 
         # Mock all checks to return healthy
         for check in manager.checks:
-            check.check = AsyncMock(return_value={
-                "name": check.name,
-                "status": HealthStatus.HEALTHY,
-                "details": {},
-            })
+            check.check = AsyncMock(
+                return_value={
+                    "name": check.name,
+                    "status": HealthStatus.HEALTHY,
+                    "details": {},
+                },
+            )
 
         result = await manager.check_all()
 
@@ -302,11 +312,13 @@ class TestHealthCheckManager:
             else:
                 status = HealthStatus.HEALTHY
 
-            check.check = AsyncMock(return_value={
-                "name": check.name,
-                "status": status,
-                "details": {},
-            })
+            check.check = AsyncMock(
+                return_value={
+                    "name": check.name,
+                    "status": status,
+                    "details": {},
+                },
+            )
 
         result = await manager.check_all()
 
@@ -322,11 +334,13 @@ class TestHealthCheckManager:
 
         # Others are healthy
         for check in manager.checks[1:]:
-            check.check = AsyncMock(return_value={
-                "name": check.name,
-                "status": HealthStatus.HEALTHY,
-                "details": {},
-            })
+            check.check = AsyncMock(
+                return_value={
+                    "name": check.name,
+                    "status": HealthStatus.HEALTHY,
+                    "details": {},
+                },
+            )
 
         result = await manager.check_all()
 

@@ -22,10 +22,14 @@ class GetCodeRequest(BaseModel):
     entity_type: str = Field(..., description="Entity type: function, class, module")
     entity_id: int = Field(..., description="Entity ID")
     include_context: bool = Field(
-        default=True, description="Include surrounding context",
+        default=True,
+        description="Include surrounding context",
     )
     context_lines: int = Field(
-        default=3, ge=0, le=10, description="Number of context lines",
+        default=3,
+        ge=0,
+        le=10,
+        description="Number of context lines",
     )
 
 
@@ -41,7 +45,8 @@ class GetDependenciesRequest(BaseModel):
     """Get dependencies request."""
 
     entity_type: str = Field(
-        ..., description="Entity type: file, module, class, function",
+        ...,
+        description="Entity type: file, module, class, function",
     )
     entity_id: int = Field(..., description="Entity ID")
     depth: int = Field(default=1, ge=1, le=5, description="Dependency depth to explore")
@@ -52,7 +57,10 @@ class GetCallersRequest(BaseModel):
 
     function_id: int = Field(..., description="Function ID")
     limit: int = Field(
-        default=20, ge=1, le=100, description="Maximum number of callers",
+        default=20,
+        ge=1,
+        le=100,
+        description="Maximum number of callers",
     )
 
 
@@ -157,7 +165,8 @@ class CodeAnalysisTools:
                 }
 
         @self.mcp.tool(
-            name="analyze_file", description="Analyze file structure and metrics",
+            name="analyze_file",
+            description="Analyze file structure and metrics",
         )
         async def analyze_file(request: AnalyzeFileRequest) -> dict[str, Any]:
             """Analyze a file's structure and metrics.
@@ -300,7 +309,8 @@ class CodeAnalysisTools:
                 }
 
         @self.mcp.tool(
-            name="get_dependencies", description="Get dependencies for a code entity",
+            name="get_dependencies",
+            description="Get dependencies for a code entity",
         )
         async def get_dependencies(request: GetDependenciesRequest) -> dict[str, Any]:
             """Get dependencies for a code entity.
@@ -384,13 +394,15 @@ class CodeAnalysisTools:
                 }
 
         @self.mcp.tool(
-            name="find_usages", description="Find where a function or class is used",
+            name="find_usages",
+            description="Find where a function or class is used",
         )
         async def find_usages(
             entity_type: str = Field(..., description="Entity type: function or class"),
             entity_name: str = Field(..., description="Entity name to find"),
             repository_id: int | None = Field(
-                None, description="Repository ID to limit search",
+                None,
+                description="Repository ID to limit search",
             ),
             limit: int = Field(default=50, ge=1, le=200),
         ) -> dict[str, Any]:

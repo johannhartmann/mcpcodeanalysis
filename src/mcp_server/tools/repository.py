@@ -164,14 +164,19 @@ class RepositoryTool:
                     if not local_path.exists():
                         # Clone repository
                         git_repo = self.git_sync.clone_repository(
-                            repo.github_url, repo.owner, repo.name, repo.default_branch,
+                            repo.github_url,
+                            repo.owner,
+                            repo.name,
+                            repo.default_branch,
                         )
                         result["cloned"] = True
                         result["local_path"] = str(local_path)
                     else:
                         # Update repository
                         git_repo = self.git_sync.update_repository(
-                            repo.owner, repo.name, repo.default_branch,
+                            repo.owner,
+                            repo.name,
+                            repo.default_branch,
                         )
                         result["updated"] = True
 
@@ -186,7 +191,10 @@ class RepositoryTool:
                     # Get latest commits
                     if repo.last_synced:
                         commits = await self.github_monitor.get_commits_since(
-                            repo.owner, repo.name, repo.last_synced, repo.default_branch,
+                            repo.owner,
+                            repo.name,
+                            repo.last_synced,
+                            repo.default_branch,
                         )
                         result["new_commits"] = len(commits)
 

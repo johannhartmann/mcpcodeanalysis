@@ -85,7 +85,8 @@ class GitSync:
                 return await self.update_repository(github_url, branch, access_token)
             except InvalidGitRepositoryError:
                 logger.warning(
-                    "Removing invalid repository directory", path=str(repo_path),
+                    "Removing invalid repository directory",
+                    path=str(repo_path),
                 )
                 shutil.rmtree(repo_path)
 
@@ -167,7 +168,9 @@ class GitSync:
 
         except GitCommandError as e:
             logger.exception(
-                "Failed to update repository", path=str(repo_path), error=str(e),
+                "Failed to update repository",
+                path=str(repo_path),
+                error=str(e),
             )
             raise RepositoryError(f"Failed to update repository: {e}")
 
@@ -370,7 +373,9 @@ class GitSync:
             return commit_info
         except Exception as e:
             logger.exception(
-                "Error getting commit info", commit_sha=commit_sha, error=str(e),
+                "Error getting commit info",
+                commit_sha=commit_sha,
+                error=str(e),
             )
             raise RepositoryError(f"Failed to get commit info: {e}")
 

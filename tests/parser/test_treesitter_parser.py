@@ -139,13 +139,17 @@ class TestPythonParser:
         assert len(imports) >= 2
 
         # Check import os
-        import_os = next((i for i in imports if "import os" in i["import_statement"]), None)
+        import_os = next(
+            (i for i in imports if "import os" in i["import_statement"]), None,
+        )
         assert import_os is not None
         assert import_os["imported_names"] == ["os"]
         assert not import_os["is_relative"]
 
         # Check from import
-        from_import = next((i for i in imports if "from typing" in i["import_statement"]), None)
+        from_import = next(
+            (i for i in imports if "from typing" in i["import_statement"]), None,
+        )
         assert from_import is not None
         assert "List" in from_import["imported_names"]
 
@@ -195,7 +199,9 @@ class TestPythonParser:
         assert name_method["return_type"] == "str"
 
         # Check static method
-        static_method = next(m for m in test_class["methods"] if m["name"] == "static_method")
+        static_method = next(
+            m for m in test_class["methods"] if m["name"] == "static_method"
+        )
         assert static_method["is_staticmethod"]
 
     def test_extract_module_info(self, python_parser, sample_python_code) -> None:

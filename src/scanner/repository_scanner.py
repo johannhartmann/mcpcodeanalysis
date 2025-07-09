@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from src.database.models import Commit, File, Repository
-from src.mcp_server.config import RepositoryConfig, get_settings
 from src.embeddings.openai_client import OpenAIClient
+from src.mcp_server.config import RepositoryConfig, get_settings
 from src.scanner.code_processor import CodeProcessor
 from src.scanner.git_sync import GitSync
 from src.scanner.github_client import GitHubClient
@@ -19,7 +19,9 @@ logger = get_logger(__name__)
 class RepositoryScanner:
     """Main repository scanner that coordinates all scanning operations."""
 
-    def __init__(self, db_session: AsyncSession, openai_client: OpenAIClient | None = None) -> None:
+    def __init__(
+        self, db_session: AsyncSession, openai_client: OpenAIClient | None = None,
+    ) -> None:
         self.db_session = db_session
         self.settings = get_settings()
         self.git_sync = GitSync()
@@ -85,7 +87,8 @@ class RepositoryScanner:
 
             except Exception as e:
                 logger.exception(
-                    "Failed to fetch repository info from GitHub", error=str(e),
+                    "Failed to fetch repository info from GitHub",
+                    error=str(e),
                 )
 
         # Clone or update repository
@@ -132,29 +135,32 @@ class RepositoryScanner:
 
         # Process scanned files to extract code entities
         # Create processor with the repository path and domain analysis settings
-        enable_domain = repo_config.enable_domain_analysis or self.settings.domain_analysis.enabled
+        enable_domain = (
+            repo_config.enable_domain_analysis or self.settings.domain_analysis.enabled
+        )
         code_processor = CodeProcessor(
-            self.db_session, 
+            self.db_session,
             git_repo.working_dir,
             enable_domain_analysis=enable_domain,
-            openai_client=self.openai_client
+            openai_client=self.openai_client,
         )
         parse_results = await code_processor.process_files(scanned_files)
 
         # Update repository last sync time
         repo_record.last_synced = datetime.utcnow()  # PostgreSQL expects naive datetime
         await self.db_session.commit()
-        
+
         # Run bounded context detection if domain analysis is enabled
         context_detection_result = {}
         if enable_domain and self.openai_client:
             try:
                 from src.domain.indexer import DomainIndexer
+
                 domain_indexer = DomainIndexer(self.db_session, self.openai_client)
                 context_ids = await domain_indexer.detect_and_save_contexts()
                 context_detection_result = {
                     "contexts_detected": len(context_ids),
-                    "context_ids": context_ids
+                    "context_ids": context_ids,
                 }
             except Exception as e:
                 logger.warning(f"Context detection failed: {e}")

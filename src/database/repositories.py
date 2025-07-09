@@ -83,7 +83,10 @@ class FileRepo:
         return file
 
     async def get_by_path(
-        self, repo_id: int, path: str, branch: str = "main",
+        self,
+        repo_id: int,
+        path: str,
+        branch: str = "main",
     ) -> File | None:
         """Get file by path."""
         result = await self.session.execute(
@@ -98,7 +101,10 @@ class FileRepo:
         return result.scalar_one_or_none()
 
     async def update_or_create(
-        self, repo_id: int, path: str, **kwargs: Any,
+        self,
+        repo_id: int,
+        path: str,
+        **kwargs: Any,
     ) -> tuple[File, bool]:
         """Update existing file or create new one."""
         file = await self.get_by_path(repo_id, path, kwargs.get("branch", "main"))
@@ -192,7 +198,9 @@ class CodeEntityRepo:
         await self.session.commit()
 
     async def find_by_name(
-        self, name: str, entity_type: str | None = None,
+        self,
+        name: str,
+        entity_type: str | None = None,
     ) -> list[dict[str, Any]]:
         """Find entities by name."""
         results = []
@@ -313,7 +321,10 @@ class EmbeddingRepo:
         return [(embedding, 1 - distance) for embedding, distance in result.all()]
 
     async def get_by_entity(
-        self, entity_type: str, entity_id: int, embedding_type: str | None = None,
+        self,
+        entity_type: str,
+        entity_id: int,
+        embedding_type: str | None = None,
     ) -> list[CodeEmbedding]:
         """Get embeddings for a specific entity."""
         query = select(CodeEmbedding).where(
@@ -390,7 +401,8 @@ class CommitRepo:
         for commit_data in commits:
             # Check if commit already exists
             existing = await self.get_by_sha(
-                commit_data["repository_id"], commit_data["sha"],
+                commit_data["repository_id"],
+                commit_data["sha"],
             )
             if not existing:
                 commit = Commit(**commit_data)

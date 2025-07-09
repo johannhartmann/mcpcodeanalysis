@@ -1,6 +1,5 @@
 """Tests for custom exceptions."""
 
-
 from src.utils.exceptions import (
     AuthenticationError,
     AuthorizationError,

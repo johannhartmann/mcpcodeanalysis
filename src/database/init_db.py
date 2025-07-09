@@ -170,7 +170,9 @@ async def verify_database_setup(engine: AsyncEngine) -> bool:
 
             expected_tables = 8
             if table_count < expected_tables:
-                logger.error(f"Missing tables, found only {table_count}/{expected_tables}")
+                logger.error(
+                    f"Missing tables, found only {table_count}/{expected_tables}",
+                )
                 return False
 
             logger.info("Database setup verified successfully")

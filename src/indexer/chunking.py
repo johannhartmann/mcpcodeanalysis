@@ -16,7 +16,9 @@ class CodeChunker:
         self.max_tokens = config.embeddings.max_tokens
 
     def chunk_by_entity(
-        self, entities: dict[str, list[dict[str, Any]]], file_content: str,
+        self,
+        entities: dict[str, list[dict[str, Any]]],
+        file_content: str,
     ) -> list[dict[str, Any]]:
         """Chunk code by logical entities (functions, classes, etc.)."""
         chunks = []
@@ -25,7 +27,10 @@ class CodeChunker:
         # Process functions
         for func in entities.get("functions", []):
             chunk = self._create_entity_chunk(
-                "function", func, lines, include_context=True,
+                "function",
+                func,
+                lines,
+                include_context=True,
             )
             chunks.append(chunk)
 
@@ -55,7 +60,9 @@ class CodeChunker:
         return chunks
 
     def chunk_by_lines(
-        self, file_content: str, overlap: int = 20,
+        self,
+        file_content: str,
+        overlap: int = 20,
     ) -> list[dict[str, Any]]:
         """Chunk code by line count with overlap."""
         lines = file_content.split("\n")
@@ -132,7 +139,9 @@ class CodeChunker:
         }
 
     def _create_module_chunk(
-        self, entities: dict[str, list[dict[str, Any]]], lines: list[str],
+        self,
+        entities: dict[str, list[dict[str, Any]]],
+        lines: list[str],
     ) -> Optional[dict[str, Any]]:
         """Create a chunk for module-level code."""
         # Find module docstring and imports
@@ -168,7 +177,9 @@ class CodeChunker:
         }
 
     def merge_small_chunks(
-        self, chunks: list[dict[str, Any]], min_size: int = 10,
+        self,
+        chunks: list[dict[str, Any]],
+        min_size: int = 10,
     ) -> list[dict[str, Any]]:
         """Merge small chunks to improve efficiency."""
         merged = []
@@ -195,7 +206,9 @@ class CodeChunker:
         return merged
 
     def _merge_chunks(
-        self, chunk1: dict[str, Any], chunk2: dict[str, Any],
+        self,
+        chunk1: dict[str, Any],
+        chunk2: dict[str, Any],
     ) -> dict[str, Any]:
         """Merge two chunks."""
         return {

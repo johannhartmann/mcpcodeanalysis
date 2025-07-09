@@ -16,8 +16,7 @@ class RepositoryConfig(BaseModel):
     branch: str | None = None
     access_token: SecretStr | None = None
     enable_domain_analysis: bool = Field(
-        default=False, 
-        description="Enable domain-driven analysis during indexing"
+        default=False, description="Enable domain-driven analysis during indexing",
     )
 
     @field_validator("url")
@@ -33,7 +32,9 @@ class ScannerConfig(BaseModel):
     """Scanner configuration."""
 
     sync_interval: int = Field(
-        default=300, ge=60, description="Sync interval in seconds",
+        default=300,
+        ge=60,
+        description="Sync interval in seconds",
     )
     webhook_secret: SecretStr | None = None
     storage_path: Path = Path("./repositories")
@@ -70,7 +71,9 @@ class EmbeddingsConfig(BaseModel):
 class DomainAnalysisConfig(BaseModel):
     """Domain-driven analysis configuration."""
 
-    enabled: bool = Field(default=False, description="Enable domain analysis by default")
+    enabled: bool = Field(
+        default=False, description="Enable domain analysis by default",
+    )
     chunk_size: int = Field(default=1000, ge=500, le=5000)
     chunk_overlap: int = Field(default=200, ge=0, le=500)
     min_confidence: float = Field(default=0.7, ge=0.0, le=1.0)
@@ -158,7 +161,10 @@ class Settings(BaseSettings):
     """Application settings."""
 
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
     )
 
     # Environment variables
@@ -220,9 +226,7 @@ class Settings(BaseSettings):
             return {k: Settings._expand_env_vars(v) for k, v in config.items()}
         if isinstance(config, list):
             return [Settings._expand_env_vars(item) for item in config]
-        if (
-            isinstance(config, str) and config.startswith("${") and config.endswith("}")
-        ):
+        if isinstance(config, str) and config.startswith("${") and config.endswith("}"):
             env_var = config[2:-1]
             return os.getenv(env_var, config)
         return config

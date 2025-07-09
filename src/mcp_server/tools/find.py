@@ -12,7 +12,9 @@ class FindTool:
     """MCP tools for finding code definitions and usages."""
 
     async def find_definition(
-        self, name: str, type: str = "any",
+        self,
+        name: str,
+        type: str = "any",
     ) -> list[dict[str, Any]]:
         """
         Find where a function/class/module is defined.
@@ -90,7 +92,9 @@ class FindTool:
             return [{"error": str(e), "name": name, "type": type}]
 
     async def find_usage(
-        self, function_or_class: str, repository: str | None = None,
+        self,
+        function_or_class: str,
+        repository: str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Find all places where a function/class is used.
@@ -126,14 +130,18 @@ class FindTool:
 
                         # Search in imports
                         import_usages = await self._find_import_usages(
-                            repos, function_or_class, repository,
+                            repos,
+                            function_or_class,
+                            repository,
                         )
                         usages.extend(import_usages)
 
                         # Search in code (this would require more sophisticated AST analysis)
                         # For now, we do a simple text search in embeddings
                         code_usages = await self._find_code_usages(
-                            repos, function_or_class, repository,
+                            repos,
+                            function_or_class,
+                            repository,
                         )
                         usages.extend(code_usages)
 
@@ -159,7 +167,10 @@ class FindTool:
             ]
 
     async def _find_import_usages(
-        self, repos: dict[str, Any], name: str, repository: str | None = None,
+        self,
+        repos: dict[str, Any],
+        name: str,
+        repository: str | None = None,
     ) -> list[dict[str, Any]]:
         """Find usages in import statements."""
         session = repos["repository"].session
@@ -201,7 +212,10 @@ class FindTool:
         return usages
 
     async def _find_code_usages(
-        self, repos: dict[str, Any], name: str, repository: str | None = None,
+        self,
+        repos: dict[str, Any],
+        name: str,
+        repository: str | None = None,
     ) -> list[dict[str, Any]]:
         """Find usages in code (simplified version)."""
         # This is a simplified implementation

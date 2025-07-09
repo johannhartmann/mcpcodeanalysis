@@ -22,10 +22,8 @@ class ConfigurationError(MCPError):
     """Configuration related errors."""
 
 
-
 class RepositoryError(MCPError):
     """Repository operation errors."""
-
 
 
 class GitHubError(RepositoryError):
@@ -45,7 +43,6 @@ class GitHubError(RepositoryError):
 
 class ParserError(MCPError):
     """Alias for ParsingError for backward compatibility."""
-
 
 
 class ParsingError(MCPError):
@@ -71,7 +68,6 @@ class EmbeddingError(MCPError):
     """Embedding generation errors."""
 
 
-
 class OpenAIError(EmbeddingError):
     """OpenAI API related errors."""
 
@@ -91,15 +87,12 @@ class DatabaseError(MCPError):
     """Database operation errors."""
 
 
-
 class QueryError(MCPError):
     """Query processing errors."""
 
 
-
 class VectorSearchError(QueryError):
     """Vector similarity search errors."""
-
 
 
 class RateLimitError(MCPError):
@@ -125,10 +118,8 @@ class AuthenticationError(MCPError):
     """Authentication related errors."""
 
 
-
 class AuthorizationError(MCPError):
     """Authorization related errors."""
-
 
 
 class ValidationError(MCPError):

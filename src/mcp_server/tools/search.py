@@ -36,9 +36,10 @@ class SearchTool:
 
             # Format for output
             return self.result_ranker.format_results(
-                ranked_results, include_scores=False, include_context=True,
+                ranked_results,
+                include_scores=False,
+                include_context=True,
             )
-
 
         except Exception as e:
             logger.exception(f"Error in search_code: {e}")

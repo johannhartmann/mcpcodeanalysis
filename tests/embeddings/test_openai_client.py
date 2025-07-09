@@ -51,13 +51,14 @@ def mock_embedding_response():
     )
 
 
-
 class TestOpenAIClient:
     """Tests for OpenAIClient class."""
 
     def test_init_with_api_key(self, mock_settings) -> None:
         """Test initialization with API key."""
-        with patch("src.embeddings.openai_client.get_settings", return_value=mock_settings):
+        with patch(
+            "src.embeddings.openai_client.get_settings", return_value=mock_settings,
+        ):
             client = OpenAIClient(api_key="custom-key")
             assert client.api_key == "custom-key"
             assert client.embedding_model == "text-embedding-ada-002"
@@ -90,21 +91,27 @@ class TestOpenAIClient:
     @pytest.mark.asyncio
     async def test_generate_embedding_api_error(self, openai_client) -> None:
         """Test embedding generation with API error."""
-        with patch.object(
-            openai_client.client.embeddings,
-            "create",
-            side_effect=openai.APIError("API Error", response=None, body=None),
-        ), pytest.raises(EmbeddingError, match="Failed to generate embedding"):
+        with (
+            patch.object(
+                openai_client.client.embeddings,
+                "create",
+                side_effect=openai.APIError("API Error", response=None, body=None),
+            ),
+            pytest.raises(EmbeddingError, match="Failed to generate embedding"),
+        ):
             await openai_client.generate_embedding("test text")
 
     @pytest.mark.asyncio
     async def test_generate_embedding_unexpected_error(self, openai_client) -> None:
         """Test embedding generation with unexpected error."""
-        with patch.object(
-            openai_client.client.embeddings,
-            "create",
-            side_effect=Exception("Unexpected error"),
-        ), pytest.raises(EmbeddingError, match="Unexpected error"):
+        with (
+            patch.object(
+                openai_client.client.embeddings,
+                "create",
+                side_effect=Exception("Unexpected error"),
+            ),
+            pytest.raises(EmbeddingError, match="Unexpected error"),
+        ):
             await openai_client.generate_embedding("test text")
 
     def test_truncate_text_short(self, openai_client) -> None:
@@ -163,7 +170,9 @@ class TestOpenAIClient:
                 raise Exception("Failed for text2")
             return [0.1] * 1536
 
-        with patch.object(openai_client, "generate_embedding", side_effect=mock_generate):
+        with patch.object(
+            openai_client, "generate_embedding", side_effect=mock_generate,
+        ):
             results = await openai_client.generate_embeddings_batch(texts)
 
             assert len(results) == 3
@@ -173,7 +182,9 @@ class TestOpenAIClient:
             assert results[2]["embedding"] is not None
 
     @pytest.mark.asyncio
-    async def test_generate_embeddings_batch_metadata_mismatch(self, openai_client) -> None:
+    async def test_generate_embeddings_batch_metadata_mismatch(
+        self, openai_client,
+    ) -> None:
         """Test batch embedding with mismatched metadata."""
         texts = ["text1", "text2"]
         metadata = [{"id": 1}]  # Only one metadata item
@@ -188,6 +199,7 @@ class TestOpenAIClient:
         texts = [f"text{i}" for i in range(openai_client.batch_size + 10)]
 
         call_count = 0
+
         async def mock_generate_with_metadata(text, metadata):
             nonlocal call_count
             call_count += 1

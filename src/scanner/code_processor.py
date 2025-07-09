@@ -35,7 +35,7 @@ class CodeProcessor:
         self.parser_factory = ParserFactory()
         self.enable_domain_analysis = enable_domain_analysis
         self.domain_indexer = None
-        
+
         if enable_domain_analysis and openai_client:
             self.domain_indexer = DomainIndexer(db_session, openai_client)
 
@@ -76,7 +76,7 @@ class CodeProcessor:
             # Update file processing status
             file_record.last_modified = datetime.utcnow()
             await self.db_session.commit()
-            
+
             # Run domain analysis if enabled
             domain_stats = {}
             if self.domain_indexer and file_path.suffix == ".py":
@@ -85,10 +85,14 @@ class CodeProcessor:
                     domain_result = await self.domain_indexer.index_file(file_record.id)
                     domain_stats = {
                         "domain_entities": domain_result.get("entities_extracted", 0),
-                        "domain_relationships": domain_result.get("relationships_extracted", 0),
+                        "domain_relationships": domain_result.get(
+                            "relationships_extracted", 0,
+                        ),
                     }
                 except Exception as e:
-                    logger.warning(f"Domain analysis failed for {file_record.path}: {e}")
+                    logger.warning(
+                        f"Domain analysis failed for {file_record.path}: {e}",
+                    )
 
             return {
                 "file_id": file_record.id,
@@ -114,17 +118,24 @@ class CodeProcessor:
             }
 
     async def _extract_entities(
-        self, file_path: Path, file_id: int,
+        self,
+        file_path: Path,
+        file_id: int,
     ) -> dict[str, list[Any]] | None:
         """Extract code entities from a file."""
         # Run extraction in thread pool to avoid blocking
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
-            None, self.code_extractor.extract_from_file, file_path, file_id,
+            None,
+            self.code_extractor.extract_from_file,
+            file_path,
+            file_id,
         )
 
     async def _store_entities(
-        self, entities: dict[str, list[Any]], file_record: File,
+        self,
+        entities: dict[str, list[Any]],
+        file_record: File,
     ) -> dict[str, int]:
         """Store extracted entities in the database."""
         stats = {

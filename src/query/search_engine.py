@@ -107,7 +107,8 @@ class SearchEngine:
                 }
             else:
                 entity_scores[key]["raw_similarity"] = max(
-                    entity_scores[key]["raw_similarity"], similarity,
+                    entity_scores[key]["raw_similarity"],
+                    similarity,
                 )
 
         # Process interpreted results
@@ -146,9 +147,12 @@ class SearchEngine:
             # Calculate composite score
             weights = self.query_config.ranking_weights
             final_score = weights["semantic_similarity"] * max(
-                scores["raw_similarity"], scores["interpreted_similarity"],
+                scores["raw_similarity"],
+                scores["interpreted_similarity"],
             ) + weights["keyword_match"] * self._calculate_keyword_match(
-                query, entity_data.get("name", ""), entity_data.get("docstring", ""),
+                query,
+                entity_data.get("name", ""),
+                entity_data.get("docstring", ""),
             )
 
             # Build result
@@ -171,7 +175,10 @@ class SearchEngine:
         return results[:limit]
 
     async def _load_entity_details(
-        self, repos: dict[str, Any], entity_type: str, entity_id: int,
+        self,
+        repos: dict[str, Any],
+        entity_type: str,
+        entity_id: int,
     ) -> dict[str, Any] | None:
         """Load detailed information about an entity."""
         session = repos["repository"].session

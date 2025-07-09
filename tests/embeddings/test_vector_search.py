@@ -97,7 +97,9 @@ class TestVectorSearch:
         assert results[0]["entity"]["name"] == "test_function"
 
         # Verify embedding was generated for query
-        mock_openai_client.generate_embedding.assert_called_once_with("find test function")
+        mock_openai_client.generate_embedding.assert_called_once_with(
+            "find test function",
+        )
 
     @pytest.mark.asyncio
     async def test_search_with_filters(
@@ -134,7 +136,9 @@ class TestVectorSearch:
             # Get source embedding
             MagicMock(scalar_one_or_none=lambda: sample_embedding),
             # Search results
-            MagicMock(fetchall=lambda: [(2, 0.1, "function")]),  # distance, not similarity
+            MagicMock(
+                fetchall=lambda: [(2, 0.1, "function")],
+            ),  # distance, not similarity
             # Load similar embedding
             MagicMock(scalar_one_or_none=lambda: sample_embedding),
             # Load function
@@ -153,7 +157,9 @@ class TestVectorSearch:
         mock_db_session,
     ) -> None:
         """Test search similar with non-existent embedding."""
-        mock_db_session.execute.return_value = MagicMock(scalar_one_or_none=lambda: None)
+        mock_db_session.execute.return_value = MagicMock(
+            scalar_one_or_none=lambda: None,
+        )
 
         with pytest.raises(ValueError, match="Embedding 999 not found"):
             await vector_search.search_similar(999)
@@ -246,11 +252,13 @@ class TestVectorSearch:
         # Mock count queries
         mock_db_session.execute.side_effect = [
             # Count by type
-            MagicMock(fetchall=lambda: [
-                ("function", 50),
-                ("class", 10),
-                ("module", 5),
-            ]),
+            MagicMock(
+                fetchall=lambda: [
+                    ("function", 50),
+                    ("class", 10),
+                    ("module", 5),
+                ],
+            ),
             # Total count
             MagicMock(scalar=lambda: 65),
             # File count

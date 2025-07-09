@@ -230,7 +230,10 @@ class BaseParser(ABC):
 
     @abstractmethod
     def _extract_elements(
-        self, tree: Tree, content: str, file_path: Path,
+        self,
+        tree: Tree,
+        content: str,
+        file_path: Path,
     ) -> ParsedElement:
         """Extract code elements from the parse tree."""
 
@@ -260,7 +263,6 @@ class BaseParser(ABC):
             for dep in dependencies
             if not dep.startswith(".") and dep not in self._get_stdlib_modules()
         }
-
 
     def _get_stdlib_modules(self) -> set[str]:
         """Get set of standard library module names."""

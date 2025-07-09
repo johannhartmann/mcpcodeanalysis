@@ -78,7 +78,8 @@ class ExplainTool:
                 # Could be module.function or class.method
                 # First try module.function
                 module_results = await repos["code_entity"].find_by_name(
-                    parts[0], "module",
+                    parts[0],
+                    "module",
                 )
                 if module_results:
                     module = module_results[0]["entity"]
@@ -93,7 +94,8 @@ class ExplainTool:
 
                 # Try class.method
                 class_results = await repos["code_entity"].find_by_name(
-                    parts[0], "class",
+                    parts[0],
+                    "class",
                 )
                 if class_results:
                     cls = class_results[0]["entity"]
@@ -109,7 +111,8 @@ class ExplainTool:
             elif len(parts) >= 3:
                 # module.class.method
                 module_results = await repos["code_entity"].find_by_name(
-                    parts[0], "module",
+                    parts[0],
+                    "module",
                 )
                 if module_results:
                     module = module_results[0]["entity"]
@@ -126,9 +129,7 @@ class ExplainTool:
                                 f"SELECT * FROM functions WHERE class_id = {cls.id} "
                                 f"AND name = '{parts[2]}' LIMIT 1",
                             )
-                            method = (
-                                methods.scalar_one_or_none() if methods else None
-                            )
+                            method = methods.scalar_one_or_none() if methods else None
                             if method:
                                 return {"type": "function", "id": method.id}
                         else:

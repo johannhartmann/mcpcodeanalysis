@@ -14,7 +14,7 @@ class DomainEntityExtractor:
 
     def __init__(self, openai_client: OpenAIClient | None = None) -> None:
         """Initialize the entity extractor.
-        
+
         Args:
             openai_client: OpenAI client instance
         """
@@ -26,16 +26,16 @@ class DomainEntityExtractor:
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Extract domain entities from a code chunk.
-        
+
         Args:
             code_chunk: The code to analyze
             context: Additional context (file path, surrounding code, etc.)
-            
+
         Returns:
             Dictionary containing extracted entities and metadata
         """
         prompt = self._build_entity_extraction_prompt(code_chunk, context)
-        
+
         try:
             response = await self.openai_client.chat_completion(
                 messages=[
@@ -51,10 +51,10 @@ class DomainEntityExtractor:
                 temperature=0.2,  # Lower temperature for more consistent extraction
                 response_format={"type": "json_object"},
             )
-            
+
             result = json.loads(response)
             return self._process_extraction_result(result, code_chunk)
-            
+
         except Exception as e:
             logger.exception(f"Error extracting entities: {e}")
             return {
@@ -68,19 +68,19 @@ class DomainEntityExtractor:
         code_chunks: list[str],
     ) -> list[dict[str, Any]]:
         """Extract relationships between domain entities.
-        
+
         Args:
             entities: List of extracted domain entities
             code_chunks: Code chunks containing evidence of relationships
-            
+
         Returns:
             List of domain relationships
         """
         if not entities or len(entities) < 2:
             return []
-            
+
         prompt = self._build_relationship_extraction_prompt(entities, code_chunks)
-        
+
         try:
             response = await self.openai_client.chat_completion(
                 messages=[
@@ -96,10 +96,10 @@ class DomainEntityExtractor:
                 temperature=0.2,
                 response_format={"type": "json_object"},
             )
-            
+
             result = json.loads(response)
             return self._process_relationship_result(result)
-            
+
         except Exception as e:
             logger.exception(f"Error extracting relationships: {e}")
             return []
@@ -210,17 +210,19 @@ Output JSON with this structure:
     ) -> str:
         """Build the prompt for entity extraction."""
         prompt_parts = []
-        
+
         if context:
             if context.get("file_path"):
                 prompt_parts.append(f"File: {context['file_path']}")
             if context.get("module_context"):
                 prompt_parts.append(f"Module context: {context['module_context']}")
-                
+
         prompt_parts.append("Analyze this code and extract domain entities:")
         prompt_parts.append(f"\n```python\n{code_chunk}\n```\n")
-        prompt_parts.append("Remember to focus on business concepts, not technical implementation.")
-        
+        prompt_parts.append(
+            "Remember to focus on business concepts, not technical implementation.",
+        )
+
         return "\n".join(prompt_parts)
 
     def _build_relationship_extraction_prompt(
@@ -230,20 +232,24 @@ Output JSON with this structure:
     ) -> str:
         """Build the prompt for relationship extraction."""
         prompt_parts = []
-        
+
         # List entities
         prompt_parts.append("Given these domain entities:")
         for entity in entities:
-            prompt_parts.append(f"- {entity['name']} ({entity['type']}): {entity['description']}")
-            
+            prompt_parts.append(
+                f"- {entity['name']} ({entity['type']}): {entity['description']}",
+            )
+
         # Add code evidence
         prompt_parts.append("\nAnalyze this code to find relationships between them:")
         for i, chunk in enumerate(code_chunks[:5], 1):  # Limit to 5 chunks
             prompt_parts.append(f"\nCode chunk {i}:")
             prompt_parts.append(f"```python\n{chunk[:1000]}\n```")  # Limit chunk size
-            
-        prompt_parts.append("\nIdentify how these entities interact and depend on each other.")
-        
+
+        prompt_parts.append(
+            "\nIdentify how these entities interact and depend on each other.",
+        )
+
         return "\n".join(prompt_parts)
 
     def _process_extraction_result(
@@ -253,27 +259,27 @@ Output JSON with this structure:
     ) -> dict[str, Any]:
         """Process and validate extraction results."""
         entities = result.get("entities", [])
-        
+
         # Validate and enrich entities
         processed_entities = []
         for entity in entities:
             # Ensure required fields
             if not entity.get("name") or not entity.get("type"):
                 continue
-                
+
             # Add defaults for missing fields
             entity.setdefault("description", "")
             entity.setdefault("business_rules", [])
             entity.setdefault("invariants", [])
             entity.setdefault("responsibilities", [])
             entity.setdefault("ubiquitous_language", {})
-            
+
             # Add extraction metadata
             entity["confidence_score"] = result.get("confidence", 1.0)
             entity["source_code_sample"] = code_chunk[:500]  # Store sample
-            
+
             processed_entities.append(entity)
-            
+
         return {
             "entities": processed_entities,
             "confidence": result.get("confidence", 1.0),
@@ -286,22 +292,22 @@ Output JSON with this structure:
     ) -> list[dict[str, Any]]:
         """Process and validate relationship results."""
         relationships = result.get("relationships", [])
-        
+
         processed_relationships = []
         for rel in relationships:
             # Ensure required fields
             if not all(key in rel for key in ["source", "target", "type"]):
                 continue
-                
+
             # Add defaults
             rel.setdefault("description", "")
             rel.setdefault("strength", 1.0)
             rel.setdefault("evidence", [])
             rel.setdefault("interaction_patterns", [])
             rel.setdefault("data_flow", {})
-            
+
             processed_relationships.append(rel)
-            
+
         return processed_relationships
 
     async def extract_from_module(
@@ -312,42 +318,42 @@ Output JSON with this structure:
         overlap: int = 200,
     ) -> dict[str, Any]:
         """Extract entities from an entire module with chunking.
-        
+
         Args:
             module_code: Complete module code
             module_path: Path to the module
             chunk_size: Size of each chunk in characters
             overlap: Overlap between chunks
-            
+
         Returns:
             Aggregated extraction results
         """
         chunks = self._create_semantic_chunks(module_code, chunk_size, overlap)
-        
+
         all_entities = []
         all_relationships = []
-        
+
         # Extract entities from each chunk
         for i, chunk in enumerate(chunks):
             logger.info(f"Processing chunk {i+1}/{len(chunks)} from {module_path}")
-            
+
             context = {
                 "file_path": module_path,
                 "chunk_index": i,
                 "total_chunks": len(chunks),
             }
-            
+
             result = await self.extract_entities(chunk, context)
             all_entities.extend(result.get("entities", []))
-        
+
         # Deduplicate entities
         unique_entities = self._deduplicate_entities(all_entities)
-        
+
         # Extract relationships if we have multiple entities
         if len(unique_entities) > 1:
             relationships = await self.extract_relationships(unique_entities, chunks)
             all_relationships.extend(relationships)
-        
+
         return {
             "entities": unique_entities,
             "relationships": all_relationships,
@@ -366,16 +372,16 @@ Output JSON with this structure:
         chunks = []
         current_chunk = []
         current_size = 0
-        
+
         for line in lines:
             line_size = len(line) + 1  # +1 for newline
-            
+
             # Start new chunk if current is too large
             if current_size + line_size > chunk_size and current_chunk:
                 # Try to break at class or function boundaries
                 chunk_text = "\n".join(current_chunk)
                 chunks.append(chunk_text)
-                
+
                 # Keep overlap
                 overlap_lines = []
                 overlap_size = 0
@@ -384,17 +390,17 @@ Output JSON with this structure:
                     if overlap_size >= overlap:
                         break
                     overlap_lines.insert(0, l)
-                    
+
                 current_chunk = overlap_lines
                 current_size = overlap_size
-            
+
             current_chunk.append(line)
             current_size += line_size
-        
+
         # Add final chunk
         if current_chunk:
             chunks.append("\n".join(current_chunk))
-            
+
         return chunks
 
     def _deduplicate_entities(
@@ -404,7 +410,7 @@ Output JSON with this structure:
         """Deduplicate entities by name and type."""
         seen = set()
         unique = []
-        
+
         for entity in entities:
             key = (entity["name"], entity["type"])
             if key not in seen:
@@ -415,14 +421,18 @@ Output JSON with this structure:
                 for existing in unique:
                     if (existing["name"], existing["type"]) == key:
                         # Merge lists
-                        for field in ["business_rules", "invariants", "responsibilities"]:
-                            existing[field] = list(set(
-                                existing.get(field, []) + entity.get(field, [])
-                            ))
+                        for field in [
+                            "business_rules",
+                            "invariants",
+                            "responsibilities",
+                        ]:
+                            existing[field] = list(
+                                set(existing.get(field, []) + entity.get(field, [])),
+                            )
                         # Merge dictionaries
                         existing["ubiquitous_language"].update(
-                            entity.get("ubiquitous_language", {})
+                            entity.get("ubiquitous_language", {}),
                         )
                         break
-                        
+
         return unique

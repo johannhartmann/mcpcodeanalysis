@@ -28,7 +28,8 @@ def event_loop():
 def test_config_file() -> Generator[Path, None, None]:
     """Create a temporary test configuration file."""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-        f.write("""
+        f.write(
+            """
 repositories:
   - url: https://github.com/test/repo1
     branch: main
@@ -56,7 +57,8 @@ logging:
   format: json
   file_enabled: false
   console_enabled: true
-""")
+""",
+        )
         temp_path = Path(f.name)
 
     yield temp_path
@@ -71,11 +73,15 @@ def test_settings(test_config_file, monkeypatch) -> Settings:
     """Create test settings."""
     # Set required environment variables
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test-key")
-    monkeypatch.setenv("DATABASE_URL", "postgresql://test_user:test_pass@localhost:5432/test_code_analysis")
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        "postgresql://test_user:test_pass@localhost:5432/test_code_analysis",
+    )
     monkeypatch.setenv("CONFIG_PATH", str(test_config_file))
 
     # Clear singleton
     from src.mcp_server import config
+
     config._settings = None
 
     return Settings.from_yaml(test_config_file)

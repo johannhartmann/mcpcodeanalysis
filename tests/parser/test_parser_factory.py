@@ -82,6 +82,7 @@ class TestParserFactory:
 
     def test_register_parser(self) -> None:
         """Test registering a new parser."""
+
         # Create mock parser class
         class MockParser:
             pass
@@ -99,6 +100,7 @@ class TestParserFactory:
 
     def test_register_language_parser(self) -> None:
         """Test registering a new language parser."""
+
         # Create mock parser class
         class MockLanguageParser:
             pass

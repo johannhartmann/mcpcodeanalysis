@@ -99,7 +99,9 @@ def scan(repository_url: str, branch: str, embeddings: bool) -> None:
         try:
             # Scan repository
             result = await server.scan_repository(
-                repository_url, branch=branch, generate_embeddings=embeddings,
+                repository_url,
+                branch=branch,
+                generate_embeddings=embeddings,
             )
 
             # Print results

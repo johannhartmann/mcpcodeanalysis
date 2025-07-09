@@ -41,7 +41,8 @@ class PythonCodeParser:
         except Exception as e:
             logger.exception(f"Error parsing Python file {file_path}: {e}")
             raise ParserError(
-                f"Failed to parse Python file: {file_path}", str(file_path),
+                f"Failed to parse Python file: {file_path}",
+                str(file_path),
             ) from e
 
     def extract_entities(self, file_path: Path, file_id: int) -> dict[str, list[Any]]:
@@ -135,7 +136,11 @@ class PythonCodeParser:
             return sum(1 for _ in f)
 
     def get_code_chunk(
-        self, file_path: Path, start_line: int, end_line: int, context_lines: int = 0,
+        self,
+        file_path: Path,
+        start_line: int,
+        end_line: int,
+        context_lines: int = 0,
     ) -> str:
         """Get a chunk of code from a file with optional context."""
         try:

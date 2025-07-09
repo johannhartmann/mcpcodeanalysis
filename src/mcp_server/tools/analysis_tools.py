@@ -281,7 +281,8 @@ class AnalysisTools:
                                 "type": pattern_type,
                                 "severity": "high",
                                 "description": issue.get(
-                                    "message", issue.get("issue", ""),
+                                    "message",
+                                    issue.get("issue", ""),
                                 ),
                                 "recommendation": issue.get("recommendation", ""),
                                 "entity": issue.get("entity")

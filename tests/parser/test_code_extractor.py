@@ -18,60 +18,69 @@ def code_extractor():
 def sample_entities():
     """Sample extracted entities."""
     return {
-        "modules": [{
-            "name": "test_module",
-            "docstring": "Test module docstring",
-            "file_id": 1,
-            "start_line": 1,
-            "end_line": 100,
-        }],
-        "classes": [{
-            "name": "TestClass",
-            "docstring": "Test class for unit testing",
-            "base_classes": ["BaseClass", "Mixin"],
-            "is_abstract": False,
-            "decorators": ["dataclass"],
-            "start_line": 10,
-            "end_line": 50,
-        }],
-        "functions": [{
-            "name": "test_function",
-            "parameters": [
-                {"name": "arg1", "type": "str", "default": None},
-                {"name": "arg2", "type": "int", "default": "10"},
-            ],
-            "return_type": "Optional[str]",
-            "docstring": "Test function that does something",
-            "is_async": True,
-            "is_generator": False,
-            "is_property": False,
-            "is_staticmethod": False,
-            "is_classmethod": False,
-            "class_name": None,
-            "start_line": 60,
-            "end_line": 70,
-        }, {
-            "name": "method",
-            "parameters": [{"name": "self"}, {"name": "value"}],
-            "return_type": None,
-            "docstring": "A method of TestClass",
-            "is_async": False,
-            "is_generator": False,
-            "is_property": True,
-            "is_staticmethod": False,
-            "is_classmethod": False,
-            "class_name": "TestClass",
-            "start_line": 20,
-            "end_line": 25,
-        }],
-        "imports": [{
-            "import_statement": "import os",
-            "imported_from": None,
-            "imported_names": ["os"],
-            "is_relative": False,
-            "level": 0,
-            "line_number": 3,
-        }],
+        "modules": [
+            {
+                "name": "test_module",
+                "docstring": "Test module docstring",
+                "file_id": 1,
+                "start_line": 1,
+                "end_line": 100,
+            },
+        ],
+        "classes": [
+            {
+                "name": "TestClass",
+                "docstring": "Test class for unit testing",
+                "base_classes": ["BaseClass", "Mixin"],
+                "is_abstract": False,
+                "decorators": ["dataclass"],
+                "start_line": 10,
+                "end_line": 50,
+            },
+        ],
+        "functions": [
+            {
+                "name": "test_function",
+                "parameters": [
+                    {"name": "arg1", "type": "str", "default": None},
+                    {"name": "arg2", "type": "int", "default": "10"},
+                ],
+                "return_type": "Optional[str]",
+                "docstring": "Test function that does something",
+                "is_async": True,
+                "is_generator": False,
+                "is_property": False,
+                "is_staticmethod": False,
+                "is_classmethod": False,
+                "class_name": None,
+                "start_line": 60,
+                "end_line": 70,
+            },
+            {
+                "name": "method",
+                "parameters": [{"name": "self"}, {"name": "value"}],
+                "return_type": None,
+                "docstring": "A method of TestClass",
+                "is_async": False,
+                "is_generator": False,
+                "is_property": True,
+                "is_staticmethod": False,
+                "is_classmethod": False,
+                "class_name": "TestClass",
+                "start_line": 20,
+                "end_line": 25,
+            },
+        ],
+        "imports": [
+            {
+                "import_statement": "import os",
+                "imported_from": None,
+                "imported_names": ["os"],
+                "is_relative": False,
+                "level": 0,
+                "line_number": 3,
+            },
+        ],
     }
 
 
@@ -83,7 +92,9 @@ class TestCodeExtractor:
         assert code_extractor.parsers is not None
         assert ".py" in code_extractor.parsers
 
-    def test_extract_from_file_success(self, code_extractor, tmp_path, sample_entities) -> None:
+    def test_extract_from_file_success(
+        self, code_extractor, tmp_path, sample_entities,
+    ) -> None:
         """Test successful entity extraction."""
         test_file = tmp_path / "test.py"
         test_file.write_text("# Test file")
@@ -135,19 +146,28 @@ class TestClass:
             "get_code_chunk",
         ) as mock_get_chunk:
             mock_get_chunk.side_effect = lambda f, start, end, context=0: (
-                test_content.split("\n")[start-1:end] if context == 0
+                test_content.split("\n")[start - 1 : end]
+                if context == 0
                 else test_content
             )
 
             # Get raw content
             raw, contextual = code_extractor.get_entity_content(
-                test_file, "function", 1, 3, include_context=False,
+                test_file,
+                "function",
+                1,
+                3,
+                include_context=False,
             )
             assert raw == contextual
 
             # Get with context
             raw, contextual = code_extractor.get_entity_content(
-                test_file, "function", 1, 3, include_context=True,
+                test_file,
+                "function",
+                1,
+                3,
+                include_context=True,
             )
             assert contextual == test_content
 
@@ -159,7 +179,9 @@ class TestClass:
         }
 
         description = code_extractor.build_entity_description(
-            "module", module_data, Path("test/module.py"),
+            "module",
+            module_data,
+            Path("test/module.py"),
         )
 
         assert "Python module 'test_module'" in description
@@ -176,7 +198,9 @@ class TestClass:
         }
 
         description = code_extractor.build_entity_description(
-            "class", class_data, Path("test.py"),
+            "class",
+            class_data,
+            Path("test.py"),
         )
 
         assert "Class 'TestClass'" in description
@@ -199,7 +223,9 @@ class TestClass:
         }
 
         description = code_extractor.build_entity_description(
-            "function", func_data, Path("test.py"),
+            "function",
+            func_data,
+            Path("test.py"),
         )
 
         assert "Function 'test_function'" in description
@@ -220,7 +246,9 @@ class TestClass:
         }
 
         description = code_extractor.build_entity_description(
-            "function", method_data, Path("test.py"),
+            "function",
+            method_data,
+            Path("test.py"),
         )
 
         assert "Method 'method'" in description
@@ -263,7 +291,10 @@ class TestClass:
         functions = [{"name": f"func{i}", "parameters": []} for i in range(8)]
 
         result = code_extractor.aggregate_module_info(
-            module_data, classes, functions, Path("test.py"),
+            module_data,
+            classes,
+            functions,
+            Path("test.py"),
         )
 
         assert "Python module 'test_module'" in result

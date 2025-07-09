@@ -88,7 +88,9 @@ class EmbeddingService:
                     await self._create_class_embedding(cls, file_record.path)
                     stats["classes"] += 1
                 except Exception as e:
-                    logger.exception(f"Failed to create embedding for class {cls.id}: {e}")
+                    logger.exception(
+                        f"Failed to create embedding for class {cls.id}: {e}",
+                    )
                     stats["errors"].append(f"Class {cls.name}: {e!s}")
 
             # Process functions
@@ -205,7 +207,9 @@ class EmbeddingService:
 
         # Generate embedding
         result = await self.embedding_generator.generate_module_embedding(
-            module_data, file_path, stats,
+            module_data,
+            file_path,
+            stats,
         )
 
         # Store embedding
@@ -265,7 +269,8 @@ class EmbeddingService:
 
         # Generate embedding
         results = await self.embedding_generator.generate_class_embeddings(
-            [class_data], file_path,
+            [class_data],
+            file_path,
         )
 
         if not results or not results[0].get("embedding"):
@@ -326,7 +331,8 @@ class EmbeddingService:
 
         # Generate embedding
         results = await self.embedding_generator.generate_function_embeddings(
-            [func_data], file_path,
+            [func_data],
+            file_path,
         )
 
         if not results or not results[0].get("embedding"):

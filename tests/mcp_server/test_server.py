@@ -74,7 +74,9 @@ class TestMCPCodeAnalysisServer:
                         mock_init_tools.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_startup_openai_failure(self, mcp_server, mock_engine, mock_session) -> None:
+    async def test_startup_openai_failure(
+        self, mcp_server, mock_engine, mock_session,
+    ) -> None:
         """Test server startup with OpenAI connection failure."""
         with patch("src.mcp_server.server.init_database", return_value=mock_engine):
             with patch("src.mcp_server.server.get_session_factory") as mock_factory:
@@ -83,7 +85,9 @@ class TestMCPCodeAnalysisServer:
                 with patch.object(mcp_server, "_initialize_tools"):
                     # Create OpenAI client first
                     mcp_server.openai_client = MagicMock()
-                    mcp_server.openai_client.test_connection = AsyncMock(return_value=False)
+                    mcp_server.openai_client.test_connection = AsyncMock(
+                        return_value=False,
+                    )
 
                     await mcp_server._startup()
 
@@ -137,7 +141,9 @@ class TestMCPCodeAnalysisServer:
             },
         )
 
-        with patch("src.mcp_server.server.RepositoryScanner", return_value=mock_scanner):
+        with patch(
+            "src.mcp_server.server.RepositoryScanner", return_value=mock_scanner,
+        ):
             result = await mcp_server.scan_repository("https://github.com/test/repo")
 
             assert result["repository_id"] == 1
@@ -145,7 +151,9 @@ class TestMCPCodeAnalysisServer:
             mock_scanner.scan_repository.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_scan_repository_with_embeddings(self, mcp_server, mock_session) -> None:
+    async def test_scan_repository_with_embeddings(
+        self, mcp_server, mock_session,
+    ) -> None:
         """Test repository scanning with embedding generation."""
         mcp_server.session_factory = AsyncMock(return_value=mock_session)
         mcp_server.openai_client = MagicMock()
@@ -163,12 +171,16 @@ class TestMCPCodeAnalysisServer:
             return_value={"total_embeddings": 20},
         )
 
-        with patch("src.mcp_server.server.RepositoryScanner", return_value=mock_scanner):
+        with patch(
+            "src.mcp_server.server.RepositoryScanner", return_value=mock_scanner,
+        ):
             with patch(
                 "src.mcp_server.server.EmbeddingService",
                 return_value=mock_embedding_service,
             ):
-                result = await mcp_server.scan_repository("https://github.com/test/repo")
+                result = await mcp_server.scan_repository(
+                    "https://github.com/test/repo",
+                )
 
                 assert "embeddings" in result
                 assert result["embeddings"]["total_embeddings"] == 20
@@ -186,7 +198,9 @@ class TestMCPCodeAnalysisServer:
             ],
         )
 
-        with patch("src.mcp_server.server.VectorSearch", return_value=mock_vector_search):
+        with patch(
+            "src.mcp_server.server.VectorSearch", return_value=mock_vector_search,
+        ):
             results = await mcp_server.search("find test function")
 
             assert len(results) == 1

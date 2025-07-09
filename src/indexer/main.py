@@ -127,7 +127,11 @@ class IndexerService:
             logger.exception(f"Error indexing file {file.path}: {e}")
 
     async def process_chunk(
-        self, repos: dict[str, Any], file: Any, chunk: dict[str, Any], file_path: Path,
+        self,
+        repos: dict[str, Any],
+        file: Any,
+        chunk: dict[str, Any],
+        file_path: Path,
     ) -> None:
         """Process a single code chunk."""
         try:
@@ -165,7 +169,9 @@ class IndexerService:
             # Generate embeddings
             raw_embedding, interpreted_embedding = (
                 await self.embedding_generator.generate_code_embeddings(
-                    chunk_content, interpretation, f"File: {file.path}",
+                    chunk_content,
+                    interpretation,
+                    f"File: {file.path}",
                 )
             )
 
@@ -208,7 +214,9 @@ class IndexerService:
             logger.exception(f"Error processing chunk: {e}")
 
     def _map_chunk_to_entity(
-        self, chunk: dict[str, Any], file_id: int,
+        self,
+        chunk: dict[str, Any],
+        file_id: int,
     ) -> Tuple[str, int]:
         """Map a chunk to an entity type and ID."""
         # This is simplified - in practice, we'd look up actual entity IDs

@@ -93,7 +93,8 @@ async def find_definition(name: str, type: str = "any") -> list[dict[str, Any]]:
 
 @mcp.tool
 async def find_usage(
-    function_or_class: str, repository: str | None = None,
+    function_or_class: str,
+    repository: str | None = None,
 ) -> list[dict[str, Any]]:
     """
     Find all places where a function/class is used.

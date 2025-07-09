@@ -220,7 +220,10 @@ class TestPythonCodeParser:
 
         # Get with context
         chunk_with_context = python_parser.get_code_chunk(
-            temp_python_file, 58, 62, context_lines=2,
+            temp_python_file,
+            58,
+            62,
+            context_lines=2,
         )
         assert len(chunk_with_context.split("\n")) > len(chunk.split("\n"))
 

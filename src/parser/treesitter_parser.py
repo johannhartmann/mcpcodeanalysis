@@ -51,7 +51,10 @@ class TreeSitterParser:
         return node.start_point[0] + 1, node.end_point[0] + 1
 
     def find_nodes_by_type(
-        self, node: tree_sitter.Node, node_type: str, max_depth: int | None = None,
+        self,
+        node: tree_sitter.Node,
+        node_type: str,
+        max_depth: int | None = None,
     ) -> list[tree_sitter.Node]:
         """Find all nodes of a specific type."""
         results = []
@@ -97,7 +100,9 @@ class PythonParser(TreeSitterParser):
         super().__init__(self.language)
 
     def extract_imports(
-        self, tree: tree_sitter.Tree, content: bytes,
+        self,
+        tree: tree_sitter.Tree,
+        content: bytes,
     ) -> list[dict[str, Any]]:
         """Extract import statements."""
         imports = []
@@ -125,7 +130,8 @@ class PythonParser(TreeSitterParser):
 
         # Find from imports
         from_import_nodes = self.find_nodes_by_type(
-            tree.root_node, "import_from_statement",
+            tree.root_node,
+            "import_from_statement",
         )
         for node in from_import_nodes:
             import_data = {
@@ -154,9 +160,7 @@ class PythonParser(TreeSitterParser):
                     else:
                         # Handle import list
                         for name_node in child.children:
-                            if (
-                                name_node.type in {"identifier", "dotted_name"}
-                            ):
+                            if name_node.type in {"identifier", "dotted_name"}:
                                 import_data["imported_names"].append(
                                     self.get_node_text(name_node, content),
                                 )
@@ -176,7 +180,9 @@ class PythonParser(TreeSitterParser):
         root = parent_class if parent_class else tree.root_node
 
         function_nodes = self.find_nodes_by_type(
-            root, "function_definition", max_depth=2 if parent_class else None,
+            root,
+            "function_definition",
+            max_depth=2 if parent_class else None,
         )
 
         for node in function_nodes:
@@ -236,7 +242,8 @@ class PythonParser(TreeSitterParser):
                 elif child.type == "block":
                     # Check if it's a generator
                     if self.find_nodes_by_type(
-                        child, "yield_statement",
+                        child,
+                        "yield_statement",
                     ) or self.find_nodes_by_type(child, "yield_expression"):
                         func_data["is_generator"] = True
 
@@ -248,7 +255,9 @@ class PythonParser(TreeSitterParser):
         return functions
 
     def extract_classes(
-        self, tree: tree_sitter.Tree, content: bytes,
+        self,
+        tree: tree_sitter.Tree,
+        content: bytes,
     ) -> list[dict[str, Any]]:
         """Extract class definitions."""
         classes = []
@@ -314,7 +323,9 @@ class PythonParser(TreeSitterParser):
         return classes
 
     def extract_module_info(
-        self, tree: tree_sitter.Tree, content: bytes,
+        self,
+        tree: tree_sitter.Tree,
+        content: bytes,
     ) -> dict[str, Any]:
         """Extract module-level information."""
         return {
@@ -325,7 +336,9 @@ class PythonParser(TreeSitterParser):
         }
 
     def _extract_parameters(
-        self, params_node: tree_sitter.Node, content: bytes,
+        self,
+        params_node: tree_sitter.Node,
+        content: bytes,
     ) -> list[dict[str, Any]]:
         """Extract function parameters."""
         parameters = []
@@ -357,7 +370,8 @@ class PythonParser(TreeSitterParser):
                         elif subchild.type not in (":", "="):
                             # Default value
                             param_data["default"] = self.get_node_text(
-                                subchild, content,
+                                subchild,
+                                content,
                             )
 
                 if param_data["name"] and param_data["name"] not in (
@@ -372,7 +386,9 @@ class PythonParser(TreeSitterParser):
         return parameters
 
     def _get_module_docstring(
-        self, tree: tree_sitter.Tree, content: bytes,
+        self,
+        tree: tree_sitter.Tree,
+        content: bytes,
     ) -> str | None:
         """Extract module-level docstring."""
         # Module docstring is the first string in the file

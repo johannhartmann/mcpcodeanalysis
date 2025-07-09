@@ -42,14 +42,18 @@ def mock_settings():
     settings.github.webhook_endpoint = "/webhook"
     settings.mcp.host = "localhost"
     settings.mcp.port = 8000
-    settings.scanner.webhook_secret = MagicMock(get_secret_value=lambda: "webhook_secret")
+    settings.scanner.webhook_secret = MagicMock(
+        get_secret_value=lambda: "webhook_secret",
+    )
     return settings
 
 
 @pytest.fixture
 def repository_scanner(mock_db_session, mock_settings):
     """Create RepositoryScanner fixture."""
-    with patch("src.scanner.repository_scanner.get_settings", return_value=mock_settings):
+    with patch(
+        "src.scanner.repository_scanner.get_settings", return_value=mock_settings,
+    ):
         scanner = RepositoryScanner(mock_db_session)
         yield scanner
 
@@ -267,14 +271,17 @@ class TestRepositoryScanner:
             },
         ]
 
-        with patch.object(
-            repository_scanner.git_sync,
-            "scan_repository_files",
-            return_value=files_data,
-        ), patch.object(
-            repository_scanner,
-            "_update_or_create_file",
-        ) as mock_update_file:
+        with (
+            patch.object(
+                repository_scanner.git_sync,
+                "scan_repository_files",
+                return_value=files_data,
+            ),
+            patch.object(
+                repository_scanner,
+                "_update_or_create_file",
+            ) as mock_update_file,
+        ):
             mock_file1 = MagicMock(spec=File)
             mock_file2 = MagicMock(spec=File)
             mock_update_file.side_effect = [mock_file1, mock_file2]
@@ -309,6 +316,7 @@ class TestRepositoryScanner:
 
         # Mock file paths
         with patch("pathlib.Path") as mock_path_class:
+
             def create_mock_path(exists_val, size_val=1000):
                 mock_path = MagicMock()
                 mock_path.exists.return_value = exists_val
@@ -321,13 +329,16 @@ class TestRepositoryScanner:
             # Configure Path behavior
             mock_path_class.side_effect = lambda p: create_mock_path(True)
 
-            with patch.object(
-                repository_scanner,
-                "_update_or_create_file",
-            ) as mock_update_file, patch.object(
-                repository_scanner.git_sync,
-                "get_file_hash",
-                return_value="hash123",
+            with (
+                patch.object(
+                    repository_scanner,
+                    "_update_or_create_file",
+                ) as mock_update_file,
+                patch.object(
+                    repository_scanner.git_sync,
+                    "get_file_hash",
+                    return_value="hash123",
+                ),
             ):
                 mock_file = MagicMock(spec=File)
                 mock_update_file.return_value = mock_file
@@ -423,22 +434,27 @@ class TestRepositoryScanner:
         """Test full repository scan."""
         repo_config = mock_settings.repositories[0]
 
-        with patch.object(
-            repository_scanner,
-            "_get_or_create_repository",
-            return_value=mock_repo_record,
-        ), patch.object(
-            repository_scanner.git_sync,
-            "update_repository",
-            return_value=mock_git_repo,
-        ), patch.object(
-            repository_scanner,
-            "_process_commits",
-            return_value=[],
-        ), patch.object(
-            repository_scanner,
-            "_full_file_scan",
-            return_value=[MagicMock(), MagicMock()],
+        with (
+            patch.object(
+                repository_scanner,
+                "_get_or_create_repository",
+                return_value=mock_repo_record,
+            ),
+            patch.object(
+                repository_scanner.git_sync,
+                "update_repository",
+                return_value=mock_git_repo,
+            ),
+            patch.object(
+                repository_scanner,
+                "_process_commits",
+                return_value=[],
+            ),
+            patch.object(
+                repository_scanner,
+                "_full_file_scan",
+                return_value=[MagicMock(), MagicMock()],
+            ),
         ):
             # Mock GitHub client
             mock_github_client = AsyncMock()
@@ -490,6 +506,7 @@ class TestRepositoryScanner:
         mock_settings,
     ) -> None:
         """Test scanning repositories with one failure."""
+
         async def scan_side_effect(repo_config, force_full_scan=False):
             if "test-repo2" in repo_config.url:
                 raise RepositoryError("Failed to scan")

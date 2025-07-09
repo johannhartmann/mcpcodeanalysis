@@ -12,7 +12,7 @@ from src.database.domain_models import (
     DomainEntity,
     DomainSummary,
 )
-from src.database.models import Class, File, Function, Module
+from src.database.models import Class, Function, Module
 from src.embeddings.openai_client import OpenAIClient
 from src.utils.logger import get_logger
 
@@ -28,7 +28,7 @@ class HierarchicalSummarizer:
         openai_client: OpenAIClient | None = None,
     ) -> None:
         """Initialize the summarizer.
-        
+
         Args:
             db_session: Database session
             openai_client: OpenAI client for LLM operations
@@ -42,11 +42,11 @@ class HierarchicalSummarizer:
         include_domain_context: bool = True,
     ) -> DomainSummary:
         """Generate domain-aware summary of a function.
-        
+
         Args:
             function_id: Function ID
             include_domain_context: Whether to include domain entity context
-            
+
         Returns:
             Domain summary object
         """
@@ -57,13 +57,13 @@ class HierarchicalSummarizer:
             .options(
                 selectinload(Function.module).selectinload(Module.file),
                 selectinload(Function.parent_class),
-            )
+            ),
         )
         function = result.scalar_one_or_none()
-        
+
         if not function:
             raise ValueError(f"Function {function_id} not found")
-        
+
         # Get related domain entities
         domain_entities = []
         if include_domain_context:
@@ -71,13 +71,13 @@ class HierarchicalSummarizer:
                 "function",
                 function_id,
             )
-        
+
         # Generate summary
         summary_data = await self._generate_function_summary(
             function,
             domain_entities,
         )
-        
+
         # Create summary record
         summary = DomainSummary(
             level="function",
@@ -87,10 +87,10 @@ class HierarchicalSummarizer:
             technical_summary=summary_data["technical_summary"],
             domain_concepts=summary_data["domain_concepts"],
         )
-        
+
         self.db_session.add(summary)
         await self.db_session.commit()
-        
+
         return summary
 
     async def summarize_class(
@@ -99,11 +99,11 @@ class HierarchicalSummarizer:
         include_methods: bool = True,
     ) -> DomainSummary:
         """Generate domain-aware summary of a class.
-        
+
         Args:
             class_id: Class ID
             include_methods: Whether to include method summaries
-            
+
         Returns:
             Domain summary object
         """
@@ -114,13 +114,13 @@ class HierarchicalSummarizer:
             .options(
                 selectinload(Class.module).selectinload(Module.file),
                 selectinload(Class.methods),
-            )
+            ),
         )
         class_obj = result.scalar_one_or_none()
-        
+
         if not class_obj:
             raise ValueError(f"Class {class_id} not found")
-        
+
         # Get method summaries if requested
         method_summaries = []
         if include_methods:
@@ -130,28 +130,28 @@ class HierarchicalSummarizer:
                     select(DomainSummary).where(
                         DomainSummary.entity_type == "function",
                         DomainSummary.entity_id == method.id,
-                    )
+                    ),
                 )
                 method_summary = result.scalar_one_or_none()
-                
+
                 if not method_summary:
                     method_summary = await self.summarize_function(method.id)
-                    
+
                 method_summaries.append(method_summary)
-        
+
         # Get related domain entities
         domain_entities = await self._get_related_domain_entities(
             "class",
             class_id,
         )
-        
+
         # Generate summary
         summary_data = await self._generate_class_summary(
             class_obj,
             domain_entities,
             method_summaries,
         )
-        
+
         # Create summary record
         summary = DomainSummary(
             level="class",
@@ -161,10 +161,10 @@ class HierarchicalSummarizer:
             technical_summary=summary_data["technical_summary"],
             domain_concepts=summary_data["domain_concepts"],
         )
-        
+
         self.db_session.add(summary)
         await self.db_session.commit()
-        
+
         return summary
 
     async def summarize_module(
@@ -172,10 +172,10 @@ class HierarchicalSummarizer:
         module_id: int,
     ) -> DomainSummary:
         """Generate domain-aware summary of a module.
-        
+
         Args:
             module_id: Module ID
-            
+
         Returns:
             Domain summary object
         """
@@ -187,13 +187,13 @@ class HierarchicalSummarizer:
                 selectinload(Module.file),
                 selectinload(Module.classes),
                 selectinload(Module.functions),
-            )
+            ),
         )
         module = result.scalar_one_or_none()
-        
+
         if not module:
             raise ValueError(f"Module {module_id} not found")
-        
+
         # Get summaries for classes and functions
         class_summaries = []
         for class_obj in module.classes:
@@ -201,36 +201,36 @@ class HierarchicalSummarizer:
                 select(DomainSummary).where(
                     DomainSummary.entity_type == "class",
                     DomainSummary.entity_id == class_obj.id,
-                )
+                ),
             )
             class_summary = result.scalar_one_or_none()
-            
+
             if not class_summary:
                 class_summary = await self.summarize_class(class_obj.id)
-                
+
             class_summaries.append(class_summary)
-        
+
         function_summaries = []
         for function in module.functions:
             result = await self.db_session.execute(
                 select(DomainSummary).where(
                     DomainSummary.entity_type == "function",
                     DomainSummary.entity_id == function.id,
-                )
+                ),
             )
             func_summary = result.scalar_one_or_none()
-            
+
             if not func_summary:
                 func_summary = await self.summarize_function(function.id)
-                
+
             function_summaries.append(func_summary)
-        
+
         # Get related domain entities
         domain_entities = await self._get_related_domain_entities(
             "module",
             module_id,
         )
-        
+
         # Generate summary
         summary_data = await self._generate_module_summary(
             module,
@@ -238,7 +238,7 @@ class HierarchicalSummarizer:
             class_summaries,
             function_summaries,
         )
-        
+
         # Create summary record
         summary = DomainSummary(
             level="module",
@@ -248,10 +248,10 @@ class HierarchicalSummarizer:
             technical_summary=summary_data["technical_summary"],
             domain_concepts=summary_data["domain_concepts"],
         )
-        
+
         self.db_session.add(summary)
         await self.db_session.commit()
-        
+
         return summary
 
     async def summarize_bounded_context(
@@ -259,10 +259,10 @@ class HierarchicalSummarizer:
         context_id: int,
     ) -> DomainSummary:
         """Generate summary of a bounded context.
-        
+
         Args:
             context_id: Bounded context ID
-            
+
         Returns:
             Domain summary object
         """
@@ -270,29 +270,29 @@ class HierarchicalSummarizer:
         result = await self.db_session.execute(
             select(BoundedContext)
             .where(BoundedContext.id == context_id)
-            .options(selectinload(BoundedContext.memberships))
+            .options(selectinload(BoundedContext.memberships)),
         )
         context = result.scalar_one_or_none()
-        
+
         if not context:
             raise ValueError(f"Bounded context {context_id} not found")
-        
+
         # Load domain entities
         entity_ids = [m.domain_entity_id for m in context.memberships]
         result = await self.db_session.execute(
-            select(DomainEntity).where(DomainEntity.id.in_(entity_ids))
+            select(DomainEntity).where(DomainEntity.id.in_(entity_ids)),
         )
         domain_entities = result.scalars().all()
-        
+
         # Generate summary
         summary_data = await self._generate_context_summary(
             context,
             domain_entities,
         )
-        
+
         # Update context with summary
         context.summary = summary_data["business_summary"]
-        
+
         # Create summary record
         summary = DomainSummary(
             level="context",
@@ -302,10 +302,10 @@ class HierarchicalSummarizer:
             technical_summary=summary_data["technical_summary"],
             domain_concepts=summary_data["domain_concepts"],
         )
-        
+
         self.db_session.add(summary)
         await self.db_session.commit()
-        
+
         return summary
 
     async def _get_related_domain_entities(
@@ -316,7 +316,7 @@ class HierarchicalSummarizer:
         """Get domain entities related to a code entity."""
         # This is simplified - would need to map based on source_entities
         result = await self.db_session.execute(
-            select(DomainEntity).limit(10)  # Placeholder
+            select(DomainEntity).limit(10),  # Placeholder
         )
         return result.scalars().all()
 
@@ -328,7 +328,7 @@ class HierarchicalSummarizer:
         """Generate summary for a function using LLM."""
         # Build context
         context_parts = []
-        
+
         # Function details
         context_parts.append(f"Function: {function.name}")
         if function.parent_class:
@@ -339,14 +339,14 @@ class HierarchicalSummarizer:
             context_parts.append(f"Parameters: {function.parameters}")
         if function.return_type:
             context_parts.append(f"Returns: {function.return_type}")
-            
+
         # Domain context
         if domain_entities:
             entity_names = [e.name for e in domain_entities[:5]]
             context_parts.append(f"Related domain entities: {', '.join(entity_names)}")
-        
+
         context = "\n".join(context_parts)
-        
+
         # Generate summaries
         prompt = f"""Given this function:
 {context}
@@ -378,9 +378,9 @@ Output as JSON:
                 temperature=0.3,
                 response_format={"type": "json_object"},
             )
-            
+
             return json.loads(response)
-            
+
         except Exception as e:
             logger.exception(f"Error generating function summary: {e}")
             return {
@@ -399,11 +399,11 @@ Output as JSON:
         # Aggregate method summaries
         method_concepts = set()
         method_descriptions = []
-        
+
         for summary in method_summaries[:10]:  # Limit to prevent token overflow
             method_concepts.update(summary.domain_concepts)
             method_descriptions.append(summary.business_summary)
-        
+
         context = f"""Class: {class_obj.name}
 Base classes: {class_obj.base_classes}
 Docstring: {class_obj.docstring or 'None'}
@@ -438,14 +438,14 @@ Output as JSON:
                 temperature=0.3,
                 response_format={"type": "json_object"},
             )
-            
+
             result = json.loads(response)
             # Add method concepts
             result["domain_concepts"] = list(
-                set(result.get("domain_concepts", [])) | method_concepts
+                set(result.get("domain_concepts", [])) | method_concepts,
             )
             return result
-            
+
         except Exception as e:
             logger.exception(f"Error generating class summary: {e}")
             return {
@@ -466,7 +466,7 @@ Output as JSON:
         all_concepts = set()
         for summary in class_summaries + function_summaries:
             all_concepts.update(summary.domain_concepts)
-        
+
         context = f"""Module: {module.name}
 File: {module.file.path if module.file else 'Unknown'}
 Classes: {len(class_summaries)}
@@ -501,9 +501,9 @@ Output as JSON:
                 temperature=0.3,
                 response_format={"type": "json_object"},
             )
-            
+
             return json.loads(response)
-            
+
         except Exception as e:
             logger.exception(f"Error generating module summary: {e}")
             return {
@@ -521,8 +521,10 @@ Output as JSON:
         # Collect entity information
         entity_types = {}
         for entity in domain_entities:
-            entity_types[entity.entity_type] = entity_types.get(entity.entity_type, 0) + 1
-        
+            entity_types[entity.entity_type] = (
+                entity_types.get(entity.entity_type, 0) + 1
+            )
+
         context_info = f"""Bounded Context: {context.name}
 Description: {context.description}
 Core concepts: {', '.join(context.core_concepts[:10])}
@@ -564,13 +566,14 @@ Output as JSON:
                 temperature=0.3,
                 response_format={"type": "json_object"},
             )
-            
+
             return json.loads(response)
-            
+
         except Exception as e:
             logger.exception(f"Error generating context summary: {e}")
             return {
-                "business_summary": context.description or f"Bounded context {context.name}",
+                "business_summary": context.description
+                or f"Bounded context {context.name}",
                 "technical_summary": f"Contains {len(domain_entities)} domain entities",
                 "domain_concepts": context.core_concepts[:10],
             }

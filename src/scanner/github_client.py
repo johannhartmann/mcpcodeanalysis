@@ -57,12 +57,9 @@ class GitHubClient:
     async def _check_rate_limit(self) -> None:
         """Check and handle rate limiting."""
         if self._rate_limit_remaining <= 10 and (
-            self._rate_limit_reset
-            and datetime.now(UTC) < self._rate_limit_reset
+            self._rate_limit_reset and datetime.now(UTC) < self._rate_limit_reset
         ):
-            wait_seconds = (
-                self._rate_limit_reset - datetime.now(UTC)
-            ).total_seconds()
+            wait_seconds = (self._rate_limit_reset - datetime.now(UTC)).total_seconds()
             logger.warning(
                 "Rate limit nearly exhausted, waiting",
                 remaining=self._rate_limit_remaining,
@@ -225,7 +222,11 @@ class GitHubClient:
     ) -> dict[str, Any]:
         """Get file content from repository."""
         logger.debug(
-            "Fetching file content", owner=owner, repo=repo, path=path, ref=ref,
+            "Fetching file content",
+            owner=owner,
+            repo=repo,
+            path=path,
+            ref=ref,
         )
         params = {"ref": ref} if ref else {}
         response = await self._request(

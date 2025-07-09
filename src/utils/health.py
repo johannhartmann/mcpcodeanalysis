@@ -67,7 +67,8 @@ class DatabaseHealthCheck(HealthCheck):
         """Check database connectivity and pgvector extension."""
         engine = create_async_engine(
             self.settings.get_database_url().replace(
-                "postgresql://", "postgresql+asyncpg://",
+                "postgresql://",
+                "postgresql+asyncpg://",
             ),
             pool_size=1,
             max_overflow=0,

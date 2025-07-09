@@ -141,11 +141,13 @@ class TestSettings:
         monkeypatch.setenv("GITHUB_TOKEN", "ghp_test")
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            f.write("""
+            f.write(
+                """
 repositories:
   - url: https://github.com/test/repo
     access_token: ${GITHUB_TOKEN}
-""")
+""",
+            )
             config_path = Path(f.name)
 
         try:
@@ -219,6 +221,7 @@ class TestSettingsSingleton:
 
         # Clear singleton
         from src.mcp_server import config
+
         config._settings = None
 
         # First call creates instance
@@ -236,6 +239,7 @@ class TestSettingsSingleton:
 
         # Clear singleton
         from src.mcp_server import config
+
         config._settings = None
 
         # Get initial settings

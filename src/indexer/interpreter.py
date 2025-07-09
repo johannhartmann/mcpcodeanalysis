@@ -181,7 +181,9 @@ Description:""",
             return f"Module {name} containing {len(classes or [])} classes and {len(functions or [])} functions"
 
     async def batch_interpret(
-        self, entities: list[dict[str, Any]], entity_type: str,
+        self,
+        entities: list[dict[str, Any]],
+        entity_type: str,
     ) -> list[str]:
         """Interpret multiple entities in batch."""
         interpretations = []

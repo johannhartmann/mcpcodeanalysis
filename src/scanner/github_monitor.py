@@ -31,7 +31,9 @@ class GitHubMonitor:
         await self.client.aclose()
 
     async def get_repository_info(
-        self, repo_url: str, token: str | None = None,
+        self,
+        repo_url: str,
+        token: str | None = None,
     ) -> dict[str, Any]:
         """Get repository information from GitHub."""
         # Parse GitHub URL
@@ -123,7 +125,8 @@ class GitHubMonitor:
                             "author_email": commit_data["commit"]["author"]["email"],
                             "timestamp": datetime.fromisoformat(
                                 commit_data["commit"]["author"]["date"].replace(
-                                    "Z", "+00:00",
+                                    "Z",
+                                    "+00:00",
                                 ),
                             ),
                             "url": commit_data["html_url"],
@@ -151,7 +154,11 @@ class GitHubMonitor:
             raise GitHubError(f"Error fetching commits: {e}")
 
     async def get_commit_files(
-        self, owner: str, repo: str, sha: str, token: str | None = None,
+        self,
+        owner: str,
+        repo: str,
+        sha: str,
+        token: str | None = None,
     ) -> list[dict[str, Any]]:
         """Get files changed in a specific commit."""
         headers = {}
@@ -270,7 +277,9 @@ class GitHubMonitor:
         expected_signature = (
             "sha256="
             + hmac.new(
-                self.github_config.webhook_secret.encode(), payload, hashlib.sha256,
+                self.github_config.webhook_secret.encode(),
+                payload,
+                hashlib.sha256,
             ).hexdigest()
         )
 

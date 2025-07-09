@@ -1,5 +1,6 @@
 """Database models for MCP Code Analysis Server."""
 
+from typing import Any
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
@@ -18,7 +19,6 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import declarative_base, relationship
-from typing import Any
 
 Base: Any = declarative_base()
 
@@ -43,10 +43,14 @@ class Repository(Base):
 
     # Relationships
     files = relationship(
-        "File", back_populates="repository", cascade="all, delete-orphan",
+        "File",
+        back_populates="repository",
+        cascade="all, delete-orphan",
     )
     commits = relationship(
-        "Commit", back_populates="repository", cascade="all, delete-orphan",
+        "Commit",
+        back_populates="repository",
+        cascade="all, delete-orphan",
     )
 
     __table_args__ = (Index("idx_repository_owner_name", "owner", "name"),)
@@ -73,13 +77,19 @@ class File(Base):
     # Relationships
     repository = relationship("Repository", back_populates="files")
     modules = relationship(
-        "Module", back_populates="file", cascade="all, delete-orphan",
+        "Module",
+        back_populates="file",
+        cascade="all, delete-orphan",
     )
     imports = relationship(
-        "Import", back_populates="file", cascade="all, delete-orphan",
+        "Import",
+        back_populates="file",
+        cascade="all, delete-orphan",
     )
     embeddings = relationship(
-        "CodeEmbedding", back_populates="file", cascade="all, delete-orphan",
+        "CodeEmbedding",
+        back_populates="file",
+        cascade="all, delete-orphan",
     )
 
     __table_args__ = (
@@ -107,7 +117,9 @@ class Module(Base):
     # Relationships
     file = relationship("File", back_populates="modules")
     classes = relationship(
-        "Class", back_populates="module", cascade="all, delete-orphan",
+        "Class",
+        back_populates="module",
+        cascade="all, delete-orphan",
     )
     functions = relationship(
         "Function",
@@ -180,10 +192,14 @@ class Function(Base):
 
     # Relationships
     module = relationship(
-        "Module", back_populates="functions", foreign_keys=[module_id],
+        "Module",
+        back_populates="functions",
+        foreign_keys=[module_id],
     )
     parent_class = relationship(
-        "Class", back_populates="methods", foreign_keys=[class_id],
+        "Class",
+        back_populates="methods",
+        foreign_keys=[class_id],
     )
 
     __table_args__ = (
@@ -258,7 +274,8 @@ class CodeEmbedding(Base):
     entity_id = Column(Integer, nullable=False)
     file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
     embedding_type = Column(
-        Enum("raw", "interpreted", name="embedding_type"), nullable=False,
+        Enum("raw", "interpreted", name="embedding_type"),
+        nullable=False,
     )
     embedding = Column(Vector(1536), nullable=False)  # OpenAI ada-002 dimension
     content = Column(Text, nullable=False)
