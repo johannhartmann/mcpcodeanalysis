@@ -158,7 +158,7 @@ class CodeAnalysisTools:
                 }
 
             except Exception as e:
-                logger.exception(f"Failed to get code: {e}")
+                logger.exception("Failed to get code: %s")
                 return {
                     "success": False,
                     "error": str(e),
@@ -302,7 +302,7 @@ class CodeAnalysisTools:
                 return analysis
 
             except Exception as e:
-                logger.exception(f"Failed to analyze file: {e}")
+                logger.exception("Failed to analyze file: %s")
                 return {
                     "success": False,
                     "error": str(e),
@@ -387,7 +387,7 @@ class CodeAnalysisTools:
                 return dependencies
 
             except Exception as e:
-                logger.exception(f"Failed to get dependencies: {e}")
+                logger.exception("Failed to get dependencies: %s")
                 return {
                     "success": False,
                     "error": str(e),
@@ -471,7 +471,7 @@ class CodeAnalysisTools:
                 }
 
             except Exception as e:
-                logger.exception(f"Failed to find usages: {e}")
+                logger.exception("Failed to find usages: %s")
                 return {
                     "success": False,
                     "error": str(e),

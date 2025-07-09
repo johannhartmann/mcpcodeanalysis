@@ -302,7 +302,7 @@ class DomainTools:
             }
 
         except Exception as e:
-            logger.exception(f"Error extracting domain model: {e}")
+            logger.exception("Error extracting domain model: %s")
             return {
                 "error": str(e),
                 "entities": [],
@@ -383,8 +383,8 @@ class DomainTools:
 
             return aggregate_data
 
-        except Exception as e:
-            logger.exception(f"Error finding aggregate roots: {e}")
+        except Exception:
+            logger.exception("Error finding aggregate roots: %s")
             return []
 
     async def analyze_bounded_context(
@@ -485,7 +485,7 @@ class DomainTools:
             }
 
         except Exception as e:
-            logger.exception(f"Error analyzing bounded context: {e}")
+            logger.exception("Error analyzing bounded context: %s")
             return {"error": str(e)}
 
     async def suggest_ddd_refactoring(
@@ -573,7 +573,7 @@ class DomainTools:
                             "entity": entity.name,
                             "message": f"Entity '{entity.name}' has too many responsibilities ({len(entity.responsibilities)})",
                             "suggestion": "Extract some responsibilities into domain services",
-                            "responsibilities": entity.responsibilities[:5] + ["..."],
+                            "responsibilities": [*entity.responsibilities[:5], "..."],
                         },
                     )
 
@@ -588,7 +588,7 @@ class DomainTools:
                 )
                 memberships = membership_result.scalars().all()
 
-                contexts = set(m.bounded_context.name for m in memberships)
+                contexts = {m.bounded_context.name for m in memberships}
                 if len(contexts) > 1:
                     suggestions.append(
                         {
@@ -603,7 +603,7 @@ class DomainTools:
             return suggestions
 
         except Exception as e:
-            logger.exception(f"Error suggesting DDD refactoring: {e}")
+            logger.exception("Error suggesting DDD refactoring: %s")
             return [{"error": str(e)}]
 
     async def find_bounded_contexts(
@@ -623,7 +623,7 @@ class DomainTools:
             # Get all contexts
             result = await self.db_session.execute(
                 select(BoundedContext).options(
-                    selectinload(BoundedContext.memberships)
+                    selectinload(BoundedContext.memberships),
                 ),
             )
             contexts = result.scalars().all()
@@ -647,8 +647,8 @@ class DomainTools:
 
             return context_data
 
-        except Exception as e:
-            logger.exception(f"Error finding bounded contexts: {e}")
+        except Exception:
+            logger.exception("Error finding bounded contexts: %s")
             return []
 
     async def generate_context_map(
@@ -749,7 +749,7 @@ class DomainTools:
             return {"error": f"Unsupported format: {output_format}"}
 
         except Exception as e:
-            logger.exception(f"Error generating context map: {e}")
+            logger.exception("Error generating context map: %s")
             return {"error": str(e)}
 
     async def _get_source_files(

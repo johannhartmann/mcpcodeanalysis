@@ -153,7 +153,7 @@ class RepositoryManagementTools:
                 }
 
             except Exception as e:
-                logger.exception(f"Failed to add repository: {e}")
+                logger.exception("Failed to add repository: %s")
                 return {
                     "success": False,
                     "error": str(e),
@@ -231,7 +231,7 @@ class RepositoryManagementTools:
                 }
 
             except Exception as e:
-                logger.exception(f"Failed to list repositories: {e}")
+                logger.exception("Failed to list repositories: %s")
                 return {
                     "success": False,
                     "error": str(e),
@@ -302,7 +302,7 @@ class RepositoryManagementTools:
                 }
 
             except Exception as e:
-                logger.exception(f"Failed to scan repository: {e}")
+                logger.exception("Failed to scan repository: %s")
                 return {
                     "success": False,
                     "error": str(e),
@@ -358,7 +358,7 @@ class RepositoryManagementTools:
                 }
 
             except Exception as e:
-                logger.exception(f"Failed to update embeddings: {e}")
+                logger.exception("Failed to update embeddings: %s")
                 return {
                     "success": False,
                     "error": str(e),
@@ -495,7 +495,7 @@ class RepositoryManagementTools:
                 }
 
             except Exception as e:
-                logger.exception(f"Failed to get repository stats: {e}")
+                logger.exception("Failed to get repository stats: %s")
                 return {
                     "success": False,
                     "error": str(e),
@@ -550,7 +550,7 @@ class RepositoryManagementTools:
                 }
 
             except Exception as e:
-                logger.exception(f"Failed to delete repository: {e}")
+                logger.exception("Failed to delete repository: %s")
                 await self.db_session.rollback()
                 return {
                     "success": False,

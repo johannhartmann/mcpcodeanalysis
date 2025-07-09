@@ -162,7 +162,7 @@ class AnalysisTools:
                     "low": 0,
                 }
 
-                for _pattern_type, issues in anti_patterns.items():
+                for issues in anti_patterns.values():
                     if isinstance(issues, list):
                         for issue in issues:
                             severity = issue.get("severity", "medium")

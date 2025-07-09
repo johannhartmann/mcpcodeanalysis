@@ -45,7 +45,7 @@ class ExplainTool:
             return self._format_explanation(explanation)
 
         except Exception as e:
-            logger.exception(f"Error in explain_code: {e}")
+            logger.exception("Error in explain_code: %s")
             return f"Error explaining code: {e!s}"
 
     async def _parse_code_path(self, path: str) -> dict[str, Any] | None:

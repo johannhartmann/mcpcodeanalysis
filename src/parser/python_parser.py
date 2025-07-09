@@ -39,7 +39,7 @@ class PythonCodeParser:
             return module_info
 
         except Exception as e:
-            logger.exception(f"Error parsing Python file {file_path}: {e}")
+            logger.exception("Error parsing Python file %s: %s", file_path, e)
             raise ParserError(
                 f"Failed to parse Python file: {file_path}",
                 str(file_path),
@@ -153,5 +153,5 @@ class PythonCodeParser:
 
             return "".join(lines[start_idx:end_idx])
         except Exception as e:
-            logger.exception(f"Error getting code chunk from {file_path}: {e}")
+            logger.exception("Error getting code chunk from %s: %s", file_path, e)
             return ""

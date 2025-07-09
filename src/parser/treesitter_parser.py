@@ -28,7 +28,7 @@ class TreeSitterParser:
                 content = f.read()
             return self.parse_content(content)
         except Exception as e:
-            logger.exception(f"Error parsing file {file_path}: {e}")
+            logger.exception("Error parsing file %s: %s", file_path, e)
             return None
 
     def parse_content(self, content: bytes) -> tree_sitter.Tree | None:
@@ -38,8 +38,8 @@ class TreeSitterParser:
 
         try:
             return self.parser.parse(content)
-        except Exception as e:
-            logger.exception(f"Error parsing content: {e}")
+        except Exception:
+            logger.exception("Error parsing content: %s")
             return None
 
     def get_node_text(self, node: tree_sitter.Node, content: bytes) -> str:

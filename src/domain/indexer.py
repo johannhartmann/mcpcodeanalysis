@@ -68,20 +68,20 @@ class DomainIndexer:
                 .limit(1),
             )
             if result.scalar_one_or_none():
-                logger.info(f"File {file.path} already indexed, skipping")
+                logger.info("File %s already indexed, skipping", file.path)
                 return {"status": "skipped", "file_id": file_id}
 
         # Read file content
         file_path = Path(file.path)
         if not file_path.exists():
-            logger.warning(f"File {file.path} not found on disk")
+            logger.warning("File %s not found on disk", file.path)
             return {"status": "error", "file_id": file_id, "error": "File not found"}
 
         with open(file_path, encoding="utf-8") as f:
             content = f.read()
 
         # Extract entities
-        logger.info(f"Extracting domain entities from {file.path}")
+        logger.info("Extracting domain entities from %s", file.path)
         extraction_result = await self.entity_extractor.extract_from_module(
             content,
             file.path,
@@ -131,7 +131,7 @@ class DomainIndexer:
             .where(
                 File.repository_id == repository_id,
                 File.path.endswith(".py"),
-                File.is_deleted == False,
+                not File.is_deleted,
             )
             .order_by(File.size)  # Start with smaller files
         )
@@ -142,7 +142,7 @@ class DomainIndexer:
         result = await self.db_session.execute(query)
         files = result.scalars().all()
 
-        logger.info(f"Indexing {len(files)} files from repository {repository_id}")
+        logger.info("Indexing %d files from repository %d", len(files), repository_id)
 
         # Index each file
         results = {
@@ -155,7 +155,7 @@ class DomainIndexer:
         }
 
         for i, file in enumerate(files, 1):
-            logger.info(f"Processing file {i}/{len(files)}: {file.path}")
+            logger.info("Processing file %d/%d: %s", i, len(files), file.path)
 
             try:
                 file_result = await self.index_file(file.id)
@@ -172,7 +172,7 @@ class DomainIndexer:
                     results["failed"] += 1
 
             except Exception as e:
-                logger.exception(f"Error indexing file {file.path}: {e}")
+                logger.exception("Error indexing file %s: %s", file.path, e)
                 results["failed"] += 1
 
         # Detect bounded contexts
@@ -214,7 +214,7 @@ class DomainIndexer:
         # Analyze context relationships
         if len(saved_contexts) > 1:
             logger.info("Analyzing context relationships...")
-            relationships = await self.graph_builder.analyze_context_relationships(
+            await self.graph_builder.analyze_context_relationships(
                 graph,
                 contexts,
             )
@@ -252,7 +252,7 @@ class DomainIndexer:
                     await self.summarizer.summarize_module(module.id)
                     count += 1
                 except Exception as e:
-                    logger.exception(f"Error summarizing module {module.id}: {e}")
+                    logger.exception("Error summarizing module %d: %s", module.id, e)
 
         elif entity_type == "context":
             # Get contexts to summarize
@@ -270,9 +270,9 @@ class DomainIndexer:
                     await self.summarizer.summarize_bounded_context(context.id)
                     count += 1
                 except Exception as e:
-                    logger.exception(f"Error summarizing context {context.id}: {e}")
+                    logger.exception("Error summarizing context %d: %s", context.id, e)
 
-        logger.info(f"Generated {count} summaries for {entity_type}")
+        logger.info("Generated %d summaries for %s", count, entity_type)
         return count
 
     async def _save_domain_entities(
@@ -296,12 +296,12 @@ class DomainIndexer:
             if existing:
                 # Update existing entity
                 existing.source_entities = list(
-                    set(existing.source_entities + [file_id]),
+                    {*existing.source_entities, file_id},
                 )
                 # Merge other fields
                 existing.business_rules = list(
                     set(
-                        existing.business_rules + entity_data.get("business_rules", [])
+                        existing.business_rules + entity_data.get("business_rules", []),
                     ),
                 )
                 existing.invariants = list(
@@ -341,8 +341,10 @@ class DomainIndexer:
 
             if not source_entity or not target_entity:
                 logger.warning(
-                    f"Skipping relationship {rel_data['source']} -> {rel_data['target']}: "
+                    "Skipping relationship %s -> %s: "
                     "entity not found",
+                    rel_data["source"],
+                    rel_data["target"],
                 )
                 continue
 
@@ -404,4 +406,4 @@ class DomainIndexer:
                 embedding = await self.openai_client.generate_embedding(text)
                 entity.concept_embedding = embedding
             except Exception as e:
-                logger.exception(f"Error generating embedding for {entity.name}: {e}")
+                logger.exception("Error generating embedding for %s: %s", entity.name, e)

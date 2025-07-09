@@ -3,6 +3,8 @@
 import re
 from typing import Any
 
+from sqlalchemy import text
+
 from src.database import get_repositories, get_session
 from src.database.models import Class, File, Function, Module
 from src.indexer.embeddings import EmbeddingGenerator
@@ -47,7 +49,8 @@ class AnalyzeTool:
 
                     # Get imports
                     imports = await session.execute(
-                        f"SELECT * FROM imports WHERE file_id = {file.id}",
+                        text("SELECT * FROM imports WHERE file_id = :file_id"),
+                        {"file_id": file.id},
                     )
                     import_list = list(imports.scalars().all()) if imports else []
 
@@ -106,7 +109,7 @@ class AnalyzeTool:
                     return analysis
 
         except Exception as e:
-            logger.exception(f"Error in analyze_dependencies: {e}")
+            logger.exception("Error in analyze_dependencies: %s")
             return {"error": str(e), "module_path": module_path}
 
     async def suggest_refactoring(self, code_path: str) -> list[dict[str, Any]]:
@@ -149,7 +152,7 @@ class AnalyzeTool:
                     return suggestions
 
         except Exception as e:
-            logger.exception(f"Error in suggest_refactoring: {e}")
+            logger.exception("Error in suggest_refactoring: %s")
             return [{"error": str(e), "code_path": code_path}]
 
     async def find_similar_code(self, code_snippet: str) -> list[dict[str, Any]]:
@@ -199,7 +202,7 @@ class AnalyzeTool:
                     return results
 
         except Exception as e:
-            logger.exception(f"Error in find_similar_code: {e}")
+            logger.exception("Error in find_similar_code: %s")
             return [{"error": str(e), "code_snippet": code_snippet[:100] + "..."}]
 
     async def get_code_structure(self, path: str) -> dict[str, Any]:
@@ -223,7 +226,7 @@ class AnalyzeTool:
                     return await self._get_package_structure(repos, path)
 
         except Exception as e:
-            logger.exception(f"Error in get_code_structure: {e}")
+            logger.exception("Error in get_code_structure: %s")
             return {"error": str(e), "path": path}
 
     async def _find_importers(

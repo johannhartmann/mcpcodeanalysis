@@ -381,8 +381,8 @@ Output as JSON:
 
             return json.loads(response)
 
-        except Exception as e:
-            logger.exception(f"Error generating function summary: {e}")
+        except Exception:
+            logger.exception("Error generating function summary: %s")
             return {
                 "business_summary": f"Function {function.name} implementation",
                 "technical_summary": function.docstring or "No description available",
@@ -446,8 +446,8 @@ Output as JSON:
             )
             return result
 
-        except Exception as e:
-            logger.exception(f"Error generating class summary: {e}")
+        except Exception:
+            logger.exception("Error generating class summary: %s")
             return {
                 "business_summary": f"Class {class_obj.name} implementation",
                 "technical_summary": class_obj.docstring or "No description available",
@@ -504,8 +504,8 @@ Output as JSON:
 
             return json.loads(response)
 
-        except Exception as e:
-            logger.exception(f"Error generating module summary: {e}")
+        except Exception:
+            logger.exception("Error generating module summary: %s")
             return {
                 "business_summary": f"Module {module.name}",
                 "technical_summary": module.docstring or "Module implementation",
@@ -569,8 +569,8 @@ Output as JSON:
 
             return json.loads(response)
 
-        except Exception as e:
-            logger.exception(f"Error generating context summary: {e}")
+        except Exception:
+            logger.exception("Error generating context summary: %s")
             return {
                 "business_summary": context.description
                 or f"Bounded context {context.name}",

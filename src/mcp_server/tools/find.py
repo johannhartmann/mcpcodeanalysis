@@ -88,7 +88,7 @@ class FindTool:
                     return definitions
 
         except Exception as e:
-            logger.exception(f"Error in find_definition: {e}")
+            logger.exception("Error in find_definition: %s")
             return [{"error": str(e), "name": name, "type": type}]
 
     async def find_usage(
@@ -157,7 +157,7 @@ class FindTool:
                     return unique_usages
 
         except Exception as e:
-            logger.exception(f"Error in find_usage: {e}")
+            logger.exception("Error in find_usage: %s")
             return [
                 {
                     "error": str(e),

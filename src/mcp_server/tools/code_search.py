@@ -172,7 +172,7 @@ class CodeSearchTools:
                     }
 
                 except Exception as e:
-                    logger.exception(f"Semantic search failed: {e}")
+                    logger.exception("Semantic search failed: %s")
                     return {
                         "success": False,
                         "error": str(e),
@@ -207,7 +207,7 @@ class CodeSearchTools:
                     }
 
                 except Exception as e:
-                    logger.exception(f"Similar code search failed: {e}")
+                    logger.exception("Similar code search failed: %s")
                     return {
                         "success": False,
                         "error": str(e),
@@ -248,7 +248,7 @@ class CodeSearchTools:
                     }
 
                 except Exception as e:
-                    logger.exception(f"Code snippet search failed: {e}")
+                    logger.exception("Code snippet search failed: %s")
                     return {
                         "success": False,
                         "error": str(e),
@@ -289,7 +289,7 @@ class CodeSearchTools:
                         }
 
                     except Exception as e:
-                        logger.exception(f"Business capability search failed: {e}")
+                        logger.exception("Business capability search failed: %s")
                         return {
                             "success": False,
                             "error": str(e),
@@ -437,7 +437,7 @@ class CodeSearchTools:
                 }
 
             except Exception as e:
-                logger.exception(f"Keyword search failed: {e}")
+                logger.exception("Keyword search failed: %s")
                 return {
                     "success": False,
                     "error": str(e),

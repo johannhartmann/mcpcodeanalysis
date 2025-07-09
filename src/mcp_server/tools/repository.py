@@ -95,7 +95,7 @@ class RepositoryTool:
                     return repositories
 
         except Exception as e:
-            logger.exception(f"Error in list_repositories: {e}")
+            logger.exception("Error in list_repositories: %s")
             return [{"error": str(e)}]
 
     async def sync_repository(self, repository_url: str) -> dict[str, Any]:
@@ -217,7 +217,7 @@ class RepositoryTool:
                     return result
 
         except Exception as e:
-            logger.exception(f"Error in sync_repository: {e}")
+            logger.exception("Error in sync_repository: %s")
             return {
                 "status": "error",
                 "error": str(e),
@@ -229,7 +229,7 @@ class RepositoryTool:
         if not last_synced:
             return "Never synced"
 
-        age = datetime.utcnow() - last_synced
+        age = datetime.now(tz=datetime.UTC) - last_synced
 
         if age.days > 0:
             return f"{age.days} day{'s' if age.days > 1 else ''} ago"

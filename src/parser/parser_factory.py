@@ -30,10 +30,10 @@ class ParserFactory:
 
         parser_class = cls._parsers.get(extension)
         if parser_class:
-            logger.debug(f"Creating {parser_class.__name__} for {file_path}")
+            logger.debug("Creating %s for %s", parser_class.__name__, file_path)
             return parser_class()
 
-        logger.warning(f"No parser available for extension: {extension}")
+        logger.warning("No parser available for extension: %s", extension)
         return None
 
     @classmethod
@@ -43,10 +43,10 @@ class ParserFactory:
 
         parser_class = cls._language_parsers.get(language_lower)
         if parser_class:
-            logger.debug(f"Creating {parser_class.__name__} for language: {language}")
+            logger.debug("Creating %s for language: %s", parser_class.__name__, language)
             return parser_class()
 
-        logger.warning(f"No parser available for language: {language}")
+        logger.warning("No parser available for language: %s", language)
         return None
 
     @classmethod

@@ -1,7 +1,7 @@
 """Analyze domain patterns and anti-patterns in codebases."""
 
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 from sqlalchemy import func, select
@@ -151,7 +151,7 @@ class DomainPatternAnalyzer:
             )
 
         # Find high coupling pairs
-        for _ctx1_id, ctx1_metrics in context_metrics.items():
+        for ctx1_metrics in context_metrics.values():
             for ctx2_id, count in ctx1_metrics["coupling_details"].items():
                 if count > 5:  # Threshold for high coupling
                     ctx2_metrics = context_metrics.get(ctx2_id, {})
@@ -278,7 +278,7 @@ class DomainPatternAnalyzer:
                     "reasoning": f"Low cohesion ({context.cohesion_score:.2f}) indicates weak relationships between entity groups",
                 }
 
-                for i, cluster in enumerate(clusters):
+                for _i, cluster in enumerate(clusters):
                     cluster_entities = [entity_map[eid] for eid in cluster]
 
                     # Find potential aggregate roots
@@ -333,8 +333,8 @@ class DomainPatternAnalyzer:
         # 1. Detect anemic domain models (entities with no business rules)
         query = select(DomainEntity).where(
             DomainEntity.entity_type.in_(["entity", "aggregate_root"]),
-            func.array_length(DomainEntity.business_rules, 1) == None,
-            func.array_length(DomainEntity.invariants, 1) == None,
+            func.array_length(DomainEntity.business_rules, 1) is None,
+            func.array_length(DomainEntity.invariants, 1) is None,
         )
 
         result = await self.db_session.execute(query)
@@ -360,7 +360,7 @@ class DomainPatternAnalyzer:
                 {
                     "entity": entity.name,
                     "responsibility_count": len(entity.responsibilities),
-                    "responsibilities": entity.responsibilities[:5] + ["..."],
+                    "responsibilities": [*entity.responsibilities[:5], "..."],
                     "issue": "Too many responsibilities",
                     "recommendation": "Split into multiple focused entities or extract domain services",
                     "severity": "high",
@@ -421,7 +421,7 @@ class DomainPatternAnalyzer:
         Returns:
             Evolution analysis with trends and changes
         """
-        since_date = datetime.utcnow() - timedelta(days=days)
+        since_date = datetime.now(UTC) - timedelta(days=days)
 
         evolution: dict[str, Any] = {
             "time_period": f"Last {days} days",
@@ -665,7 +665,7 @@ class DomainPatternAnalyzer:
                 elif neighbor in rec_stack:
                     # Found cycle
                     cycle_start = path.index(neighbor)
-                    cycle_path = path[cycle_start:] + [neighbor]
+                    cycle_path = [*path[cycle_start:], neighbor]
                     cycles.append(cycle_path)
 
             rec_stack.remove(node)

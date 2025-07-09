@@ -26,7 +26,7 @@ class CodeExtractor:
         suffix = file_path.suffix
 
         if suffix not in self.parsers:
-            logger.warning(f"No parser available for file type: {suffix}")
+            logger.warning("No parser available for file type: %s", suffix)
             return None
 
         parser = self.parsers[suffix]
@@ -34,7 +34,7 @@ class CodeExtractor:
         try:
             return parser.extract_entities(file_path, file_id)
         except Exception as e:
-            logger.exception(f"Failed to extract entities from {file_path}: {e}")
+            logger.exception("Failed to extract entities from %s: %s", file_path, e)
             return None
 
     def get_entity_content(
