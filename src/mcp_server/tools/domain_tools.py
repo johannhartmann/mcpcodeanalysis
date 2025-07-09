@@ -170,86 +170,27 @@ class DomainTools:
         try:
             # Find the file
             result = await self.db_session.execute(
-                    select(File).where(File.path.endswith(code_path))
-                )
-                file = result.scalar_one_or_none()
-                
-                if not file:
-                    return {
-                        "error": f"File not found: {code_path}",
-                        "entities": [],
-                        "relationships": [],
-                    }
-                
-                # Check if already indexed
-                result = await self.db_session.execute(
-                    select(DomainEntity)
-                    .where(DomainEntity.source_entities.contains([file.id]))
-                )
-                existing_entities = result.scalars().all()
-                
-                if existing_entities:
-                    # Return existing domain model
-                    entities = [
-                        {
-                            "name": e.name,
-                            "type": e.entity_type,
-                            "description": e.description,
-                            "business_rules": e.business_rules,
-                            "invariants": e.invariants,
-                            "responsibilities": e.responsibilities,
-                        }
-                        for e in existing_entities
-                    ]
-                    
-                    relationships = []
-                    if include_relationships:
-                        # Get relationships
-                        entity_ids = [e.id for e in existing_entities]
-                        result = await self.db_session.execute(
-                            select(DomainRelationship).where(
-                                DomainRelationship.source_entity_id.in_(entity_ids)
-                            ).options(
-                                selectinload(DomainRelationship.source_entity),
-                                selectinload(DomainRelationship.target_entity),
-                            )
-                        )
-                        
-                        for rel in result.scalars().all():
-                            relationships.append({
-                                "source": rel.source_entity.name,
-                                "target": rel.target_entity.name,
-                                "type": rel.relationship_type,
-                                "description": rel.description,
-                            })
-                    
-                    return {
-                        "file": code_path,
-                        "entities": entities,
-                        "relationships": relationships,
-                        "source": "cached",
-                    }
-                
-                # Extract new domain model
-                from src.domain.indexer import DomainIndexer
-                indexer = DomainIndexer(self.db_session, self.openai_client)
-                result = await indexer.index_file(file.id)
-                
-                if result["status"] != "success":
-                    return {
-                        "error": f"Failed to extract domain model: {result.get('error')}",
-                        "entities": [],
-                        "relationships": [],
-                    }
-                
-                # Fetch the extracted entities
-                result = await self.db_session.execute(
-                    select(DomainEntity)
-                    .where(DomainEntity.source_entities.contains([file.id]))
-                )
-                entities = result.scalars().all()
-                
-                entity_data = [
+                select(File).where(File.path.endswith(code_path))
+            )
+            file = result.scalar_one_or_none()
+            
+            if not file:
+                return {
+                    "error": f"File not found: {code_path}",
+                    "entities": [],
+                    "relationships": [],
+                }
+            
+            # Check if already indexed
+            result = await self.db_session.execute(
+                select(DomainEntity)
+                .where(DomainEntity.source_entities.contains([file.id]))
+            )
+            existing_entities = result.scalars().all()
+            
+            if existing_entities:
+                # Return existing domain model
+                entities = [
                     {
                         "name": e.name,
                         "type": e.entity_type,
@@ -258,12 +199,13 @@ class DomainTools:
                         "invariants": e.invariants,
                         "responsibilities": e.responsibilities,
                     }
-                    for e in entities
+                    for e in existing_entities
                 ]
                 
-                relationship_data = []
-                if include_relationships and entities:
-                    entity_ids = [e.id for e in entities]
+                relationships = []
+                if include_relationships:
+                    # Get relationships
+                    entity_ids = [e.id for e in existing_entities]
                     result = await self.db_session.execute(
                         select(DomainRelationship).where(
                             DomainRelationship.source_entity_id.in_(entity_ids)
@@ -274,7 +216,7 @@ class DomainTools:
                     )
                     
                     for rel in result.scalars().all():
-                        relationship_data.append({
+                        relationships.append({
                             "source": rel.source_entity.name,
                             "target": rel.target_entity.name,
                             "type": rel.relationship_type,
@@ -283,11 +225,69 @@ class DomainTools:
                 
                 return {
                     "file": code_path,
-                    "entities": entity_data,
-                    "relationships": relationship_data,
-                    "source": "extracted",
+                    "entities": entities,
+                    "relationships": relationships,
+                    "source": "cached",
                 }
+            
+            # Extract new domain model
+            from src.domain.indexer import DomainIndexer
+            indexer = DomainIndexer(self.db_session, self.openai_client)
+            result = await indexer.index_file(file.id)
+            
+            if result["status"] != "success":
+                return {
+                    "error": f"Failed to extract domain model: {result.get('error')}",
+                    "entities": [],
+                    "relationships": [],
+                }
+            
+            # Fetch the extracted entities
+            result = await self.db_session.execute(
+                select(DomainEntity)
+                .where(DomainEntity.source_entities.contains([file.id]))
+            )
+            entities = result.scalars().all()
+            
+            entity_data = [
+                {
+                    "name": e.name,
+                    "type": e.entity_type,
+                    "description": e.description,
+                    "business_rules": e.business_rules,
+                    "invariants": e.invariants,
+                    "responsibilities": e.responsibilities,
+                }
+                for e in entities
+            ]
+            
+            relationship_data = []
+            if include_relationships and entities:
+                entity_ids = [e.id for e in entities]
+                result = await self.db_session.execute(
+                    select(DomainRelationship).where(
+                        DomainRelationship.source_entity_id.in_(entity_ids)
+                    ).options(
+                        selectinload(DomainRelationship.source_entity),
+                        selectinload(DomainRelationship.target_entity),
+                    )
+                )
                 
+                for rel in result.scalars().all():
+                    relationship_data.append({
+                        "source": rel.source_entity.name,
+                        "target": rel.target_entity.name,
+                        "type": rel.relationship_type,
+                        "description": rel.description,
+                    })
+            
+            return {
+                "file": code_path,
+                "entities": entity_data,
+                "relationships": relationship_data,
+                "source": "extracted",
+            }
+            
         except Exception as e:
             logger.exception(f"Error extracting domain model: {e}")
             return {
@@ -486,95 +486,95 @@ class DomainTools:
             List of DDD-based refactoring suggestions
         """
         try:
-                # Find file
-                result = await self.db_session.execute(
-                    select(File).where(File.path.endswith(code_path))
-                )
-                file = result.scalar_one_or_none()
-                
-                if not file:
-                    return [{"error": f"File not found: {code_path}"}]
-                
-                # Get domain entities from this file
-                result = await self.db_session.execute(
-                    select(DomainEntity)
-                    .where(DomainEntity.source_entities.contains([file.id]))
-                )
-                entities = result.scalars().all()
-                
-                suggestions = []
-                
-                # Check for missing aggregate roots
-                has_aggregate = any(e.entity_type == "aggregate_root" for e in entities)
-                if entities and not has_aggregate:
-                    suggestions.append({
-                        "type": "missing_aggregate",
-                        "severity": "high",
-                        "message": "No aggregate root found",
-                        "suggestion": "Identify the main entity that maintains consistency and make it an aggregate root",
-                        "entities": [e.name for e in entities],
-                    })
-                
-                # Check for anemic domain models
-                for entity in entities:
-                    if entity.entity_type in ["entity", "aggregate_root"]:
-                        if not entity.business_rules and not entity.invariants:
-                            suggestions.append({
-                                "type": "anemic_domain_model",
-                                "severity": "medium",
-                                "entity": entity.name,
-                                "message": f"Entity '{entity.name}' has no business rules or invariants",
-                                "suggestion": "Move business logic into the entity to create a rich domain model",
-                            })
-                
-                # Check for missing value objects
-                # Simple heuristic: entities with few responsibilities might be value objects
-                for entity in entities:
-                    if entity.entity_type == "entity" and len(entity.responsibilities) <= 1:
+            # Find file
+            result = await self.db_session.execute(
+                select(File).where(File.path.endswith(code_path))
+            )
+            file = result.scalar_one_or_none()
+            
+            if not file:
+                return [{"error": f"File not found: {code_path}"}]
+            
+            # Get domain entities from this file
+            result = await self.db_session.execute(
+                select(DomainEntity)
+                .where(DomainEntity.source_entities.contains([file.id]))
+            )
+            entities = result.scalars().all()
+            
+            suggestions = []
+            
+            # Check for missing aggregate roots
+            has_aggregate = any(e.entity_type == "aggregate_root" for e in entities)
+            if entities and not has_aggregate:
+                suggestions.append({
+                    "type": "missing_aggregate",
+                    "severity": "high",
+                    "message": "No aggregate root found",
+                    "suggestion": "Identify the main entity that maintains consistency and make it an aggregate root",
+                    "entities": [e.name for e in entities],
+                })
+            
+            # Check for anemic domain models
+            for entity in entities:
+                if entity.entity_type in ["entity", "aggregate_root"]:
+                    if not entity.business_rules and not entity.invariants:
                         suggestions.append({
-                            "type": "potential_value_object",
-                            "severity": "low",
-                            "entity": entity.name,
-                            "message": f"Entity '{entity.name}' might be better as a value object",
-                            "suggestion": "Consider making this a value object if it has no identity and is defined by its attributes",
-                        })
-                
-                # Check for missing domain services
-                # Look for entities with too many responsibilities
-                for entity in entities:
-                    if len(entity.responsibilities) > 5:
-                        suggestions.append({
-                            "type": "bloated_entity",
+                            "type": "anemic_domain_model",
                             "severity": "medium",
                             "entity": entity.name,
-                            "message": f"Entity '{entity.name}' has too many responsibilities ({len(entity.responsibilities)})",
-                            "suggestion": "Extract some responsibilities into domain services",
-                            "responsibilities": entity.responsibilities[:5] + ["..."],
+                            "message": f"Entity '{entity.name}' has no business rules or invariants",
+                            "suggestion": "Move business logic into the entity to create a rich domain model",
                         })
+            
+            # Check for missing value objects
+            # Simple heuristic: entities with few responsibilities might be value objects
+            for entity in entities:
+                if entity.entity_type == "entity" and len(entity.responsibilities) <= 1:
+                    suggestions.append({
+                        "type": "potential_value_object",
+                        "severity": "low",
+                        "entity": entity.name,
+                        "message": f"Entity '{entity.name}' might be better as a value object",
+                        "suggestion": "Consider making this a value object if it has no identity and is defined by its attributes",
+                    })
+            
+            # Check for missing domain services
+            # Look for entities with too many responsibilities
+            for entity in entities:
+                if len(entity.responsibilities) > 5:
+                    suggestions.append({
+                        "type": "bloated_entity",
+                        "severity": "medium",
+                        "entity": entity.name,
+                        "message": f"Entity '{entity.name}' has too many responsibilities ({len(entity.responsibilities)})",
+                        "suggestion": "Extract some responsibilities into domain services",
+                        "responsibilities": entity.responsibilities[:5] + ["..."],
+                    })
+            
+            # Check bounded context cohesion
+            if entities:
+                # Find which contexts these entities belong to
+                entity_ids = [e.id for e in entities]
+                membership_result = await self.db_session.execute(
+                    select(BoundedContextMembership)
+                    .where(BoundedContextMembership.domain_entity_id.in_(entity_ids))
+                    .options(selectinload(BoundedContextMembership.bounded_context))
+                )
+                memberships = membership_result.scalars().all()
                 
-                # Check bounded context cohesion
-                if entities:
-                    # Find which contexts these entities belong to
-                    entity_ids = [e.id for e in entities]
-                    membership_result = await self.db_session.execute(
-                        select(BoundedContextMembership)
-                        .where(BoundedContextMembership.domain_entity_id.in_(entity_ids))
-                        .options(selectinload(BoundedContextMembership.bounded_context))
-                    )
-                    memberships = membership_result.scalars().all()
-                    
-                    contexts = set(m.bounded_context.name for m in memberships)
-                    if len(contexts) > 1:
-                        suggestions.append({
-                            "type": "context_boundary_violation",
-                            "severity": "high",
-                            "message": f"File contains entities from {len(contexts)} different bounded contexts",
-                            "contexts": list(contexts),
-                            "suggestion": "Split this file so each file contains entities from only one bounded context",
-                        })
-                
-                return suggestions
-                
+                contexts = set(m.bounded_context.name for m in memberships)
+                if len(contexts) > 1:
+                    suggestions.append({
+                        "type": "context_boundary_violation",
+                        "severity": "high",
+                        "message": f"File contains entities from {len(contexts)} different bounded contexts",
+                        "contexts": list(contexts),
+                        "suggestion": "Split this file so each file contains entities from only one bounded context",
+                    })
+            
+            return suggestions
+            
         except Exception as e:
             logger.exception(f"Error suggesting DDD refactoring: {e}")
             return [{"error": str(e)}]
