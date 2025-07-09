@@ -4,6 +4,7 @@ import json
 from typing import Any
 
 import networkx as nx
+import networkx.algorithms.community as nx_comm
 import numpy as np
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +19,11 @@ from src.embeddings.openai_client import OpenAIClient
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+# Constants for magic values
+DEFAULT_MIN_CONFIDENCE = 0.5
+MIN_COMMUNITY_SIZE = 2
+MIN_EDGE_COUNT_FOR_SHARED_KERNEL = 5
 
 # Import leidenalg if available, otherwise use fallback
 try:
@@ -87,7 +93,7 @@ class SemanticGraphBuilder:
             DomainRelationship.confidence_score >= min_confidence,
         )
         if not include_weak_relationships:
-            rel_query = rel_query.where(DomainRelationship.strength >= 0.5)
+            rel_query = rel_query.where(DomainRelationship.strength >= DEFAULT_MIN_CONFIDENCE)
 
         result = await self.db_session.execute(rel_query)
         relationships = result.scalars().all()
@@ -109,8 +115,9 @@ class SemanticGraphBuilder:
                 )
 
         logger.info(
-            f"Built graph with {graph.number_of_nodes()} nodes "
-            f"and {graph.number_of_edges()} edges",
+            "Built graph with %s nodes and %s edges",
+            graph.number_of_nodes(),
+            graph.number_of_edges(),
         )
 
         return graph
@@ -147,7 +154,7 @@ class SemanticGraphBuilder:
         # Convert to bounded contexts
         contexts = []
         for community_id, node_ids in enumerate(communities):
-            if len(node_ids) < 2:  # Skip single-node communities
+            if len(node_ids) < MIN_COMMUNITY_SIZE:  # Skip single-node communities
                 continue
 
             context = await self._create_bounded_context(
@@ -157,7 +164,7 @@ class SemanticGraphBuilder:
             )
             contexts.append(context)
 
-        logger.info(f"Detected {len(contexts)} bounded contexts")
+        logger.info("Detected %d bounded contexts", len(contexts))
         return contexts
 
     def _detect_leiden_communities(
@@ -206,9 +213,6 @@ class SemanticGraphBuilder:
         resolution: float,
     ) -> list[list[int]]:
         """Detect communities using Louvain algorithm (fallback)."""
-        # NetworkX community detection
-        import networkx.algorithms.community as nx_comm
-
         # Apply Louvain algorithm
         communities = nx_comm.louvain_communities(
             graph,
@@ -349,8 +353,8 @@ Output as JSON:
 
             return json.loads(response)
 
-        except Exception as e:
-            logger.exception(f"Error generating context description: {e}")
+        except Exception:
+            logger.exception("Error generating context description: %s")
             # Fallback to simple naming
             aggregate_roots = [e for e in entities if e["type"] == "aggregate_root"]
             name = (
@@ -397,7 +401,7 @@ Output as JSON:
             saved_contexts.append(context)
 
         await self.db_session.commit()
-        logger.info(f"Saved {len(saved_contexts)} bounded contexts")
+        logger.info("Saved %d bounded contexts", len(saved_contexts))
 
         return saved_contexts
 
@@ -478,7 +482,7 @@ Output as JSON:
             return "published_language"
         if "orchestrates" in rel_types:
             return "customer_supplier"
-        if edge_data["count"] > 5:
+        if edge_data["count"] > MIN_EDGE_COUNT_FOR_SHARED_KERNEL:
             return "shared_kernel"
         if "validates" in rel_types:
             return "anti_corruption_layer"

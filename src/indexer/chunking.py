@@ -93,7 +93,7 @@ class CodeChunker:
         entity: dict[str, Any],
         lines: list[str],
         include_context: bool = False,
-        parent_class: Optional[str] = None,
+        parent_class: str | None = None,
     ) -> dict[str, Any]:
         """Create a chunk for a code entity."""
         start_line = entity.get("start_line", 1) - 1
@@ -142,7 +142,7 @@ class CodeChunker:
         self,
         entities: dict[str, list[dict[str, Any]]],
         lines: list[str],
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Create a chunk for module-level code."""
         # Find module docstring and imports
         module_end_line = 0

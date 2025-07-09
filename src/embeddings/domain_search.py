@@ -170,7 +170,7 @@ class DomainAwareSearch:
         enhanced_query = f"""
         Find code that implements the following business capability:
         {capability}
-        
+
         Focus on domain entities, aggregates, and services that handle this capability.
         """
 
@@ -189,10 +189,10 @@ class DomainAwareSearch:
         prompt = f"""
         Extract domain concepts and entities from this search query:
         "{query}"
-        
+
         Return a JSON list of domain concepts mentioned or implied.
         Focus on business terms, not technical terms.
-        
+
         Example: "find payment processing" -> ["Payment", "Order", "Transaction"]
         """
 
@@ -217,8 +217,8 @@ class DomainAwareSearch:
             result = json.loads(response)
             return result.get("concepts", [])
 
-        except Exception as e:
-            logger.exception(f"Error extracting concepts: {e}")
+        except Exception:
+            logger.exception("Error extracting concepts: %s")
             # Fallback to simple extraction
             return [word.capitalize() for word in query.split() if len(word) > 3]
 
@@ -289,7 +289,7 @@ class DomainAwareSearch:
 
         enhanced = f"""
         {query}
-        
+
         Related domain concepts:
         {chr(10).join(entity_context)}
         """

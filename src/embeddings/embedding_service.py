@@ -49,7 +49,7 @@ class EmbeddingService:
         Returns:
             Summary of created embeddings
         """
-        logger.info(f"Creating embeddings for file {file_id}")
+        logger.info("Creating embeddings for file %d", file_id)
 
         # Get file record
         result = await self.db_session.execute(select(File).where(File.id == file_id))
@@ -113,8 +113,8 @@ class EmbeddingService:
             )
 
         except Exception as e:
-            logger.exception(f"Failed to create embeddings for file {file_id}: {e}")
-            raise EmbeddingError(f"Failed to create embeddings: {e}")
+            logger.exception("Failed to create embeddings for file %s: %s", file_id, e)
+            raise EmbeddingError(f"Failed to create embeddings: {e}") from e
 
         return stats
 
@@ -132,7 +132,7 @@ class EmbeddingService:
         Returns:
             Summary of created embeddings
         """
-        logger.info(f"Creating embeddings for repository {repository_id}")
+        logger.info("Creating embeddings for repository %d", repository_id)
 
         # Get repository files
         query = select(File).where(
@@ -168,7 +168,7 @@ class EmbeddingService:
                         ],
                     )
             except Exception as e:
-                logger.exception(f"Failed to process file {file_record.id}: {e}")
+                logger.exception("Failed to process file %s: %s", file_record.id, e)
                 stats["errors"].append(f"File {file_record.path}: {e!s}")
 
         logger.info(
@@ -191,7 +191,7 @@ class EmbeddingService:
         # Check if embedding already exists
         existing = await self._get_existing_embedding("module", module.id)
         if existing:
-            logger.debug(f"Embedding already exists for module {module.id}")
+            logger.debug("Embedding already exists for module %d", module.id)
             return existing.id
 
         # Prepare module data
@@ -222,7 +222,7 @@ class EmbeddingService:
             content=result["text"],
             tokens=result.get("tokens"),
             repo_metadata=result["metadata"],
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(tz=datetime.UTC),
         )
 
         self.db_session.add(embedding)
@@ -243,7 +243,7 @@ class EmbeddingService:
         # Check if embedding already exists
         existing = await self._get_existing_embedding("class", cls.id)
         if existing:
-            logger.debug(f"Embedding already exists for class {cls.id}")
+            logger.debug("Embedding already exists for class %d", cls.id)
             return existing.id
 
         # Prepare class data with methods
@@ -288,7 +288,7 @@ class EmbeddingService:
             content=result["text"],
             tokens=result.get("tokens"),
             repo_metadata=result["metadata"],
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(tz=datetime.UTC),
         )
 
         self.db_session.add(embedding)
@@ -309,7 +309,7 @@ class EmbeddingService:
         # Check if embedding already exists
         existing = await self._get_existing_embedding("function", func.id)
         if existing:
-            logger.debug(f"Embedding already exists for function {func.id}")
+            logger.debug("Embedding already exists for function %d", func.id)
             return existing.id
 
         # Prepare function data
@@ -352,7 +352,7 @@ class EmbeddingService:
             content=result["text"],
             tokens=result.get("tokens"),
             repo_metadata=result["metadata"],
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(tz=datetime.UTC),
         )
 
         self.db_session.add(embedding)
@@ -486,7 +486,7 @@ class EmbeddingService:
         Returns:
             Summary of updated embeddings
         """
-        logger.info(f"Updating embeddings for file {file_id}")
+        logger.info("Updating embeddings for file %d", file_id)
 
         # Delete existing embeddings
         deleted = await self.db_session.execute(
@@ -494,7 +494,7 @@ class EmbeddingService:
         )
         await self.db_session.commit()
 
-        logger.info(f"Deleted {deleted.rowcount} existing embeddings")
+        logger.info("Deleted %d existing embeddings", deleted.rowcount)
 
         # Create new embeddings
         stats = await self.create_file_embeddings(file_id)

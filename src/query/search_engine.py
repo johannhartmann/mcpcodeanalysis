@@ -268,8 +268,8 @@ class SearchEngine:
 
             return None
 
-        except Exception as e:
-            logger.exception(f"Error loading entity details: {e}")
+        except Exception:
+            logger.exception("Error loading entity details: %s")
             return None
 
     def _calculate_keyword_match(self, query: str, name: str, docstring: str) -> float:

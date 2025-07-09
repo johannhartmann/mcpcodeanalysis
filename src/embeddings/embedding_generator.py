@@ -223,7 +223,7 @@ class EmbeddingGenerator:
         if not functions:
             return []
 
-        logger.info(f"Generating embeddings for {len(functions)} functions")
+        logger.info("Generating embeddings for %d functions", len(functions))
 
         # Prepare texts
         texts = []
@@ -265,7 +265,7 @@ class EmbeddingGenerator:
         if not classes:
             return []
 
-        logger.info(f"Generating embeddings for {len(classes)} classes")
+        logger.info("Generating embeddings for %d classes", len(classes))
 
         # Prepare texts
         texts = []
@@ -305,7 +305,7 @@ class EmbeddingGenerator:
         Returns:
             Embedding result
         """
-        logger.info(f"Generating embedding for module: {module_data['name']}")
+        logger.info("Generating embedding for module: %s", module_data["name"])
 
         text = self.prepare_module_text(module_data, file_path, summary)
 

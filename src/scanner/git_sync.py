@@ -395,7 +395,7 @@ class GitSync:
                 if branch in repo.heads:
                     commit_iter = repo.iter_commits(branch, max_count=limit)
                 else:
-                    logger.warning(f"Branch {branch} not found, using HEAD")
+                    logger.warning("Branch %s not found, using HEAD", branch)
                     commit_iter = repo.iter_commits("HEAD", max_count=limit)
             else:
                 commit_iter = repo.iter_commits("HEAD", max_count=limit)

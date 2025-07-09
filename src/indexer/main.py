@@ -68,14 +68,13 @@ class IndexerService:
                 # Wait before next iteration
                 await asyncio.sleep(config.indexing.update_interval)
 
-            except Exception as e:
-                logger.exception(f"Error in indexing loop: {e}")
+            except Exception:
+                logger.exception("Error in indexing loop: %s")
                 await asyncio.sleep(60)  # Wait before retry
 
     async def process_unindexed_entities(self) -> None:
         """Process entities that don't have embeddings yet."""
-        async with get_session() as session:
-            async with get_repositories(session) as repos:
+        async with get_session() as session, get_repositories(session) as repos:
                 # Get files without embeddings
                 # This is simplified - in practice, we'd have a more sophisticated query
                 files = await session.execute(
@@ -101,7 +100,7 @@ class IndexerService:
             full_path = Path("./repositories") / repo.owner / repo.name / file.path
 
             if not full_path.exists():
-                logger.warning(f"File not found: {full_path}")
+                logger.warning("File not found: %s", full_path)
                 return
 
             # Extract entities
@@ -121,10 +120,10 @@ class IndexerService:
             for chunk in chunks:
                 await self.process_chunk(repos, file, chunk, full_path)
 
-            logger.info(f"Indexed file: {file.path}")
+            logger.info("Indexed file: %s", file.path)
 
         except Exception as e:
-            logger.exception(f"Error indexing file {file.path}: {e}")
+            logger.exception("Error indexing file %s: %s", file.path, e)
 
     async def process_chunk(
         self,
@@ -210,8 +209,8 @@ class IndexerService:
 
             await repos["embedding"].create_batch(embedding_data)
 
-        except Exception as e:
-            logger.exception(f"Error processing chunk: {e}")
+        except Exception:
+            logger.exception("Error processing chunk: %s")
 
     def _map_chunk_to_entity(
         self,
@@ -241,7 +240,7 @@ async def main() -> None:
 
     # Handle shutdown signals
     def signal_handler(sig, frame) -> None:
-        logger.info(f"Received signal {sig}")
+        logger.info("Received signal %s", sig)
         asyncio.create_task(indexer.stop())
 
     signal.signal(signal.SIGINT, signal_handler)
@@ -255,8 +254,8 @@ async def main() -> None:
         while indexer.running:
             await asyncio.sleep(1)
 
-    except Exception as e:
-        logger.exception(f"Indexer service error: {e}")
+    except Exception:
+        logger.exception("Indexer service error: %s")
         sys.exit(1)
     finally:
         await indexer.stop()

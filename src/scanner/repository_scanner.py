@@ -149,7 +149,7 @@ class RepositoryScanner:
         parse_results = await code_processor.process_files(scanned_files)
 
         # Update repository last sync time
-        repo_record.last_synced = datetime.utcnow()  # PostgreSQL expects naive datetime
+        repo_record.last_synced = datetime.now(tz=datetime.UTC)  # PostgreSQL expects naive datetime
         await self.db_session.commit()
 
         # Run bounded context detection if domain analysis is enabled
@@ -165,7 +165,7 @@ class RepositoryScanner:
                     "context_ids": context_ids,
                 }
             except Exception as e:
-                logger.warning(f"Context detection failed: {e}")
+                logger.warning("Context detection failed: %s", e)
 
         return {
             "repository_id": repo_record.id,

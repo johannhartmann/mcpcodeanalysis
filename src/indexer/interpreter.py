@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from langchain.chains import LLMChain
 from langchain_core.callbacks import get_openai_callback
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
@@ -114,12 +115,12 @@ Description:""",
                     docstring=docstring or "No docstring provided",
                 )
 
-                logger.debug(f"Function interpretation used {cb.total_tokens} tokens")
+                logger.debug("Function interpretation used %s tokens", cb.total_tokens)
 
             return result.strip()
 
         except Exception as e:
-            logger.exception(f"Error interpreting function {name}: {e}")
+            logger.exception("Error interpreting function %s: %s", name, e)
             return f"Function {name} that takes {len(params)} parameters"
 
     async def interpret_class(
@@ -143,12 +144,12 @@ Description:""",
                     methods=", ".join(methods[:10]) if methods else "None",
                 )
 
-                logger.debug(f"Class interpretation used {cb.total_tokens} tokens")
+                logger.debug("Class interpretation used %s tokens", cb.total_tokens)
 
             return result.strip()
 
         except Exception as e:
-            logger.exception(f"Error interpreting class {name}: {e}")
+            logger.exception("Error interpreting class %s: %s", name, e)
             return f"Class {name} with {len(methods or [])} methods"
 
     async def interpret_module(
@@ -172,12 +173,12 @@ Description:""",
                     functions=", ".join(functions[:10]) if functions else "None",
                 )
 
-                logger.debug(f"Module interpretation used {cb.total_tokens} tokens")
+                logger.debug("Module interpretation used %s tokens", cb.total_tokens)
 
             return result.strip()
 
         except Exception as e:
-            logger.exception(f"Error interpreting module {name}: {e}")
+            logger.exception("Error interpreting module %s: %s", name, e)
             return f"Module {name} containing {len(classes or [])} classes and {len(functions or [])} functions"
 
     async def batch_interpret(

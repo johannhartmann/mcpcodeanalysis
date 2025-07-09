@@ -41,7 +41,7 @@ class CodeProcessor:
 
     async def process_file(self, file_record: File) -> dict[str, Any]:
         """Process a file to extract code entities."""
-        logger.info(f"Processing file: {file_record.path}")
+        logger.info("Processing file: %s", file_record.path)
 
         # Check if file is supported
         file_path = Path(file_record.path)
@@ -53,7 +53,7 @@ class CodeProcessor:
             absolute_path = file_path
 
         if not self.parser_factory.is_supported(file_path):
-            logger.debug(f"Skipping unsupported file type: {file_path}")
+            logger.debug("Skipping unsupported file type: %s", file_path)
             return {
                 "file_id": file_record.id,
                 "status": "skipped",
@@ -74,14 +74,14 @@ class CodeProcessor:
             stats = await self._store_entities(entities, file_record)
 
             # Update file processing status
-            file_record.last_modified = datetime.utcnow()
+            file_record.last_modified = datetime.now(tz=datetime.UTC)
             await self.db_session.commit()
 
             # Run domain analysis if enabled
             domain_stats = {}
             if self.domain_indexer and file_path.suffix == ".py":
                 try:
-                    logger.info(f"Running domain analysis for {file_record.path}")
+                    logger.info("Running domain analysis for %s", file_record.path)
                     domain_result = await self.domain_indexer.index_file(file_record.id)
                     domain_stats = {
                         "domain_entities": domain_result.get("entities_extracted", 0),
@@ -103,10 +103,10 @@ class CodeProcessor:
             }
 
         except Exception as e:
-            logger.exception(f"Error processing file {file_record.path}: {e}")
+            logger.exception("Error processing file %s: %s", file_record.path, e)
             import traceback
 
-            logger.debug(f"Traceback: {traceback.format_exc()}")
+            logger.debug("Traceback: %s", traceback.format_exc())
 
             # Update file with error
             await self.db_session.commit()
@@ -248,7 +248,7 @@ class CodeProcessor:
 
     async def process_files(self, file_records: list[File]) -> dict[str, Any]:
         """Process multiple files."""
-        logger.info(f"Processing {len(file_records)} files")
+        logger.info("Processing %s files", len(file_records))
 
         # Process files sequentially to avoid database session conflicts
         # TODO: Implement proper session management for parallel processing
@@ -258,7 +258,7 @@ class CodeProcessor:
                 result = await self.process_file(file)
                 results.append(result)
             except Exception as e:
-                logger.exception(f"Error processing file {file.path}: {e}")
+                logger.exception("Error processing file %s: %s", file.path, e)
                 results.append(e)
 
         # Aggregate results

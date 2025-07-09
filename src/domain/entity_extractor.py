@@ -8,6 +8,8 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+MIN_ENTITIES_FOR_RELATIONSHIPS = 2
+
 
 class DomainEntityExtractor:
     """Extract domain entities from code using LLM analysis."""
@@ -56,7 +58,7 @@ class DomainEntityExtractor:
             return self._process_extraction_result(result, code_chunk)
 
         except Exception as e:
-            logger.exception(f"Error extracting entities: {e}")
+            logger.exception("Error extracting entities")
             return {
                 "entities": [],
                 "error": str(e),
@@ -76,7 +78,7 @@ class DomainEntityExtractor:
         Returns:
             List of domain relationships
         """
-        if not entities or len(entities) < 2:
+        if not entities or len(entities) < MIN_ENTITIES_FOR_RELATIONSHIPS:
             return []
 
         prompt = self._build_relationship_extraction_prompt(entities, code_chunks)
@@ -100,8 +102,8 @@ class DomainEntityExtractor:
             result = json.loads(response)
             return self._process_relationship_result(result)
 
-        except Exception as e:
-            logger.exception(f"Error extracting relationships: {e}")
+        except Exception:
+            logger.exception("Error extracting relationships")
             return []
 
     def _get_system_prompt(self) -> str:
@@ -235,10 +237,10 @@ Output JSON with this structure:
 
         # List entities
         prompt_parts.append("Given these domain entities:")
-        for entity in entities:
-            prompt_parts.append(
-                f"- {entity['name']} ({entity['type']}): {entity['description']}",
-            )
+        prompt_parts.extend(
+            f"- {entity['name']} ({entity['type']}): {entity['description']}"
+            for entity in entities
+        )
 
         # Add code evidence
         prompt_parts.append("\nAnalyze this code to find relationships between them:")
@@ -335,7 +337,7 @@ Output JSON with this structure:
 
         # Extract entities from each chunk
         for i, chunk in enumerate(chunks):
-            logger.info(f"Processing chunk {i+1}/{len(chunks)} from {module_path}")
+            logger.info("Processing chunk %d/%d from %s", i+1, len(chunks), module_path)
 
             context = {
                 "file_path": module_path,
@@ -385,11 +387,11 @@ Output JSON with this structure:
                 # Keep overlap
                 overlap_lines = []
                 overlap_size = 0
-                for l in reversed(current_chunk):
-                    overlap_size += len(l) + 1
+                for line in reversed(current_chunk):
+                    overlap_size += len(line) + 1
                     if overlap_size >= overlap:
                         break
-                    overlap_lines.insert(0, l)
+                    overlap_lines.insert(0, line)
 
                 current_chunk = overlap_lines
                 current_size = overlap_size

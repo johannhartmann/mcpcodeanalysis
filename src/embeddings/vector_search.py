@@ -112,7 +112,7 @@ class VectorSearch:
                     },
                 )
 
-        logger.info(f"Found {len(results)} results for query '{query}'")
+        logger.info("Found %d results for query '%s'", len(results), query)
 
         return results
 

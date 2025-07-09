@@ -215,8 +215,8 @@ class GitHubMonitor:
                 "used": core_limit["limit"] - core_limit["remaining"],
             }
 
-        except Exception as e:
-            logger.exception(f"Failed to check rate limit: {e}")
+        except Exception:
+            logger.exception("Failed to check rate limit: %s")
             return {
                 "limit": 60,  # Default for unauthenticated
                 "remaining": 0,
@@ -260,7 +260,7 @@ class GitHubMonitor:
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 422:
                 # Webhook might already exist
-                logger.warning(f"Webhook may already exist for {owner}/{repo}")
+                logger.warning("Webhook may already exist for %s/%s", owner, repo)
                 return {"status": "exists"}
             raise GitHubError(f"Failed to create webhook: {e}")
         except Exception as e:

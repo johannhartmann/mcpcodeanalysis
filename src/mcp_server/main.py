@@ -163,7 +163,7 @@ def main() -> None:
     # Run the server
     import uvicorn
 
-    logger.info(f"Starting server on {settings.mcp_host}:{settings.mcp_port}")
+    logger.info("Starting server on %s:%s", settings.mcp_host, settings.mcp_port)
 
     uvicorn.run(
         "src.mcp_server.main:app",

@@ -27,7 +27,7 @@ _openai_client = None
 _settings = None
 
 
-async def initialize_server():
+async def initialize_server() -> None:
     """Initialize server resources."""
     global _engine, _session_factory, _openai_client, _settings
 
@@ -146,11 +146,12 @@ async def add_repository(
                 "scan_result": scan_result,
             }
         except Exception as e:
-            logger.exception(f"Failed to add repository: {e}")
+            logger.exception("Failed to add repository: %s")
             return {
                 "success": False,
                 "error": str(e),
             }
+    return None
 
 
 @mcp.tool(name="list_repositories", description="List all tracked repositories")
@@ -190,7 +191,7 @@ async def list_repositories(
 
                     file_count_result = await session.execute(
                         select(func.count(File.id)).where(
-                            File.repository_id == repo.id
+                            File.repository_id == repo.id,
                         ),
                     )
                     file_count = file_count_result.scalar() or 0
@@ -216,12 +217,13 @@ async def list_repositories(
                 "count": len(repo_list),
             }
         except Exception as e:
-            logger.exception(f"Failed to list repositories: {e}")
+            logger.exception("Failed to list repositories: %s")
             return {
                 "success": False,
                 "error": str(e),
                 "repositories": [],
             }
+    return None
 
 
 @mcp.tool(name="scan_repository", description="Scan or rescan a repository")
@@ -242,6 +244,7 @@ async def scan_repository(
                 "generate_embeddings": generate_embeddings,
             },
         )
+    return None
 
 
 @mcp.tool(name="remove_repository", description="Remove a repository from tracking")
@@ -254,6 +257,7 @@ async def remove_repository(
     async for session in get_db_session():
         repo_tools = RepositoryManagementTools(session, _openai_client, mcp)
         return await repo_tools.remove_repository(repository_id=repository_id)
+    return None
 
 
 @mcp.tool(name="update_repository_settings", description="Update repository settings")
@@ -274,6 +278,7 @@ async def update_repository_settings(
                 "auto_scan": auto_scan,
             },
         )
+    return None
 
 
 # Register code search tools
@@ -298,6 +303,7 @@ async def semantic_search(
                 "limit": limit,
             },
         )
+    return None
 
 
 @mcp.tool(name="keyword_search", description="Search code using keywords")
@@ -326,6 +332,7 @@ async def keyword_search(
                 "limit": limit,
             },
         )
+    return None
 
 
 @mcp.tool(name="find_similar_code", description="Find code similar to a given snippet")
@@ -351,6 +358,7 @@ async def find_similar_code(
                 "limit": limit,
             },
         )
+    return None
 
 
 # Register code analysis tools
@@ -375,6 +383,7 @@ async def get_code(
                 "include_context": include_context,
             },
         )
+    return None
 
 
 @mcp.tool(name="analyze_file", description="Analyze a specific file")
@@ -393,6 +402,7 @@ async def analyze_file(
                 "repository_id": repository_id,
             },
         )
+    return None
 
 
 @mcp.tool(name="get_file_structure", description="Get the structure of a file")
@@ -416,6 +426,7 @@ async def get_file_structure(
                 "include_imports": include_imports,
             },
         )
+    return None
 
 
 @mcp.tool(
@@ -439,6 +450,7 @@ async def analyze_dependencies(
                 "depth": depth,
             },
         )
+    return None
 
 
 # Aliases for compatibility
@@ -451,10 +463,10 @@ def create_server():
 
     # Return a mock object that has the required methods
     class MockServer:
-        async def initialize(self):
+        async def initialize(self) -> None:
             await initialize_server()
 
-        async def _shutdown(self):
+        async def _shutdown(self) -> None:
             if _engine:
                 await _engine.dispose()
 
@@ -470,6 +482,7 @@ def create_server():
                         "generate_embeddings": generate_embeddings,
                     },
                 )
+            return None
 
         async def search(self, query, repository_id=None, limit=10):
             await initialize_server()
@@ -482,6 +495,7 @@ def create_server():
                         "limit": limit,
                     },
                 )
+            return None
 
     return MockServer()
 

@@ -133,7 +133,7 @@ class FileWatcher:
             "path": path,
         }
 
-        logger.info(f"Added watch for: {path}")
+        logger.info("Added watch for: %s", path)
         return watch_id
 
     def remove_watch(self, watch_id: str) -> None:
@@ -142,7 +142,7 @@ class FileWatcher:
             watch_info = self.watches[watch_id]
             self.observer.unschedule(watch_info["watch"])
             del self.watches[watch_id]
-            logger.info(f"Removed watch for: {watch_id}")
+            logger.info("Removed watch for: %s", watch_id)
 
     def start(self) -> None:
         """Start the file watcher."""

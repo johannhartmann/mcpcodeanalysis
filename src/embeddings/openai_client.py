@@ -71,11 +71,11 @@ class OpenAIClient:
             return embedding
 
         except openai.APIError as e:
-            logger.exception(f"OpenAI API error: {e}")
-            raise EmbeddingError(f"Failed to generate embedding: {e}")
+            logger.exception("OpenAI API error: %s")
+            raise EmbeddingError(f"Failed to generate embedding: {e}") from e
         except Exception as e:
-            logger.exception(f"Unexpected error generating embedding: {e}")
-            raise EmbeddingError(f"Unexpected error: {e}")
+            logger.exception("Unexpected error generating embedding: %s")
+            raise EmbeddingError(f"Unexpected error: {e}") from e
 
     async def generate_embeddings_batch(
         self,
@@ -144,7 +144,7 @@ class OpenAIClient:
                 await asyncio.sleep(0.1)
 
         successful = sum(1 for r in results if r.get("embedding") is not None)
-        logger.info(f"Generated {successful}/{len(texts)} embeddings successfully")
+        logger.info("Generated %d/%d embeddings successfully", successful, len(texts))
 
         return results
 
@@ -191,7 +191,7 @@ class OpenAIClient:
 
         # Truncate and add ellipsis
         truncated = text[: max_chars - 3] + "..."
-        logger.debug(f"Truncated text from {len(text)} to {len(truncated)} chars")
+        logger.debug("Truncated text from %d to %d chars", len(text), len(truncated))
 
         return truncated
 
@@ -206,8 +206,8 @@ class OpenAIClient:
             await self.generate_embedding("test")
             logger.info("OpenAI API connection successful")
             return True
-        except Exception as e:
-            logger.exception(f"OpenAI API connection failed: {e}")
+        except Exception:
+            logger.exception("OpenAI API connection failed: %s")
             return False
 
     async def estimate_cost(self, num_texts: int) -> dict[str, float]:

@@ -78,7 +78,7 @@ class ScannerService:
         repo_url = repo_config["url"]
 
         try:
-            logger.info(f"Syncing repository: {repo_url}")
+            logger.info("Syncing repository: %s", repo_url)
 
             # Get repository info from GitHub
             repo_info = await self.github_monitor.get_repository_info(
@@ -197,14 +197,14 @@ class ScannerService:
                         extensions={".py"},  # TODO: Support more languages
                     )
 
-            logger.info(f"Successfully synced repository: {repo_url}")
+            logger.info("Successfully synced repository: %s", repo_url)
 
         except Exception as e:
-            logger.exception(f"Error syncing repository {repo_url}: {e}")
+            logger.exception("Error syncing repository %s: %s", repo_url, e)
 
     async def process_all_files(self, db_repo: Any, owner: str, name: str) -> None:
         """Process all files in a repository."""
-        logger.info(f"Processing all files for {owner}/{name}")
+        logger.info("Processing all files for %s/%s", owner, name)
 
         # List all Python files
         files = self.git_sync.list_files(owner, name, extensions=[".py"])
@@ -221,7 +221,7 @@ class ScannerService:
         changed_files: set,
     ) -> None:
         """Process changed files in a repository."""
-        logger.info(f"Processing {len(changed_files)} changed files for {owner}/{name}")
+        logger.info("Processing %s changed files for %s/%s", len(changed_files), owner, name)
 
         repo_path = self.git_sync.get_repo_path(owner, name)
 
@@ -295,10 +295,10 @@ class ScannerService:
                         **func_data,  # TODO: Get actual module ID
                     )
 
-            logger.debug(f"Processed file: {relative_path}")
+            logger.debug("Processed file: %s", relative_path)
 
         except Exception as e:
-            logger.exception(f"Error processing file {file_path}: {e}")
+            logger.exception("Error processing file %s: %s", file_path, e)
 
     async def handle_file_change(
         self,
@@ -327,7 +327,7 @@ class ScannerService:
                                 Path(file_path),
                             )
         except Exception as e:
-            logger.exception(f"Error handling file change {file_path}: {e}")
+            logger.exception("Error handling file change %s: %s", file_path, e)
 
     async def periodic_sync(self) -> None:
         """Periodically sync all repositories."""
@@ -349,8 +349,8 @@ class ScannerService:
 
                 await asyncio.gather(*tasks, return_exceptions=True)
 
-            except Exception as e:
-                logger.exception(f"Error in periodic sync: {e}")
+            except Exception:
+                logger.exception("Error in periodic sync: %s")
 
 
 async def main() -> None:
@@ -363,7 +363,7 @@ async def main() -> None:
 
     # Handle shutdown signals
     def signal_handler(sig, frame) -> None:
-        logger.info(f"Received signal {sig}")
+        logger.info("Received signal %s", sig)
         asyncio.create_task(scanner.stop())
 
     signal.signal(signal.SIGINT, signal_handler)
@@ -377,8 +377,8 @@ async def main() -> None:
         while scanner.running:
             await asyncio.sleep(1)
 
-    except Exception as e:
-        logger.exception(f"Scanner service error: {e}")
+    except Exception:
+        logger.exception("Scanner service error: %s")
         sys.exit(1)
     finally:
         await scanner.stop()

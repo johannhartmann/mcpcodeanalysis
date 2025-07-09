@@ -44,7 +44,7 @@ class EmbeddingGenerator:
             return np.array(embedding, dtype=np.float32)
 
         except Exception as e:
-            logger.exception(f"Error generating embedding: {e}")
+            logger.exception("Error generating embedding: %s")
             raise EmbeddingError(f"Failed to generate embedding: {e}")
 
     async def generate_embeddings_batch(self, texts: list[str]) -> list[np.ndarray]:
@@ -96,8 +96,8 @@ class EmbeddingGenerator:
                 batch_embeddings.sort(key=lambda x: x[0])
                 embeddings.extend([emb for _, emb in batch_embeddings])
 
-            except Exception as e:
-                logger.exception(f"Error generating batch embeddings: {e}")
+            except Exception:
+                logger.exception("Error generating batch embeddings: %s")
                 # Generate individually for failed batch
                 for text in batch:
                     try:
@@ -166,7 +166,7 @@ class EmbeddingGenerator:
             try:
                 return np.load(cache_file)
             except Exception as e:
-                logger.warning(f"Failed to load cached embedding: {e}")
+                logger.warning("Failed to load cached embedding: %s", e)
                 return None
 
         return None
@@ -182,4 +182,4 @@ class EmbeddingGenerator:
         try:
             np.save(cache_file, embedding)
         except Exception as e:
-            logger.warning(f"Failed to cache embedding: {e}")
+            logger.warning("Failed to cache embedding: %s", e)
