@@ -196,8 +196,10 @@ class TestVectorSearch:
     ) -> None:
         """Test formatting function entity."""
         sample_embedding.entity_type = "function"
-        sample_embedding.file = MagicMock(path="test.py")
-        sample_embedding.repository = MagicMock(name="test-repo")
+        mock_repo = MagicMock()
+        mock_repo.name = "test-repo"
+        mock_file = MagicMock(path="test.py", repository=mock_repo)
+        sample_embedding.file = mock_file
 
         mock_db_session.execute.return_value = MagicMock(
             scalar_one_or_none=lambda: sample_function,
@@ -221,8 +223,7 @@ class TestVectorSearch:
     ) -> None:
         """Test formatting class entity."""
         sample_embedding.entity_type = "class"
-        sample_embedding.file = MagicMock(path="test.py")
-        sample_embedding.repository = None
+        sample_embedding.file = MagicMock(path="test.py", repository=None)
 
         sample_class = MagicMock(spec=Class)
         sample_class.name = "TestClass"

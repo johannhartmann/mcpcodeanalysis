@@ -1,7 +1,7 @@
 """Code processing integration between scanner and parser."""
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -74,7 +74,7 @@ class CodeProcessor:
             stats = await self._store_entities(entities, file_record)
 
             # Update file processing status
-            file_record.last_modified = datetime.now(tz=datetime.UTC)
+            file_record.last_modified = datetime.now(tz=timezone.utc)
             await self.db_session.commit()
 
             # Run domain analysis if enabled
@@ -338,10 +338,16 @@ class CodeProcessor:
             for m in modules.scalars()
         ]
 
-        # Get classes
-        classes = await self.db_session.execute(
-            select(Class).where(Class.file_id == file_record.id),
-        )
+        # Get module IDs for related queries
+        module_ids = [m["id"] for m in structure["modules"]]
+
+        # Get classes through modules
+        if module_ids:
+            classes = await self.db_session.execute(
+                select(Class).where(Class.module_id.in_(module_ids)),
+            )
+        else:
+            classes = None
         structure["classes"] = [
             {
                 "id": c.id,
@@ -351,11 +357,10 @@ class CodeProcessor:
                 "is_abstract": c.is_abstract,
                 "lines": f"{c.start_line}-{c.end_line}",
             }
-            for c in classes.scalars()
+            for c in (classes.scalars() if classes else [])
         ]
 
         # Get functions through modules
-        module_ids = [m["id"] for m in structure["modules"]]
         if module_ids:
             functions = await self.db_session.execute(
                 select(Function).where(Function.module_id.in_(module_ids)),
@@ -383,7 +388,7 @@ class CodeProcessor:
             {
                 "id": i.id,
                 "statement": i.import_statement,
-                "from": i.imported_from,
+                "from": i.module_name,
                 "names": i.imported_names,
                 "line": i.line_number,
             }
