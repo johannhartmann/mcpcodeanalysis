@@ -63,17 +63,89 @@ An intelligent MCP (Model Context Protocol) server that provides advanced code a
 
 ### Prerequisites
 
-- Nix with flakes enabled (recommended) OR Python 3.11+
 - Docker and Docker Compose
 - OpenAI API key
 
-### Installation
+### Recommended: Docker with MCP over HTTP
+
+The preferred way to use this tool is via Docker with MCP over HTTP, which provides a fully isolated and reproducible environment.
 
 1. Clone the repository:
 ```bash
 git clone https://github.com/johannhartmann/mcp-code-analysis-server.git
 cd mcp-code-analysis-server
 ```
+
+2. Set up environment variables:
+```bash
+export OPENAI_API_KEY="your-api-key-here"
+# Or add to .env file
+```
+
+3. Configure repositories:
+Create a `config.yaml` file to specify which repositories to track:
+```yaml
+repositories:
+  - url: https://github.com/owner/repo1
+    branch: main
+  - url: https://github.com/owner/repo2
+    branch: develop
+  - url: https://github.com/owner/private-repo
+    access_token: "github_pat_..."  # For private repos
+
+# Scanner configuration
+scanner:
+  storage_path: ./repositories
+  exclude_patterns: 
+    - "__pycache__"
+    - "*.pyc"
+    - ".git"
+    - "venv"
+    - "node_modules"
+```
+
+4. Start the server with Docker Compose:
+```bash
+docker-compose up
+```
+
+This will automatically:
+- Start PostgreSQL with pgvector
+- Initialize the database
+- Start the MCP server on port 8080
+- Scan configured repositories on startup
+
+The server will be available at `http://localhost:8080` and can be used with any MCP client that supports HTTP.
+
+#### Managing Multiple Repositories
+
+After initial setup, you can dynamically add more repositories using the MCP tools:
+
+```python
+# Add a new repository
+await mcp.call_tool("add_repository", {
+    "url": "https://github.com/owner/new-repo",
+    "scan_immediately": True,
+    "generate_embeddings": True
+})
+
+# List all tracked repositories
+await mcp.call_tool("list_repositories", {})
+
+# Update a repository
+await mcp.call_tool("scan_repository", {
+    "repository_id": 1,
+    "full_scan": False  # Incremental scan
+})
+```
+
+### Alternative: Local Development
+
+If you need to run locally for development:
+
+1. Prerequisites:
+   - Nix with flakes enabled (recommended) OR Python 3.11+
+   - Docker for PostgreSQL
 
 2. Enter the development environment:
 ```bash
@@ -95,27 +167,19 @@ python -m src.mcp_server create-config
 # Edit config.yaml with your settings
 ```
 
-5. Set up environment variables:
+5. Start PostgreSQL:
 ```bash
-export OPENAI_API_KEY="your-api-key-here"
-# Or add to .env file
+docker-compose up -d postgres
 ```
 
-6. Start PostgreSQL with pgvector:
-```bash
-docker-compose up -d
-```
-
-7. Initialize the database:
+6. Initialize the database:
 ```bash
 python -m src.mcp_server init-db
 ```
 
-8. Start the MCP server:
+7. Start the MCP server:
 ```bash
-python -m src.mcp_server serve
-# Or with options:
-# python -m src.mcp_server serve --port 8080 --reload
+python -m src.mcp_server serve --port 8080
 ```
 
 ## Configuration
@@ -205,9 +269,23 @@ await mcp.call_tool("add_repository", {
 })
 ```
 
-### With Claude Desktop
+### With Claude Desktop (HTTP)
 
-Add to your Claude Desktop configuration:
+For Claude Desktop or other MCP clients that support HTTP, configure the server URL:
+
+```json
+{
+  "mcpServers": {
+    "code-analysis": {
+      "url": "http://localhost:8080"
+    }
+  }
+}
+```
+
+### With Claude Desktop (Stdio)
+
+If you need to use stdio mode:
 
 ```json
 {
