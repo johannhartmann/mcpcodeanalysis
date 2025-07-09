@@ -362,3 +362,8 @@ upload_to_pypi = false
 upload_to_release = true
 build_command = "python -m build"
 commit_subject = "chore(release): v{version}"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+]
