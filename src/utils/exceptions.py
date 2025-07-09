@@ -110,7 +110,7 @@ class RateLimitError(MCPError):
             self.details["retry_after"] = retry_after
         if limit:
             self.details["limit"] = limit
-        if remaining:
+        if remaining is not None:
             self.details["remaining"] = remaining
 
 

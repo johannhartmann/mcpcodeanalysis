@@ -261,7 +261,7 @@ class HealthCheckManager:
 
         for result in check_results:
             if isinstance(result, Exception):
-                logger.exception("Health check failed", exc_info=result)
+                logger.exception("Health check failed")
                 checks.append(
                     {
                         "name": "unknown",
