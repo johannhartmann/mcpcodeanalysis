@@ -111,7 +111,7 @@ class DatabaseConfig(BaseModel):
 class MCPConfig(BaseModel):
     """MCP server configuration."""
 
-    host: str = "0.0.0.0"
+    host: str = "127.0.0.1"
     port: int = Field(default=8080, ge=1, le=65535)
     allow_origins: list[str] = Field(default_factory=lambda: ["*"])
     rate_limit_enabled: bool = False
@@ -170,7 +170,7 @@ class Settings(BaseSettings):
     )
 
     # Environment variables
-    openai_api_key: SecretStr
+    openai_api_key: SecretStr | None = None
     database_url: str | None = None
     postgres_password: SecretStr | None = None
     api_key: SecretStr | None = None
@@ -246,7 +246,7 @@ class Settings(BaseSettings):
                 else str(password)
             )
         else:
-            password_str = ""
+            password_str = ""  # nosec B105 - Empty password is valid for local dev
 
         return (
             f"postgresql://{self.database.user}:{password_str}"

@@ -1,5 +1,7 @@
 """Domain-driven design models for semantic code analysis."""
 
+from __future__ import annotations
+
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     JSON,
@@ -16,7 +18,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, relationship
 
 from src.database.models import Base
 
@@ -63,19 +65,19 @@ class DomainEntity(Base):
     extraction_metadata = Column(JSON, default={})  # LLM model, prompts used, etc.
 
     # Relationships
-    source_relationships = relationship(
+    source_relationships: Mapped[list[DomainRelationship]] = relationship(
         "DomainRelationship",
         foreign_keys="DomainRelationship.source_entity_id",
         back_populates="source_entity",
         cascade="all, delete-orphan",
     )
-    target_relationships = relationship(
+    target_relationships: Mapped[list[DomainRelationship]] = relationship(
         "DomainRelationship",
         foreign_keys="DomainRelationship.target_entity_id",
         back_populates="target_entity",
         cascade="all, delete-orphan",
     )
-    bounded_context_memberships = relationship(
+    bounded_context_memberships: Mapped[list[BoundedContextMembership]] = relationship(
         "BoundedContextMembership",
         back_populates="domain_entity",
         cascade="all, delete-orphan",
@@ -137,12 +139,12 @@ class DomainRelationship(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
-    source_entity = relationship(
+    source_entity: Mapped[DomainEntity] = relationship(
         "DomainEntity",
         foreign_keys=[source_entity_id],
         back_populates="source_relationships",
     )
-    target_entity = relationship(
+    target_entity: Mapped[DomainEntity] = relationship(
         "DomainEntity",
         foreign_keys=[target_entity_id],
         back_populates="target_relationships",
@@ -203,12 +205,12 @@ class BoundedContext(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
-    memberships = relationship(
+    memberships: Mapped[list[BoundedContextMembership]] = relationship(
         "BoundedContextMembership",
         back_populates="bounded_context",
         cascade="all, delete-orphan",
     )
-    context_relationships = relationship(
+    context_relationships: Mapped[list[ContextRelationship]] = relationship(
         "ContextRelationship",
         foreign_keys="ContextRelationship.source_context_id",
         back_populates="source_context",
@@ -241,11 +243,11 @@ class BoundedContextMembership(Base):
     created_at = Column(DateTime, default=func.now())
 
     # Relationships
-    domain_entity = relationship(
+    domain_entity: Mapped[DomainEntity] = relationship(
         "DomainEntity",
         back_populates="bounded_context_memberships",
     )
-    bounded_context = relationship("BoundedContext", back_populates="memberships")
+    bounded_context: Mapped[BoundedContext] = relationship("BoundedContext", back_populates="memberships")
 
     __table_args__ = (
         UniqueConstraint(
@@ -297,12 +299,12 @@ class ContextRelationship(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
-    source_context = relationship(
+    source_context: Mapped[BoundedContext] = relationship(
         "BoundedContext",
         foreign_keys=[source_context_id],
         back_populates="context_relationships",
     )
-    target_context = relationship(
+    target_context: Mapped[BoundedContext] = relationship(
         "BoundedContext",
         foreign_keys=[target_context_id],
     )
@@ -346,7 +348,7 @@ class DomainSummary(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
-    parent_summary = relationship("DomainSummary", remote_side=[id])
+    parent_summary: Mapped[DomainSummary | None] = relationship("DomainSummary", remote_side=[id])
 
     __table_args__ = (
         Index("idx_summary_level", "level"),

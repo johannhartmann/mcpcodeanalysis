@@ -3,6 +3,8 @@
 from datetime import datetime
 from typing import Any
 
+from sqlalchemy import text
+
 from src.database import get_repositories, get_session
 from src.scanner.git_sync import GitSync
 from src.scanner.github_monitor import GitHubMonitor
@@ -34,12 +36,14 @@ class RepositoryTool:
                     for repo in repo_list:
                         # Get file and commit counts
                         file_count = await session.execute(
-                            f"SELECT COUNT(*) FROM files WHERE repository_id = {repo.id}",
+                            text("SELECT COUNT(*) FROM files WHERE repository_id = :repo_id"),
+                            {"repo_id": repo.id},
                         )
                         file_count = file_count.scalar() or 0
 
                         commit_count = await session.execute(
-                            f"SELECT COUNT(*) FROM commits WHERE repository_id = {repo.id}",
+                            text("SELECT COUNT(*) FROM commits WHERE repository_id = :repo_id"),
+                            {"repo_id": repo.id},
                         )
                         commit_count = commit_count.scalar() or 0
 

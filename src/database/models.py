@@ -1,6 +1,8 @@
 """Database models for MCP Code Analysis Server."""
 
-from typing import Any
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
@@ -18,9 +20,13 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-Base: Any = declarative_base()
+
+class Base(DeclarativeBase):
+    """Base class for database models."""
+
+    pass
 
 
 class Repository(Base):
@@ -42,12 +48,12 @@ class Repository(Base):
     repo_metadata = Column(JSON, default={})
 
     # Relationships
-    files = relationship(
+    files: Mapped[list[File]] = relationship(
         "File",
         back_populates="repository",
         cascade="all, delete-orphan",
     )
-    commits = relationship(
+    commits: Mapped[list[Commit]] = relationship(
         "Commit",
         back_populates="repository",
         cascade="all, delete-orphan",
@@ -75,18 +81,18 @@ class File(Base):
     is_deleted = Column(Boolean, default=False)
 
     # Relationships
-    repository = relationship("Repository", back_populates="files")
-    modules = relationship(
+    repository: Mapped[Repository] = relationship("Repository", back_populates="files")
+    modules: Mapped[list[Module]] = relationship(
         "Module",
         back_populates="file",
         cascade="all, delete-orphan",
     )
-    imports = relationship(
+    imports: Mapped[list[Import]] = relationship(
         "Import",
         back_populates="file",
         cascade="all, delete-orphan",
     )
-    embeddings = relationship(
+    embeddings: Mapped[list[CodeEmbedding]] = relationship(
         "CodeEmbedding",
         back_populates="file",
         cascade="all, delete-orphan",
@@ -115,13 +121,13 @@ class Module(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
-    file = relationship("File", back_populates="modules")
-    classes = relationship(
+    file: Mapped[File] = relationship("File", back_populates="modules")
+    classes: Mapped[list[Class]] = relationship(
         "Class",
         back_populates="module",
         cascade="all, delete-orphan",
     )
-    functions = relationship(
+    functions: Mapped[list[Function]] = relationship(
         "Function",
         primaryjoin="and_(Module.id==Function.module_id, Function.class_id==None)",
         back_populates="module",
@@ -152,8 +158,8 @@ class Class(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
-    module = relationship("Module", back_populates="classes")
-    methods = relationship(
+    module: Mapped[Module] = relationship("Module", back_populates="classes")
+    methods: Mapped[list[Function]] = relationship(
         "Function",
         primaryjoin="Class.id==Function.class_id",
         back_populates="parent_class",
@@ -191,12 +197,12 @@ class Function(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
-    module = relationship(
+    module: Mapped[Module] = relationship(
         "Module",
         back_populates="functions",
         foreign_keys=[module_id],
     )
-    parent_class = relationship(
+    parent_class: Mapped[Class | None] = relationship(
         "Class",
         back_populates="methods",
         foreign_keys=[class_id],
@@ -225,7 +231,7 @@ class Import(Base):
     created_at = Column(DateTime, default=func.now())
 
     # Relationships
-    file = relationship("File", back_populates="imports")
+    file: Mapped[File] = relationship("File", back_populates="imports")
 
     __table_args__ = (
         Index("idx_import_file", "file_id"),
@@ -252,7 +258,7 @@ class Commit(Base):
     created_at = Column(DateTime, default=func.now())
 
     # Relationships
-    repository = relationship("Repository", back_populates="commits")
+    repository: Mapped[Repository] = relationship("Repository", back_populates="commits")
 
     __table_args__ = (
         Index("idx_commit_repository", "repository_id"),
@@ -285,7 +291,7 @@ class CodeEmbedding(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
-    file = relationship("File", back_populates="embeddings")
+    file: Mapped[File] = relationship("File", back_populates="embeddings")
 
     __table_args__ = (
         Index("idx_embedding_entity", "entity_type", "entity_id"),

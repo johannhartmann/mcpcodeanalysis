@@ -20,7 +20,7 @@ def cli() -> None:
 @cli.command()
 @click.option(
     "--host",
-    default="0.0.0.0",
+    default="127.0.0.1",
     help="Host to bind to",
 )
 @click.option(
@@ -52,7 +52,7 @@ def serve(host: str, port: int, reload: bool, log_level: str) -> None:
     settings = get_settings()
 
     # Override with CLI options
-    if host != "0.0.0.0":
+    if host != "127.0.0.1":
         settings.mcp.host = host
     if port != 8080:
         settings.mcp.port = port

@@ -2,6 +2,8 @@
 
 from typing import Any
 
+from sqlalchemy import text
+
 from src.database import get_repositories, get_session
 from src.query.aggregator import CodeAggregator
 from src.utils.logger import get_logger
@@ -57,7 +59,8 @@ class ExplainTool:
                 file = await repos["file"].get_by_path(None, path)
                 if file:
                     modules = await session.execute(
-                        f"SELECT * FROM modules WHERE file_id = {file.id} LIMIT 1",
+                        text("SELECT * FROM modules WHERE file_id = :file_id LIMIT 1"),
+                        {"file_id": file.id},
                     )
                     module = modules.scalar_one_or_none() if modules else None
                     if module:
@@ -85,8 +88,9 @@ class ExplainTool:
                     module = module_results[0]["entity"]
                     # Look for function in this module
                     funcs = await session.execute(
-                        f"SELECT * FROM functions WHERE module_id = {module.id} "
-                        f"AND name = '{parts[1]}' AND class_id IS NULL LIMIT 1",
+                        text("SELECT * FROM functions WHERE module_id = :module_id "
+                             "AND name = :name AND class_id IS NULL LIMIT 1"),
+                        {"module_id": module.id, "name": parts[1]},
                     )
                     func = funcs.scalar_one_or_none() if funcs else None
                     if func:
@@ -101,8 +105,9 @@ class ExplainTool:
                     cls = class_results[0]["entity"]
                     # Look for method in this class
                     methods = await session.execute(
-                        f"SELECT * FROM functions WHERE class_id = {cls.id} "
-                        f"AND name = '{parts[1]}' LIMIT 1",
+                        text("SELECT * FROM functions WHERE class_id = :class_id "
+                             "AND name = :name LIMIT 1"),
+                        {"class_id": cls.id, "name": parts[1]},
                     )
                     method = methods.scalar_one_or_none() if methods else None
                     if method:
@@ -118,16 +123,18 @@ class ExplainTool:
                     module = module_results[0]["entity"]
                     # Look for class in module
                     classes = await session.execute(
-                        f"SELECT * FROM classes WHERE module_id = {module.id} "
-                        f"AND name = '{parts[1]}' LIMIT 1",
+                        text("SELECT * FROM classes WHERE module_id = :module_id "
+                             "AND name = :name LIMIT 1"),
+                        {"module_id": module.id, "name": parts[1]},
                     )
                     cls = classes.scalar_one_or_none() if classes else None
                     if cls:
                         if len(parts) == 3:
                             # Look for method
                             methods = await session.execute(
-                                f"SELECT * FROM functions WHERE class_id = {cls.id} "
-                                f"AND name = '{parts[2]}' LIMIT 1",
+                                text("SELECT * FROM functions WHERE class_id = :class_id "
+                                     "AND name = :name LIMIT 1"),
+                                {"class_id": cls.id, "name": parts[2]},
                             )
                             method = methods.scalar_one_or_none() if methods else None
                             if method:

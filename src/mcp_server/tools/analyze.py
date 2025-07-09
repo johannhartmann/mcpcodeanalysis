@@ -334,7 +334,8 @@ class AnalyzeTool:
 
         # Get methods
         methods = await session.execute(
-            f"SELECT * FROM functions WHERE class_id = {cls.id}",
+            text("SELECT * FROM functions WHERE class_id = :class_id"),
+            {"class_id": cls.id},
         )
         method_list = list(methods.scalars().all()) if methods else []
 
@@ -397,7 +398,8 @@ class AnalyzeTool:
         file = await repos["file"].get_by_id(module.file_id)
         if file:
             imports = await session.execute(
-                f"SELECT * FROM imports WHERE file_id = {file.id}",
+                text("SELECT * FROM imports WHERE file_id = :file_id"),
+                {"file_id": file.id},
             )
             import_count = len(list(imports.scalars().all())) if imports else 0
 
@@ -482,7 +484,8 @@ class AnalyzeTool:
 
         # Get module
         modules = await session.execute(
-            f"SELECT * FROM modules WHERE file_id = {file.id}",
+            text("SELECT * FROM modules WHERE file_id = :file_id"),
+            {"file_id": file.id},
         )
         module = modules.scalar_one_or_none() if modules else None
 
@@ -502,7 +505,8 @@ class AnalyzeTool:
 
         # Get imports
         imports = await session.execute(
-            f"SELECT * FROM imports WHERE file_id = {file.id} ORDER BY line_number",
+            text("SELECT * FROM imports WHERE file_id = :file_id ORDER BY line_number"),
+            {"file_id": file.id},
         )
         for imp in imports.scalars().all() if imports else []:
             structure["imports"].append(
@@ -514,12 +518,14 @@ class AnalyzeTool:
 
         # Get classes
         classes = await session.execute(
-            f"SELECT * FROM classes WHERE module_id = {module.id} ORDER BY start_line",
+            text("SELECT * FROM classes WHERE module_id = :module_id ORDER BY start_line"),
+            {"module_id": module.id},
         )
         for cls in classes.scalars().all() if classes else []:
             # Get methods
             methods = await session.execute(
-                f"SELECT name FROM functions WHERE class_id = {cls.id} ORDER BY start_line",
+                text("SELECT name FROM functions WHERE class_id = :class_id ORDER BY start_line"),
+                {"class_id": cls.id},
             )
             method_names = [m.name for m in methods.scalars().all()] if methods else []
 
@@ -534,7 +540,8 @@ class AnalyzeTool:
 
         # Get functions
         functions = await session.execute(
-            f"SELECT * FROM functions WHERE module_id = {module.id} AND class_id IS NULL ORDER BY start_line",
+            text("SELECT * FROM functions WHERE module_id = :module_id AND class_id IS NULL ORDER BY start_line"),
+            {"module_id": module.id},
         )
         for func in functions.scalars().all() if functions else []:
             structure["functions"].append(

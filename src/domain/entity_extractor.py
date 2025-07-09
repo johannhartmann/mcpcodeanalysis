@@ -389,11 +389,11 @@ Output JSON with this structure:
                 # Keep overlap
                 overlap_lines = []
                 overlap_size = 0
-                for line in reversed(current_chunk):
-                    overlap_size += len(line) + 1
+                for overlap_line in reversed(current_chunk):
+                    overlap_size += len(overlap_line) + 1
                     if overlap_size >= overlap:
                         break
-                    overlap_lines.insert(0, line)
+                    overlap_lines.insert(0, overlap_line)
 
                 current_chunk = overlap_lines
                 current_size = overlap_size
