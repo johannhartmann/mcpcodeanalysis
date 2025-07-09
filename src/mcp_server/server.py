@@ -1,9 +1,10 @@
-"""MCP Code Analysis Server implementation."""
+"""MCP Code Analysis Server implementation - Fixed version."""
 
 import asyncio
 from typing import TYPE_CHECKING, Any
 
 from fastmcp import FastMCP
+from pydantic import Field
 
 from src.database.init_db import get_session_factory, init_database
 from src.embeddings.embedding_service import EmbeddingService
@@ -16,305 +17,422 @@ from src.mcp_server.tools.domain_tools import DomainTools
 from src.mcp_server.tools.repository_management import RepositoryManagementTools
 from src.scanner.repository_scanner import RepositoryScanner
 from src.utils.logger import get_logger
+from sqlalchemy import select
+from src.database.models import Repository
 
 if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncEngine
+    from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 logger = get_logger(__name__)
 
+# Create the global FastMCP instance
+mcp = FastMCP("Code Analysis Server")
 
-class MCPCodeAnalysisServer:
-    """Main MCP server for code analysis."""
+# Global variables for shared resources
+_engine = None
+_session_factory = None
+_openai_client = None
+_settings = None
 
-    def __init__(self) -> None:
-        """Initialize MCP server."""
-        self.settings = get_settings()
-        self.mcp = FastMCP("Code Analysis Server")
-        self.engine: AsyncEngine | None = None
-        self.session_factory = None
-        self.openai_client: OpenAIClient | None = None
-        self._initialized = False
 
-        # Tool instances (initialized on startup)
-        self.code_search_tools: CodeSearchTools | None = None
-        self.code_analysis_tools: CodeAnalysisTools | None = None
-        self.repo_management_tools: RepositoryManagementTools | None = None
-        self.domain_tools: DomainTools | None = None
-        self.analysis_tools: AnalysisTools | None = None
+async def initialize_server():
+    """Initialize server resources."""
+    global _engine, _session_factory, _openai_client, _settings
+    
+    if _engine is not None:
+        return  # Already initialized
+    
+    logger.info("Starting MCP Code Analysis Server")
+    
+    # Load settings
+    _settings = get_settings()
+    
+    # Initialize database
+    logger.info("Initializing database connection")
+    _engine = await init_database()
+    _session_factory = get_session_factory(_engine)
+    
+    # Initialize OpenAI client
+    logger.info("Initializing OpenAI client")
+    _openai_client = OpenAIClient()
+    
+    # Test OpenAI connection
+    if not await _openai_client.test_connection():
+        logger.warning("OpenAI connection test failed - embeddings will be disabled")
+        _openai_client = None
+    
+    logger.info("Server initialized successfully")
 
-    async def initialize(self) -> None:
-        """Initialize server resources."""
-        if self._initialized:
-            return
 
-        logger.info("Starting MCP Code Analysis Server")
+async def get_db_session():
+    """Get a database session."""
+    if _session_factory is None:
+        await initialize_server()
+    
+    async with _session_factory() as session:
+        yield session
 
+
+# Register repository management tools
+@mcp.tool(name="add_repository", description="Add a new repository to track")
+async def add_repository(
+    url: str = Field(description="Repository URL (GitHub or file://)"),
+    branch: str = Field(default=None, description="Branch to track (optional)"),
+    scan_immediately: bool = Field(default=True, description="Scan repository immediately"),
+    generate_embeddings: bool = Field(default=True, description="Generate embeddings for code"),
+) -> dict[str, Any]:
+    """Add a new repository to track."""
+    await initialize_server()
+    
+    async for session in get_db_session():
         try:
-            # Initialize database
-            logger.info("Initializing database connection")
-            self.engine = await init_database()
-            self.session_factory = get_session_factory(self.engine)
-
-            # Initialize OpenAI client
-            logger.info("Initializing OpenAI client")
-            self.openai_client = OpenAIClient()
-
-            # Test OpenAI connection
-            if not await self.openai_client.test_connection():
-                logger.warning(
-                    "OpenAI connection test failed - embeddings will be disabled",
-                )
-                self.openai_client = None
-
-            # Initialize and register tools
-            await self._register_tools()
-
-            # Log configuration
-            logger.info(
-                f"Server initialized with {len(self.settings.repositories)} repositories",
+            # Check for existing repository
+            result = await session.execute(
+                select(Repository).where(Repository.github_url == url)
             )
-            logger.info(f"Scanner storage path: {self.settings.scanner.storage_path}")
-            logger.info(f"Embedding model: {self.settings.embeddings.model}")
-
-            self._initialized = True
-            logger.info("MCP Code Analysis Server started successfully")
-
-        except Exception as e:
-            logger.exception(f"Failed to initialize server: {e}")
-            raise
-
-    async def _register_tools(self) -> None:
-        """Register all MCP tools."""
-        logger.info("Registering MCP tools")
-
-        # Get a session for tool initialization
-        async with self.session_factory() as session:
-            # Initialize code search tools
-            self.code_search_tools = CodeSearchTools(
-                session, self.openai_client, self.mcp,
-            )
-            await self.code_search_tools.register_tools()
-
-            # Initialize code analysis tools
-            self.code_analysis_tools = CodeAnalysisTools(session, self.mcp)
-            await self.code_analysis_tools.register_tools()
-
-            # Initialize repository management tools
-            self.repo_management_tools = RepositoryManagementTools(
-                session, self.openai_client, self.mcp,
-            )
-            await self.repo_management_tools.register_tools()
+            existing_repo = result.scalar_one_or_none()
             
-            # Initialize domain-driven design tools
-            self.domain_tools = DomainTools(session, self.openai_client, self.mcp)
-            await self.domain_tools.register_tools()
-            
-            # Initialize advanced analysis tools
-            self.analysis_tools = AnalysisTools(session, self.mcp)
-            await self.analysis_tools.register_tools()
-
-        logger.info("All tools registered successfully")
-
-    async def _shutdown(self) -> None:
-        """Cleanup resources on shutdown."""
-        logger.info("Shutting down MCP Code Analysis Server")
-
-        # Close database connections
-        if self.engine:
-            await self.engine.dispose()
-
-        logger.info("Server shutdown complete")
-
-    def get_session(self):
-        """Get database session context manager.
-
-        Returns:
-            Database session context manager
-        """
-        if not self.session_factory:
-            raise RuntimeError("Server not initialized")
-        return self.session_factory()
-
-    async def scan_repository(
-        self,
-        repository_url: str,
-        branch: str | None = None,
-        generate_embeddings: bool = True,
-    ) -> dict[str, Any]:
-        """Scan a repository.
-
-        Args:
-            repository_url: Repository URL
-            branch: Branch to scan (optional)
-            generate_embeddings: Whether to generate embeddings
-
-        Returns:
-            Scan results
-        """
-        if not self._initialized:
-            await self.initialize()
-
-        async with self.get_session() as session:
-            scanner = RepositoryScanner(session, self.openai_client)
-
-            # Create repository config
-            from src.mcp_server.config import RepositoryConfig
-
-            repo_config = RepositoryConfig(
-                url=repository_url,
-                branch=branch,
-            )
-
-            result = await scanner.scan_repository(repo_config)
-
-            # Process embeddings if requested
-            if (
-                generate_embeddings
-                and self.openai_client
-                and result.get("repository_id")
-            ):
-                embedding_service = EmbeddingService(session, self.openai_client)
-                embeddings_result = (
-                    await embedding_service.create_repository_embeddings(
-                        result["repository_id"],
-                    )
-                )
-                result["embeddings"] = embeddings_result
-
-            return result
-
-    async def update_embeddings(
-        self,
-        repository_id: int | None = None,
-        force: bool = False,
-    ) -> dict[str, Any]:
-        """Update embeddings for repositories.
-
-        Args:
-            repository_id: Optional repository ID (all if None)
-            force: Force regeneration of existing embeddings
-
-        Returns:
-            Update results
-        """
-        if not self._initialized:
-            await self.initialize()
-
-        if not self.openai_client:
-            return {
-                "status": "error",
-                "message": "OpenAI client not available",
-            }
-
-        async with self.get_session() as session:
-            embedding_service = EmbeddingService(session, self.openai_client)
-
-            if repository_id:
-                # Update single repository
-                result = await embedding_service.create_repository_embeddings(
-                    repository_id,
-                )
+            if existing_repo:
                 return {
-                    "status": "success",
-                    "repositories_updated": 1,
-                    "embeddings": result,
+                    "success": False,
+                    "error": f"Repository already exists with ID {existing_repo.id}",
+                    "repository_id": existing_repo.id,
                 }
-            # Update all repositories
-            results = []
-            repositories = await self.repo_management_tools.list_repositories()
-
-            for repo in repositories:
-                try:
-                    result = await embedding_service.create_repository_embeddings(
-                        repo["id"],
+            
+            # Add repository to database
+            repo = Repository(
+                github_url=url,
+                owner=url.split('/')[-2] if '/' in url else "local",
+                name=url.split('/')[-1].replace('.git', '') if '/' in url else url,
+                default_branch=branch or "main",
+            )
+            session.add(repo)
+            await session.commit()
+            await session.refresh(repo)
+            
+            scan_result = {"repository_id": repo.id}
+            
+            # Scan if requested
+            if scan_immediately:
+                from src.scanner.repository_scanner import RepositoryScanner
+                from src.mcp_server.config import RepositoryConfig
+                
+                repo_config = RepositoryConfig(
+                    url=url,
+                    branch=branch,
+                    repository_id=repo.id,
+                )
+                
+                scanner = RepositoryScanner(session, _openai_client)
+                scan_result = await scanner.scan_repository(repo_config)
+                
+                # Generate embeddings if requested
+                if generate_embeddings and _openai_client:
+                    from src.embeddings.embedding_service import EmbeddingService
+                    embedding_service = EmbeddingService(session, _openai_client)
+                    embedding_result = await embedding_service.create_repository_embeddings(
+                        scan_result["repository_id"]
                     )
-                    results.append(
-                        {
-                            "repository_id": repo["id"],
-                            "repository_name": repo["name"],
-                            "result": result,
-                        },
-                    )
-                except Exception as e:
-                    logger.exception(
-                        f"Failed to update embeddings for repository {repo['id']}: {e}",
-                    )
-                    results.append(
-                        {
-                            "repository_id": repo["id"],
-                            "repository_name": repo["name"],
-                            "error": str(e),
-                        },
-                    )
-
+                    scan_result["embeddings"] = embedding_result
+            
             return {
-                "status": "success",
-                "repositories_updated": len(results),
-                "results": results,
+                "success": True,
+                "repository": {
+                    "id": repo.id,
+                    "url": url,
+                    "branch": branch or "default",
+                },
+                "scan_result": scan_result,
+            }
+        except Exception as e:
+            logger.exception(f"Failed to add repository: {e}")
+            return {
+                "success": False,
+                "error": str(e),
             }
 
-    async def search(
-        self,
-        query: str,
-        repository_id: int | None = None,
-        limit: int = 10,
-    ) -> list[dict[str, Any]]:
-        """Search for code.
 
-        Args:
-            query: Search query
-            repository_id: Optional repository ID to search in
-            limit: Maximum number of results
+@mcp.tool(name="list_repositories", description="List all tracked repositories")
+async def list_repositories(
+    include_stats: bool = Field(default=False, description="Include repository statistics"),
+) -> dict[str, Any]:
+    """List all tracked repositories."""
+    await initialize_server()
+    
+    async for session in get_db_session():
+        try:
+            # Get repositories
+            result = await session.execute(
+                select(Repository).order_by(Repository.name)
+            )
+            repositories = result.scalars().all()
+            
+            repo_list = []
+            for repo in repositories:
+                repo_data = {
+                    "id": repo.id,
+                    "name": repo.name,
+                    "owner": repo.owner,
+                    "url": repo.github_url,
+                    "branch": repo.default_branch,
+                    "last_synced": repo.last_synced.isoformat() if repo.last_synced else None,
+                }
+                
+                if include_stats:
+                    # Get file count
+                    from src.database.models import File, CodeEmbedding
+                    from sqlalchemy import func
+                    
+                    file_count_result = await session.execute(
+                        select(func.count(File.id)).where(File.repository_id == repo.id)
+                    )
+                    file_count = file_count_result.scalar() or 0
+                    
+                    # Get embedding count
+                    embedding_count_result = await session.execute(
+                        select(func.count(CodeEmbedding.id)).join(File).where(
+                            File.repository_id == repo.id
+                        )
+                    )
+                    embedding_count = embedding_count_result.scalar() or 0
+                    
+                    repo_data["stats"] = {
+                        "total_files": file_count,
+                        "total_embeddings": embedding_count,
+                    }
+                
+                repo_list.append(repo_data)
+            
+            return {
+                "success": True,
+                "repositories": repo_list,
+                "count": len(repo_list),
+            }
+        except Exception as e:
+            logger.exception(f"Failed to list repositories: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "repositories": [],
+            }
 
-        Returns:
-            Search results
-        """
-        if not self._initialized:
-            await self.initialize()
 
-        async with self.get_session():
-            if self.code_search_tools and self.openai_client:
-                # Use semantic search
-                return await self.code_search_tools.semantic_search_impl(
-                    query,
-                    repository_id=repository_id,
-                    limit=limit,
-                )
-            # Fallback to keyword search
-            logger.warning("OpenAI client not available, using keyword search")
-            # TODO: Implement keyword-based search
-            return []
-
-
-def create_server() -> MCPCodeAnalysisServer:
-    """Create and configure the MCP server.
-
-    Returns:
-        Configured server instance
-    """
-    return MCPCodeAnalysisServer()
+@mcp.tool(name="scan_repository", description="Scan or rescan a repository")
+async def scan_repository(
+    repository_id: int = Field(description="Repository ID to scan"),
+    force_full_scan: bool = Field(default=False, description="Force full rescan"),
+    generate_embeddings: bool = Field(default=True, description="Generate embeddings"),
+) -> dict[str, Any]:
+    """Scan or rescan a repository."""
+    await initialize_server()
+    
+    async for session in get_db_session():
+        repo_tools = RepositoryManagementTools(session, _openai_client, mcp)
+        return await repo_tools.scan_repository({
+            "repository_id": repository_id,
+            "force_full_scan": force_full_scan,
+            "generate_embeddings": generate_embeddings,
+        })
 
 
-# Create a module-level MCP instance that FastMCP can find
-_server = None
+@mcp.tool(name="remove_repository", description="Remove a repository from tracking")
+async def remove_repository(
+    repository_id: int = Field(description="Repository ID to remove"),
+) -> dict[str, Any]:
+    """Remove a repository from tracking."""
+    await initialize_server()
+    
+    async for session in get_db_session():
+        repo_tools = RepositoryManagementTools(session, _openai_client, mcp)
+        return await repo_tools.remove_repository(repository_id=repository_id)
 
 
-def get_mcp():
-    """Get the FastMCP instance."""
-    global _server
-    if _server is None:
-        _server = create_server()
-        # Initialize server on first access
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(_server.initialize())
-    return _server.mcp
+@mcp.tool(name="update_repository_settings", description="Update repository settings")
+async def update_repository_settings(
+    repository_id: int = Field(description="Repository ID"),
+    branch: str = Field(default=None, description="New branch to track"),
+    auto_scan: bool = Field(default=None, description="Enable automatic scanning"),
+) -> dict[str, Any]:
+    """Update repository settings."""
+    await initialize_server()
+    
+    async for session in get_db_session():
+        repo_tools = RepositoryManagementTools(session, _openai_client, mcp)
+        return await repo_tools.update_repository_settings({
+            "repository_id": repository_id,
+            "branch": branch,
+            "auto_scan": auto_scan,
+        })
 
 
-# FastMCP will look for these variables
-mcp = get_mcp()
-server = mcp  # Alias
-app = mcp  # Another alias
+# Register code search tools
+@mcp.tool(name="semantic_search", description="Search code using natural language")
+async def semantic_search(
+    query: str = Field(description="Natural language search query"),
+    repository_id: int = Field(default=None, description="Limit to specific repository"),
+    limit: int = Field(default=10, description="Maximum results to return"),
+) -> dict[str, Any]:
+    """Search code using natural language."""
+    await initialize_server()
+    
+    async for session in get_db_session():
+        search_tools = CodeSearchTools(session, _openai_client, mcp)
+        return await search_tools.semantic_search({
+            "query": query,
+            "repository_id": repository_id,
+            "limit": limit,
+        })
+
+
+@mcp.tool(name="keyword_search", description="Search code using keywords")
+async def keyword_search(
+    keywords: list[str] = Field(description="Keywords to search for"),
+    scope: str = Field(default="all", description="Search scope: all, functions, classes, modules"),
+    repository_id: int = Field(default=None, description="Limit to specific repository"),
+    limit: int = Field(default=20, description="Maximum results"),
+) -> dict[str, Any]:
+    """Search code using keywords."""
+    await initialize_server()
+    
+    async for session in get_db_session():
+        search_tools = CodeSearchTools(session, _openai_client, mcp)
+        return await search_tools.keyword_search({
+            "keywords": keywords,
+            "scope": scope,
+            "repository_id": repository_id,
+            "limit": limit,
+        })
+
+
+@mcp.tool(name="find_similar_code", description="Find code similar to a given snippet")
+async def find_similar_code(
+    code_snippet: str = Field(description="Code snippet to find similar code for"),
+    repository_id: int = Field(default=None, description="Limit to specific repository"),
+    threshold: float = Field(default=0.7, description="Similarity threshold (0-1)"),
+    limit: int = Field(default=10, description="Maximum results"),
+) -> dict[str, Any]:
+    """Find code similar to a given snippet."""
+    await initialize_server()
+    
+    async for session in get_db_session():
+        search_tools = CodeSearchTools(session, _openai_client, mcp)
+        return await search_tools.find_similar_code({
+            "code_snippet": code_snippet,
+            "repository_id": repository_id,
+            "threshold": threshold,
+            "limit": limit,
+        })
+
+
+# Register code analysis tools
+@mcp.tool(name="get_code", description="Get code for a specific entity")
+async def get_code(
+    entity_type: str = Field(description="Entity type: function, class, or module"),
+    entity_id: int = Field(description="Entity ID"),
+    include_context: bool = Field(default=False, description="Include surrounding context"),
+) -> dict[str, Any]:
+    """Get code for a specific entity."""
+    await initialize_server()
+    
+    async for session in get_db_session():
+        analysis_tools = CodeAnalysisTools(session, mcp)
+        return await analysis_tools.get_code({
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+            "include_context": include_context,
+        })
+
+
+@mcp.tool(name="analyze_file", description="Analyze a specific file")
+async def analyze_file(
+    file_path: str = Field(description="File path within repository"),
+    repository_id: int = Field(description="Repository ID"),
+) -> dict[str, Any]:
+    """Analyze a specific file."""
+    await initialize_server()
+    
+    async for session in get_db_session():
+        analysis_tools = CodeAnalysisTools(session, mcp)
+        return await analysis_tools.analyze_file({
+            "file_path": file_path,
+            "repository_id": repository_id,
+        })
+
+
+@mcp.tool(name="get_file_structure", description="Get the structure of a file")
+async def get_file_structure(
+    file_path: str = Field(description="File path within repository"),
+    repository_id: int = Field(description="Repository ID"),
+    include_imports: bool = Field(default=True, description="Include import statements"),
+) -> dict[str, Any]:
+    """Get the structure of a file."""
+    await initialize_server()
+    
+    async for session in get_db_session():
+        analysis_tools = CodeAnalysisTools(session, mcp)
+        return await analysis_tools.get_file_structure({
+            "file_path": file_path,
+            "repository_id": repository_id,
+            "include_imports": include_imports,
+        })
+
+
+@mcp.tool(name="analyze_dependencies", description="Analyze dependencies of a module or file")
+async def analyze_dependencies(
+    file_path: str = Field(description="File path to analyze"),
+    repository_id: int = Field(description="Repository ID"),
+    depth: int = Field(default=1, description="Depth of dependency analysis"),
+) -> dict[str, Any]:
+    """Analyze dependencies of a module or file."""
+    await initialize_server()
+    
+    async for session in get_db_session():
+        analysis_tools = CodeAnalysisTools(session, mcp)
+        return await analysis_tools.analyze_dependencies({
+            "file_path": file_path,
+            "repository_id": repository_id,
+            "depth": depth,
+        })
+
+
+# Aliases for compatibility
+server = mcp
+app = mcp
+
+
+def create_server():
+    """Create server instance for compatibility."""
+    # Return a mock object that has the required methods
+    class MockServer:
+        async def initialize(self):
+            await initialize_server()
+        
+        async def _shutdown(self):
+            if _engine:
+                await _engine.dispose()
+        
+        async def scan_repository(self, url, branch=None, generate_embeddings=True):
+            await initialize_server()
+            async for session in get_db_session():
+                repo_tools = RepositoryManagementTools(session, _openai_client, mcp)
+                return await repo_tools.add_repository({
+                    "url": url,
+                    "branch": branch,
+                    "scan_immediately": True,
+                    "generate_embeddings": generate_embeddings,
+                })
+        
+        async def search(self, query, repository_id=None, limit=10):
+            await initialize_server()
+            async for session in get_db_session():
+                search_tools = CodeSearchTools(session, _openai_client, mcp)
+                return await search_tools.semantic_search({
+                    "query": query,
+                    "repository_id": repository_id,
+                    "limit": limit,
+                })
+    
+    return MockServer()
 
 
 if __name__ == "__main__":
