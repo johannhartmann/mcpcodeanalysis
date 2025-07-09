@@ -97,13 +97,17 @@ class TestCodeProcessor:
 
     @pytest.mark.asyncio
     async def test_process_file_unsupported(
-        self, code_processor, mock_file_record,
+        self,
+        code_processor,
+        mock_file_record,
     ) -> None:
         """Test processing unsupported file type."""
         mock_file_record.path = "test.txt"
 
         with patch.object(
-            code_processor.parser_factory, "is_supported", return_value=False,
+            code_processor.parser_factory,
+            "is_supported",
+            return_value=False,
         ):
             result = await code_processor.process_file(mock_file_record)
 
@@ -120,7 +124,9 @@ class TestCodeProcessor:
     ) -> None:
         """Test successful file processing."""
         with patch.object(
-            code_processor.parser_factory, "is_supported", return_value=True,
+            code_processor.parser_factory,
+            "is_supported",
+            return_value=True,
         ):
             with patch.object(
                 code_processor,
@@ -153,7 +159,9 @@ class TestCodeProcessor:
     ) -> None:
         """Test file processing with extraction failure."""
         with patch.object(
-            code_processor.parser_factory, "is_supported", return_value=True,
+            code_processor.parser_factory,
+            "is_supported",
+            return_value=True,
         ):
             with patch.object(code_processor, "_extract_entities", return_value=None):
                 result = await code_processor.process_file(mock_file_record)
@@ -170,7 +178,9 @@ class TestCodeProcessor:
     ) -> None:
         """Test file processing with error."""
         with patch.object(
-            code_processor.parser_factory, "is_supported", return_value=True,
+            code_processor.parser_factory,
+            "is_supported",
+            return_value=True,
         ):
             with patch.object(
                 code_processor,
@@ -209,7 +219,8 @@ class TestCodeProcessor:
         """Test storing entities in database."""
         with patch.object(code_processor, "_clear_file_entities"):
             stats = await code_processor._store_entities(
-                sample_entities, mock_file_record,
+                sample_entities,
+                mock_file_record,
             )
 
             assert stats["modules"] == 1
@@ -258,7 +269,10 @@ class TestCodeProcessor:
 
     @pytest.mark.asyncio
     async def test_get_file_structure(
-        self, code_processor, mock_file_record, mock_db_session,
+        self,
+        code_processor,
+        mock_file_record,
+        mock_db_session,
     ) -> None:
         """Test getting file structure."""
         # Mock database queries

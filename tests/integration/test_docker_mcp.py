@@ -47,7 +47,9 @@ class Calculator:
             subprocess.run(["git", "init"], cwd=repo_path, check=True)
             subprocess.run(["git", "add", "."], cwd=repo_path, check=True)
             subprocess.run(
-                ["git", "commit", "-m", "Initial commit"], cwd=repo_path, check=True,
+                ["git", "commit", "-m", "Initial commit"],
+                cwd=repo_path,
+                check=True,
             )
 
             yield repo_path
@@ -120,7 +122,9 @@ class Calculator:
         """Test adding and scanning a repository."""
         # First, list repositories to check initial state
         list_result = await self.send_mcp_request(
-            mcp_server_url, "tools/call", {"name": "list_repositories", "arguments": {}},
+            mcp_server_url,
+            "tools/call",
+            {"name": "list_repositories", "arguments": {}},
         )
 
         list_response = list_result[-1]
@@ -253,7 +257,8 @@ class Calculator:
 
         results = search_result[-1]["result"]["content"][0]["text"]["results"]
         calc_result = next(
-            (r for r in results if r["entity"]["name"] == "Calculator"), None,
+            (r for r in results if r["entity"]["name"] == "Calculator"),
+            None,
         )
         assert calc_result is not None
 

@@ -93,7 +93,10 @@ class TestCodeExtractor:
         assert ".py" in code_extractor.parsers
 
     def test_extract_from_file_success(
-        self, code_extractor, tmp_path, sample_entities,
+        self,
+        code_extractor,
+        tmp_path,
+        sample_entities,
     ) -> None:
         """Test successful entity extraction."""
         test_file = tmp_path / "test.py"

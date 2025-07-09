@@ -152,7 +152,9 @@ repositories:
 
         try:
             settings = Settings.from_yaml(config_path)
-            assert settings.repositories[0].access_token == "ghp_test"
+            assert (
+                settings.repositories[0].access_token.get_secret_value() == "ghp_test"
+            )
         finally:
             config_path.unlink()
 
@@ -163,9 +165,14 @@ repositories:
         assert url.startswith("postgresql://")
         assert "test_code_analysis" in url
 
-    def test_get_database_url_from_config(self, monkeypatch) -> None:
+    def test_get_database_url_from_config(self, monkeypatch, tmp_path) -> None:
         """Test database URL from configuration."""
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+        # Clear POSTGRES_PASSWORD from environment to test database config password
+        monkeypatch.delenv("POSTGRES_PASSWORD", raising=False)
+
+        # Create a temporary directory and change to it to avoid loading .env
+        monkeypatch.chdir(tmp_path)
 
         settings = Settings(
             openai_api_key=SecretStr("sk-test"),
@@ -186,6 +193,7 @@ repositories:
         # Set paths to temp directory
         test_settings.scanner.storage_path = tmp_path / "repos"
         test_settings.embeddings.cache_dir = tmp_path / "cache"
+        test_settings.logging.file_enabled = True
         test_settings.logging.file_path = tmp_path / "logs" / "test.log"
 
         test_settings.validate_config()

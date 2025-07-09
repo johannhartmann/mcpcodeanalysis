@@ -57,7 +57,8 @@ class TestOpenAIClient:
     def test_init_with_api_key(self, mock_settings) -> None:
         """Test initialization with API key."""
         with patch(
-            "src.embeddings.openai_client.get_settings", return_value=mock_settings,
+            "src.embeddings.openai_client.get_settings",
+            return_value=mock_settings,
         ):
             client = OpenAIClient(api_key="custom-key")
             assert client.api_key == "custom-key"
@@ -171,7 +172,9 @@ class TestOpenAIClient:
             return [0.1] * 1536
 
         with patch.object(
-            openai_client, "generate_embedding", side_effect=mock_generate,
+            openai_client,
+            "generate_embedding",
+            side_effect=mock_generate,
         ):
             results = await openai_client.generate_embeddings_batch(texts)
 
@@ -183,7 +186,8 @@ class TestOpenAIClient:
 
     @pytest.mark.asyncio
     async def test_generate_embeddings_batch_metadata_mismatch(
-        self, openai_client,
+        self,
+        openai_client,
     ) -> None:
         """Test batch embedding with mismatched metadata."""
         texts = ["text1", "text2"]

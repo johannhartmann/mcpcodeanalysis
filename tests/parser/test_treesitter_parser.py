@@ -140,7 +140,8 @@ class TestPythonParser:
 
         # Check import os
         import_os = next(
-            (i for i in imports if "import os" in i["import_statement"]), None,
+            (i for i in imports if "import os" in i["import_statement"]),
+            None,
         )
         assert import_os is not None
         assert import_os["imported_names"] == ["os"]
@@ -148,7 +149,8 @@ class TestPythonParser:
 
         # Check from import
         from_import = next(
-            (i for i in imports if "from typing" in i["import_statement"]), None,
+            (i for i in imports if "from typing" in i["import_statement"]),
+            None,
         )
         assert from_import is not None
         assert "List" in from_import["imported_names"]

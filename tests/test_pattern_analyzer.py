@@ -134,19 +134,24 @@ async def sample_domain_data(db_session: AsyncSession):
     db_session.add_all(
         [
             BoundedContextMembership(
-                bounded_context_id=sales_ctx.id, domain_entity_id=order_entity.id,
+                bounded_context_id=sales_ctx.id,
+                domain_entity_id=order_entity.id,
             ),
             BoundedContextMembership(
-                bounded_context_id=sales_ctx.id, domain_entity_id=order_item_entity.id,
+                bounded_context_id=sales_ctx.id,
+                domain_entity_id=order_item_entity.id,
             ),
             BoundedContextMembership(
-                bounded_context_id=sales_ctx.id, domain_entity_id=customer_entity.id,
+                bounded_context_id=sales_ctx.id,
+                domain_entity_id=customer_entity.id,
             ),
             BoundedContextMembership(
-                bounded_context_id=sales_ctx.id, domain_entity_id=service_entity.id,
+                bounded_context_id=sales_ctx.id,
+                domain_entity_id=service_entity.id,
             ),
             BoundedContextMembership(
-                bounded_context_id=inventory_ctx.id, domain_entity_id=product_entity.id,
+                bounded_context_id=inventory_ctx.id,
+                domain_entity_id=product_entity.id,
             ),
         ],
     )
@@ -198,7 +203,8 @@ async def sample_domain_data(db_session: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_analyze_cross_context_coupling(
-    db_session: AsyncSession, sample_domain_data,
+    db_session: AsyncSession,
+    sample_domain_data,
 ):
     """Test cross-context coupling analysis."""
     analyzer = DomainPatternAnalyzer(db_session)
@@ -268,7 +274,8 @@ async def test_suggest_context_splits(db_session: AsyncSession, sample_domain_da
 
         db_session.add(
             BoundedContextMembership(
-                bounded_context_id=large_ctx.id, domain_entity_id=entity.id,
+                bounded_context_id=large_ctx.id,
+                domain_entity_id=entity.id,
             ),
         )
 
@@ -277,7 +284,8 @@ async def test_suggest_context_splits(db_session: AsyncSession, sample_domain_da
     analyzer = DomainPatternAnalyzer(db_session)
 
     result = await analyzer.suggest_context_splits(
-        min_entities=20, max_cohesion_threshold=0.4,
+        min_entities=20,
+        max_cohesion_threshold=0.4,
     )
 
     assert len(result) > 0
@@ -304,7 +312,8 @@ async def test_analyze_evolution(db_session: AsyncSession, sample_domain_data):
     await db_session.commit()
 
     result = await analyzer.analyze_evolution(
-        sample_domain_data["repository"].id, days=30,
+        sample_domain_data["repository"].id,
+        days=30,
     )
 
     assert "entity_changes" in result

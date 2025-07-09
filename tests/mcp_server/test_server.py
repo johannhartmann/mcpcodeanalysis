@@ -75,7 +75,10 @@ class TestMCPCodeAnalysisServer:
 
     @pytest.mark.asyncio
     async def test_startup_openai_failure(
-        self, mcp_server, mock_engine, mock_session,
+        self,
+        mcp_server,
+        mock_engine,
+        mock_session,
     ) -> None:
         """Test server startup with OpenAI connection failure."""
         with patch("src.mcp_server.server.init_database", return_value=mock_engine):
@@ -142,7 +145,8 @@ class TestMCPCodeAnalysisServer:
         )
 
         with patch(
-            "src.mcp_server.server.RepositoryScanner", return_value=mock_scanner,
+            "src.mcp_server.server.RepositoryScanner",
+            return_value=mock_scanner,
         ):
             result = await mcp_server.scan_repository("https://github.com/test/repo")
 
@@ -152,7 +156,9 @@ class TestMCPCodeAnalysisServer:
 
     @pytest.mark.asyncio
     async def test_scan_repository_with_embeddings(
-        self, mcp_server, mock_session,
+        self,
+        mcp_server,
+        mock_session,
     ) -> None:
         """Test repository scanning with embedding generation."""
         mcp_server.session_factory = AsyncMock(return_value=mock_session)
@@ -172,7 +178,8 @@ class TestMCPCodeAnalysisServer:
         )
 
         with patch(
-            "src.mcp_server.server.RepositoryScanner", return_value=mock_scanner,
+            "src.mcp_server.server.RepositoryScanner",
+            return_value=mock_scanner,
         ):
             with patch(
                 "src.mcp_server.server.EmbeddingService",
@@ -199,7 +206,8 @@ class TestMCPCodeAnalysisServer:
         )
 
         with patch(
-            "src.mcp_server.server.VectorSearch", return_value=mock_vector_search,
+            "src.mcp_server.server.VectorSearch",
+            return_value=mock_vector_search,
         ):
             results = await mcp_server.search("find test function")
 

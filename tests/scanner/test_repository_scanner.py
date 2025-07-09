@@ -52,7 +52,8 @@ def mock_settings():
 def repository_scanner(mock_db_session, mock_settings):
     """Create RepositoryScanner fixture."""
     with patch(
-        "src.scanner.repository_scanner.get_settings", return_value=mock_settings,
+        "src.scanner.repository_scanner.get_settings",
+        return_value=mock_settings,
     ):
         scanner = RepositoryScanner(mock_db_session)
         yield scanner

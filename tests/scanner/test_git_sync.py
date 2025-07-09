@@ -127,7 +127,9 @@ class TestGitSync:
 
         with patch("git.Repo", return_value=mock_repo):
             with patch.object(
-                git_sync, "update_repository", return_value=mock_repo,
+                git_sync,
+                "update_repository",
+                return_value=mock_repo,
             ) as mock_update:
                 repo = await git_sync.clone_repository(
                     "https://github.com/test-owner/test-repo",
@@ -140,7 +142,8 @@ class TestGitSync:
     async def test_clone_repository_git_error(self, git_sync) -> None:
         """Test repository cloning with git error."""
         with patch(
-            "git.Repo.clone_from", side_effect=GitCommandError("clone", "error"),
+            "git.Repo.clone_from",
+            side_effect=GitCommandError("clone", "error"),
         ):
             with pytest.raises(RepositoryError, match="Failed to clone repository"):
                 await git_sync.clone_repository(
@@ -167,7 +170,9 @@ class TestGitSync:
     async def test_update_repository_not_exists(self, git_sync, mock_repo) -> None:
         """Test updating non-existent repository."""
         with patch.object(
-            git_sync, "clone_repository", return_value=mock_repo,
+            git_sync,
+            "clone_repository",
+            return_value=mock_repo,
         ) as mock_clone:
             repo = await git_sync.update_repository(
                 "https://github.com/test-owner/test-repo",
@@ -184,7 +189,9 @@ class TestGitSync:
 
         with patch("git.Repo", side_effect=InvalidGitRepositoryError):
             with patch.object(
-                git_sync, "clone_repository", return_value=mock_repo,
+                git_sync,
+                "clone_repository",
+                return_value=mock_repo,
             ) as mock_clone:
                 repo = await git_sync.update_repository(
                     "https://github.com/test-owner/test-repo",

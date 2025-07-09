@@ -148,7 +148,9 @@ def test_calculator_multiply():
         subprocess.run(["git", "init"], cwd=repo_path, check=True)
         subprocess.run(["git", "add", "."], cwd=repo_path, check=True)
         subprocess.run(
-            ["git", "commit", "-m", "Initial commit"], cwd=repo_path, check=True,
+            ["git", "commit", "-m", "Initial commit"],
+            cwd=repo_path,
+            check=True,
         )
 
         return repo_path
@@ -287,7 +289,9 @@ def greet(name: str) -> str:
         # Commit the change
         subprocess.run(["git", "add", "."], cwd=sample_repo, check=True)
         subprocess.run(
-            ["git", "commit", "-m", "Add helpers"], cwd=sample_repo, check=True,
+            ["git", "commit", "-m", "Add helpers"],
+            cwd=sample_repo,
+            check=True,
         )
 
         # Rescan repository
