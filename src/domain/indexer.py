@@ -172,7 +172,7 @@ class DomainIndexer:
                     results["failed"] += 1
 
             except Exception as e:
-                logger.exception("Error indexing file %s: %s", file.path, e)
+                logger.exception("Error indexing file %s", file.path)
                 results["failed"] += 1
 
         # Detect bounded contexts
@@ -252,7 +252,7 @@ class DomainIndexer:
                     await self.summarizer.summarize_module(module.id)
                     count += 1
                 except Exception as e:
-                    logger.exception("Error summarizing module %d: %s", module.id, e)
+                    logger.exception("Error summarizing module %d", module.id)
 
         elif entity_type == "context":
             # Get contexts to summarize
@@ -270,7 +270,7 @@ class DomainIndexer:
                     await self.summarizer.summarize_bounded_context(context.id)
                     count += 1
                 except Exception as e:
-                    logger.exception("Error summarizing context %d: %s", context.id, e)
+                    logger.exception("Error summarizing context %d", context.id)
 
         logger.info("Generated %d summaries for %s", count, entity_type)
         return count
@@ -406,5 +406,5 @@ class DomainIndexer:
                 entity.concept_embedding = embedding
             except Exception as e:
                 logger.exception(
-                    "Error generating embedding for %s: %s", entity.name, e
+                    "Error generating embedding for %s", entity.name
                 )

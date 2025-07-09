@@ -64,8 +64,9 @@ class OpenAIClient:
 
             embedding = response.data[0].embedding
             logger.debug(
-                f"Generated embedding for text of length {len(text)}, "
-                f"dimension: {len(embedding)}",
+                "Generated embedding for text of length %d, dimension: %d",
+                len(text),
+                len(embedding),
             )
 
             return embedding

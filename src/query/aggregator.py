@@ -3,6 +3,8 @@
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import text
+
 from src.database import get_repositories, get_session
 from src.database.models import Class, File, Function, Module
 from src.parser.code_extractor import CodeExtractor
@@ -132,7 +134,8 @@ class CodeAggregator:
 
         # Load all methods
         methods = await session.execute(
-            f"SELECT * FROM functions WHERE class_id = {class_id} ORDER BY start_line",
+            text("SELECT * FROM functions WHERE class_id = :class_id ORDER BY start_line"),
+            {"class_id": class_id},
         )
         method_list = list(methods.scalars().all()) if methods else []
 
@@ -217,18 +220,21 @@ class CodeAggregator:
 
         # Load classes and functions
         classes = await session.execute(
-            f"SELECT * FROM classes WHERE module_id = {module_id} ORDER BY start_line",
+            text("SELECT * FROM classes WHERE module_id = :module_id ORDER BY start_line"),
+            {"module_id": module_id},
         )
         class_list = list(classes.scalars().all()) if classes else []
 
         functions = await session.execute(
-            f"SELECT * FROM functions WHERE module_id = {module_id} AND class_id IS NULL ORDER BY start_line",
+            text("SELECT * FROM functions WHERE module_id = :module_id AND class_id IS NULL ORDER BY start_line"),
+            {"module_id": module_id},
         )
         function_list = list(functions.scalars().all()) if functions else []
 
         # Load imports
         imports = await session.execute(
-            f"SELECT * FROM imports WHERE file_id = {file.id} ORDER BY line_number",
+            text("SELECT * FROM imports WHERE file_id = :file_id ORDER BY line_number"),
+            {"file_id": file.id},
         )
         import_list = list(imports.scalars().all()) if imports else []
 

@@ -18,9 +18,9 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy.orm import Mapped, relationship
+from sqlalchemy.orm import relationship
 
-from src.database.models import Base
+from src.database.models import Base, Mapped
 
 
 class DomainEntity(Base):

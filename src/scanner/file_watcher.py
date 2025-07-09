@@ -2,7 +2,7 @@
 
 import asyncio
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -61,13 +61,13 @@ class CodeFileHandler(FileSystemEventHandler):
     def on_modified(self, event) -> None:
         """Handle file modification."""
         if not event.is_directory and self.should_process(event.src_path):
-            self.pending_changes[event.src_path] = datetime.now()
+            self.pending_changes[event.src_path] = datetime.now(tz=timezone.utc)
             self._schedule_callback(event.src_path, "modified")
 
     def on_created(self, event) -> None:
         """Handle file creation."""
         if not event.is_directory and self.should_process(event.src_path):
-            self.pending_changes[event.src_path] = datetime.now()
+            self.pending_changes[event.src_path] = datetime.now(tz=timezone.utc)
             self._schedule_callback(event.src_path, "created")
 
     def on_deleted(self, event) -> None:

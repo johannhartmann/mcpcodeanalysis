@@ -20,13 +20,17 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 
+# Type hints for SQLAlchemy 2.0 style
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Mapped
+else:
+    # Runtime compatibility
+    Mapped = Any
 
-class Base(DeclarativeBase):
-    """Base class for database models."""
-
-    pass
+Base = declarative_base()
 
 
 class Repository(Base):

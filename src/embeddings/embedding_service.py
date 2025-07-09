@@ -77,7 +77,7 @@ class EmbeddingService:
                     stats["modules"] += 1
                 except Exception as e:
                     logger.exception(
-                        f"Failed to create embedding for module {module.id}: {e}",
+                        "Failed to create embedding for module %s", module.id
                     )
                     stats["errors"].append(f"Module {module.name}: {e!s}")
 
@@ -89,7 +89,7 @@ class EmbeddingService:
                     stats["classes"] += 1
                 except Exception as e:
                     logger.exception(
-                        f"Failed to create embedding for class {cls.id}: {e}",
+                        "Failed to create embedding for class %s", cls.id
                     )
                     stats["errors"].append(f"Class {cls.name}: {e!s}")
 
@@ -101,7 +101,7 @@ class EmbeddingService:
                     stats["functions"] += 1
                 except Exception as e:
                     logger.exception(
-                        f"Failed to create embedding for function {func.id}: {e}",
+                        "Failed to create embedding for function %s", func.id
                     )
                     stats["errors"].append(f"Function {func.name}: {e!s}")
 
@@ -113,7 +113,7 @@ class EmbeddingService:
             )
 
         except Exception as e:
-            logger.exception("Failed to create embeddings for file %s: %s", file_id, e)
+            logger.exception("Failed to create embeddings for file %s", file_id)
             raise EmbeddingError(f"Failed to create embeddings: {e}") from e
 
         return stats
@@ -168,7 +168,7 @@ class EmbeddingService:
                         ],
                     )
             except Exception as e:
-                logger.exception("Failed to process file %s: %s", file_record.id, e)
+                logger.exception("Failed to process file %s", file_record.id)
                 stats["errors"].append(f"File {file_record.path}: {e!s}")
 
         logger.info(
