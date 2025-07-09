@@ -83,7 +83,7 @@ class TestGitSync:
     def test_extract_owner_repo_invalid(self, git_sync) -> None:
         """Test extracting owner and repo from invalid URL."""
         from src.utils.exceptions import ValidationError
-        
+
         with pytest.raises(ValidationError, match="Invalid GitHub URL"):
             git_sync.extract_owner_repo("https://example.com/test-repo")
 

@@ -12,7 +12,7 @@ from src.domain.entity_extractor import DomainEntityExtractor
 from src.domain.graph_builder import SemanticGraphBuilder
 from src.domain.summarizer import HierarchicalSummarizer
 from src.embeddings.openai_client import OpenAIClient
-from src.utils.exceptions import DomainError, NotFoundError
+from src.utils.exceptions import NotFoundError
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)

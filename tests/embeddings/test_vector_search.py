@@ -258,7 +258,7 @@ class TestVectorSearch:
             ("class", 10),
             ("module", 5),
         ])
-        
+
         mock_db_session.execute.side_effect = [
             # Count by type
             mock_type_result,

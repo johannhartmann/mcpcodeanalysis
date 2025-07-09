@@ -65,19 +65,19 @@ class DomainEntity(Base):
     extraction_metadata = Column(JSON, default={})  # LLM model, prompts used, etc.
 
     # Relationships
-    source_relationships: Mapped[list["DomainRelationship"]] = relationship(
+    source_relationships: Mapped[list[DomainRelationship]] = relationship(
         "DomainRelationship",
         foreign_keys="DomainRelationship.source_entity_id",
         back_populates="source_entity",
         cascade="all, delete-orphan",
     )
-    target_relationships: Mapped[list["DomainRelationship"]] = relationship(
+    target_relationships: Mapped[list[DomainRelationship]] = relationship(
         "DomainRelationship",
         foreign_keys="DomainRelationship.target_entity_id",
         back_populates="target_entity",
         cascade="all, delete-orphan",
     )
-    bounded_context_memberships: Mapped[list["BoundedContextMembership"]] = relationship(
+    bounded_context_memberships: Mapped[list[BoundedContextMembership]] = relationship(
         "BoundedContextMembership",
         back_populates="domain_entity",
         cascade="all, delete-orphan",
@@ -205,12 +205,12 @@ class BoundedContext(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
-    memberships: Mapped[list["BoundedContextMembership"]] = relationship(
+    memberships: Mapped[list[BoundedContextMembership]] = relationship(
         "BoundedContextMembership",
         back_populates="bounded_context",
         cascade="all, delete-orphan",
     )
-    context_relationships: Mapped[list["ContextRelationship"]] = relationship(
+    context_relationships: Mapped[list[ContextRelationship]] = relationship(
         "ContextRelationship",
         foreign_keys="ContextRelationship.source_context_id",
         back_populates="source_context",

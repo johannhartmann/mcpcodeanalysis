@@ -14,7 +14,7 @@ from tenacity import (
 )
 
 from src.mcp_server.config import get_settings
-from src.utils.exceptions import EmbeddingError
+from src.utils.exceptions import EmbeddingError, OpenAIError
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -73,10 +73,10 @@ class OpenAIClient:
 
         except openai.APIError as e:
             logger.exception("OpenAI API error: %s")
-            raise EmbeddingError(f"Failed to generate embedding: {e}") from e
+            raise OpenAIError("API error") from e
         except Exception as e:
             logger.exception("Unexpected error generating embedding: %s")
-            raise EmbeddingError(f"Unexpected error: {e}") from e
+            raise EmbeddingError("Error") from e
 
     async def generate_embeddings_batch(
         self,
@@ -96,7 +96,7 @@ class OpenAIClient:
             return []
 
         if metadata and len(metadata) != len(texts):
-            raise ValueError("Metadata length must match texts length")
+            raise ValueError("Length mismatch")
 
         results = []
 

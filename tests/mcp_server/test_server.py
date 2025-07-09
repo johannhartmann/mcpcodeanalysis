@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastmcp import FastMCP
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from src.mcp_server.server import create_server
@@ -60,10 +59,10 @@ class TestMCPServer:
         with patch("src.mcp_server.server.init_database", return_value=mock_engine):
             with patch("src.mcp_server.server.get_session_factory") as mock_factory:
                 mock_factory.return_value = AsyncMock(return_value=mock_session)
-                
+
                 # MockServer has initialize method, not _startup
                 await mcp_server.initialize()
-                
+
                 # Since MockServer is a simplified interface, we just verify it doesn't crash
                 assert True  # Initialization succeeded
 
@@ -78,7 +77,7 @@ class TestMCPServer:
         with patch("src.mcp_server.server.init_database", return_value=mock_engine):
             with patch("src.mcp_server.server.get_session_factory") as mock_factory:
                 mock_factory.return_value = AsyncMock(return_value=mock_session)
-                
+
                 # MockServer initialization - just ensure it doesn't crash
                 await mcp_server.initialize()
                 assert True  # Initialization succeeded
@@ -88,7 +87,7 @@ class TestMCPServer:
         """Test server shutdown."""
         # MockServer has shutdown method (not _shutdown)
         await mcp_server.shutdown()
-        
+
         # Since MockServer is simplified, just verify it doesn't crash
         assert True  # Shutdown succeeded
 

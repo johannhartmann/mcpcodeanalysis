@@ -10,6 +10,7 @@ from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
 from src.mcp_server.config import config
+from src.utils.exceptions import ValidationError
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -122,7 +123,7 @@ class FileWatcher:
     ) -> str:
         """Add a directory to watch."""
         if not path.exists():
-            raise ValueError(f"Path does not exist: {path}")
+            raise ValidationError("Path not found", field="path", value=str(path))
 
         handler = CodeFileHandler(callback, extensions)
         watch = self.observer.schedule(handler, str(path), recursive=recursive)

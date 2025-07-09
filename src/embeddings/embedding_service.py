@@ -16,7 +16,7 @@ from src.database.models import (
 )
 from src.embeddings.embedding_generator import EmbeddingGenerator
 from src.embeddings.openai_client import OpenAIClient
-from src.utils.exceptions import EmbeddingError
+from src.utils.exceptions import EmbeddingError, NotFoundError
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -56,7 +56,7 @@ class EmbeddingService:
         file_record = result.scalar_one_or_none()
 
         if not file_record:
-            raise ValueError(f"File {file_id} not found")
+            raise NotFoundError("File not found", resource_type="file", resource_id=str(file_id))
 
         stats = {
             "file_id": file_id,
@@ -119,7 +119,7 @@ class EmbeddingService:
 
         except Exception as e:
             logger.exception("Failed to create embeddings for file %s", file_id)
-            raise EmbeddingError(f"Failed to create embeddings: {e}") from e
+            raise EmbeddingError("Failed to create embeddings") from e
 
         return stats
 
@@ -281,7 +281,7 @@ class EmbeddingService:
         )
 
         if not results or not results[0].get("embedding"):
-            raise EmbeddingError(f"Failed to generate embedding for class {cls.name}")
+            raise EmbeddingError("Failed to generate class embedding")
 
         result = results[0]
 
@@ -343,9 +343,7 @@ class EmbeddingService:
         )
 
         if not results or not results[0].get("embedding"):
-            raise EmbeddingError(
-                f"Failed to generate embedding for function {func.name}",
-            )
+            raise EmbeddingError("Failed to generate function embedding")
 
         result = results[0]
 
