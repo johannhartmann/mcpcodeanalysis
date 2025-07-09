@@ -7,6 +7,9 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Constants for chunking
+MAX_MODULE_DOCSTRING_SEARCH_LINES = 50
+
 
 class CodeChunker:
     """Chunk code into logical units for embedding."""
@@ -155,8 +158,8 @@ class CodeChunker:
             ):
                 module_end_line = i
                 break
-            if i > 50:  # Don't look too far
-                module_end_line = 50
+            if i > MAX_MODULE_DOCSTRING_SEARCH_LINES:  # Don't look too far
+                module_end_line = MAX_MODULE_DOCSTRING_SEARCH_LINES
                 break
 
         if module_end_line == 0:

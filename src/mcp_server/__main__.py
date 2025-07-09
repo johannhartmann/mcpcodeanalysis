@@ -11,6 +11,10 @@ from src.mcp_server.config import get_settings
 from src.mcp_server.server import create_server
 from src.utils.logger import setup_logging
 
+# Default server configuration
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 8080
+
 
 @click.group()
 def cli() -> None:
@@ -52,9 +56,9 @@ def serve(host: str, port: int, reload: bool, log_level: str) -> None:
     settings = get_settings()
 
     # Override with CLI options
-    if host != "127.0.0.1":
+    if host != DEFAULT_HOST:
         settings.mcp.host = host
-    if port != 8080:
+    if port != DEFAULT_PORT:
         settings.mcp.port = port
 
     # Import the mcp instance
