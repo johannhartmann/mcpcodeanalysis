@@ -73,8 +73,10 @@ class DomainAwareSearch:
             Search results enhanced with domain information
         """
         logger.info(
-            f"Domain search for '{query}' in scope {scope.value} "
-            f"(context={bounded_context})",
+            "Domain search for '%s' in scope %s (context=%s)",
+            query,
+            scope.value,
+            bounded_context,
         )
 
         # Step 1: Extract domain concepts from query
