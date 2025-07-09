@@ -37,11 +37,11 @@ async def create_database_if_not_exists(database_url: str) -> None:
         exists = result.scalar()
 
         if not exists:
-            logger.info("Creating database: %s", db_name)
+            logger.info(f"Creating database: {db_name}")
             # CREATE DATABASE doesn't support parameters, but db_name is from our URL
             await conn.execute(text(f"CREATE DATABASE {db_name}"))
         else:
-            logger.info("Database already exists: %s", db_name)
+            logger.info(f"Database already exists: {db_name}")
 
     await engine.dispose()
 
@@ -170,7 +170,7 @@ async def verify_database_setup(engine: AsyncEngine) -> bool:
 
             expected_tables = 8
             if table_count < expected_tables:
-                logger.error("Missing tables, found only %s/%s", table_count, expected_tables)
+                logger.error(f"Missing tables, found only {table_count}/{expected_tables}")
                 return False
 
             logger.info("Database setup verified successfully")
