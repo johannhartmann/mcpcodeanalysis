@@ -1,6 +1,6 @@
 """Tests for repository scanner."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import git
@@ -169,7 +169,7 @@ class TestRepositoryScanner:
                 "message": "First commit",
                 "author": "Test Author",
                 "author_email": "test@example.com",
-                "timestamp": datetime.now(),
+                "timestamp": datetime.now(tz=UTC),
                 "files_changed": ["file1.py"],
                 "additions": 10,
                 "deletions": 5,
@@ -179,7 +179,7 @@ class TestRepositoryScanner:
                 "message": "Second commit",
                 "author": "Test Author",
                 "author_email": "test@example.com",
-                "timestamp": datetime.now(),
+                "timestamp": datetime.now(tz=UTC),
                 "files_changed": ["file2.py"],
                 "additions": 20,
                 "deletions": 0,
@@ -256,7 +256,7 @@ class TestRepositoryScanner:
                 "path": "src/main.py",
                 "absolute_path": "/tmp/test-repo/src/main.py",
                 "size": 1000,
-                "modified_time": datetime.now(),
+                "modified_time": datetime.now(tz=UTC),
                 "content_hash": "hash123",
                 "git_hash": "githash123",
                 "language": "python",
@@ -265,7 +265,7 @@ class TestRepositoryScanner:
                 "path": "src/utils.py",
                 "absolute_path": "/tmp/test-repo/src/utils.py",
                 "size": 500,
-                "modified_time": datetime.now(),
+                "modified_time": datetime.now(tz=UTC),
                 "content_hash": "hash456",
                 "git_hash": "githash456",
                 "language": "python",
@@ -323,7 +323,7 @@ class TestRepositoryScanner:
                 mock_path.exists.return_value = exists_val
                 mock_path.stat.return_value = MagicMock(
                     st_size=size_val,
-                    st_mtime=datetime.now().timestamp(),
+                    st_mtime=datetime.now(tz=UTC).timestamp(),
                 )
                 return mock_path
 
@@ -368,7 +368,7 @@ class TestRepositoryScanner:
             "git_hash": "newgithash",
             "size": 1500,
             "language": "python",
-            "modified_time": datetime.now(),
+            "modified_time": datetime.now(tz=UTC),
         }
 
         # Mock existing file
@@ -404,7 +404,7 @@ class TestRepositoryScanner:
             "git_hash": None,
             "size": 1000,
             "language": "python",
-            "modified_time": datetime.now(),
+            "modified_time": datetime.now(tz=UTC),
         }
 
         # Mock no existing file

@@ -251,15 +251,17 @@ class TestVectorSearch:
     ) -> None:
         """Test getting repository statistics."""
         # Mock count queries
+        # Create mock result object that behaves like SQLAlchemy result
+        mock_type_result = MagicMock()
+        mock_type_result.__iter__ = lambda self: iter([
+            ("function", 50),
+            ("class", 10),
+            ("module", 5),
+        ])
+        
         mock_db_session.execute.side_effect = [
             # Count by type
-            MagicMock(
-                fetchall=lambda: [
-                    ("function", 50),
-                    ("class", 10),
-                    ("module", 5),
-                ],
-            ),
+            mock_type_result,
             # Total count
             MagicMock(scalar=lambda: 65),
             # File count

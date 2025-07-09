@@ -228,7 +228,7 @@ async def test_analyze_cross_context_coupling(
 
 @pytest.mark.asyncio
 async def test_detect_anti_patterns(
-    db_session: AsyncSession, sample_domain_data
+    db_session: AsyncSession, sample_domain_data,
 ) -> None:
     """Test anti-pattern detection."""
     analyzer = DomainPatternAnalyzer(db_session)
@@ -253,7 +253,7 @@ async def test_detect_anti_patterns(
 
 @pytest.mark.asyncio
 async def test_suggest_context_splits(
-    db_session: AsyncSession, sample_domain_data
+    db_session: AsyncSession, sample_domain_data,
 ) -> None:
     """Test context split suggestions."""
     # First, create a large context with low cohesion

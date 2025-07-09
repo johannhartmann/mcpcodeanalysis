@@ -119,7 +119,7 @@ class Calculator:
 
     @pytest.mark.asyncio
     async def test_add_and_scan_repository(
-        self, mcp_server_url, test_repo_path
+        self, mcp_server_url, test_repo_path,
     ) -> None:
         """Test adding and scanning a repository."""
         # First, list repositories to check initial state

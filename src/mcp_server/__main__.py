@@ -117,7 +117,7 @@ def scan(repository_url: str, branch: str, embeddings: bool) -> None:
 
         finally:
             # Cleanup
-            await server._shutdown()
+            await server.shutdown()
 
     asyncio.run(_scan())
 
@@ -166,7 +166,7 @@ def search(query: str, repository_id: int, limit: int) -> None:
 
         finally:
             # Cleanup
-            await server._shutdown()
+            await server.shutdown()
 
     asyncio.run(_search())
 

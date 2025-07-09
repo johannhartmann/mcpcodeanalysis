@@ -18,6 +18,7 @@ This is an MCP (Model Context Protocol) server that provides intelligent code an
 - `ruff check .` - Run linter
 - `mypy .` - Type checking
 - `black .` - Format code
+- `viberdash monitor --interval 300` - Monitor code quality metrics (updates every 5 minutes)
 
 ## Project Structure
 ```
@@ -125,3 +126,5 @@ DATABASE_URL=postgresql://codeanalyzer:password@postgres:5432/code_analysis
 ## Development Memories
 - Do not try hacky workarounds. Fix it.
 - For every change of the software you have to rebuild the docker container to see the result. 
+- Always run python, uv etc in nix develop
+- Never mention claude or anthropic in commit messages.

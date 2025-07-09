@@ -1,7 +1,7 @@
 """Health check utilities for MCP Code Analysis Server."""
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -12,6 +12,11 @@ from src.mcp_server.config import get_settings
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+# Constants
+HTTP_OK = 200
+HTTP_UNAUTHORIZED = 401
+DISK_CRITICAL_THRESHOLD = 90
 
 
 class HealthStatus:
@@ -30,7 +35,7 @@ class HealthCheck:
 
     async def check(self) -> dict[str, Any]:
         """Perform health check."""
-        start_time = datetime.now(tz=timezone.utc)
+        start_time = datetime.now(tz=UTC)
         try:
             result = await self._perform_check()
             status = HealthStatus.HEALTHY if result else HealthStatus.UNHEALTHY
@@ -40,7 +45,7 @@ class HealthCheck:
             status = HealthStatus.UNHEALTHY
             details = {"error": str(e)}
 
-        end_time = datetime.now(tz=timezone.utc)
+        end_time = datetime.now(tz=UTC)
         duration_ms = (end_time - start_time).total_seconds() * 1000
 
         return {
@@ -138,7 +143,7 @@ class GitHubHealthCheck(HealthCheck):
                 timeout=10.0,
             )
 
-            if response.status_code != 200:
+            if response.status_code != HTTP_OK:
                 return {"connected": False, "status_code": response.status_code}
 
             data = response.json()
@@ -150,7 +155,7 @@ class GitHubHealthCheck(HealthCheck):
                     "limit": rate_limit.get("limit", 0),
                     "remaining": rate_limit.get("remaining", 0),
                     "reset": (
-                        datetime.fromtimestamp(rate_limit.get("reset", 0)).isoformat()
+                        datetime.fromtimestamp(rate_limit.get("reset", 0), tz=UTC).isoformat()
                         if rate_limit.get("reset")
                         else None
                     ),
@@ -177,9 +182,9 @@ class OpenAIHealthCheck(HealthCheck):
                 timeout=10.0,
             )
 
-            if response.status_code == 401:
+            if response.status_code == HTTP_UNAUTHORIZED:
                 return {"connected": False, "error": "Invalid API key"}
-            if response.status_code != 200:
+            if response.status_code != HTTP_OK:
                 return {"connected": False, "status_code": response.status_code}
 
             data = response.json()
@@ -226,7 +231,7 @@ class DiskSpaceHealthCheck(HealthCheck):
                 }
 
         # Check if any disk is critically low (< 10% free)
-        critical = any(disk["used_percent"] > 90 for disk in results.values())
+        critical = any(disk["used_percent"] > DISK_CRITICAL_THRESHOLD for disk in results.values())
 
         return {
             "paths": results,
@@ -247,7 +252,7 @@ class HealthCheckManager:
 
     async def check_all(self) -> dict[str, Any]:
         """Run all health checks."""
-        start_time = datetime.now(tz=timezone.utc)
+        start_time = datetime.now(tz=UTC)
 
         # Run all checks concurrently
         check_results = await asyncio.gather(
@@ -280,7 +285,7 @@ class HealthCheckManager:
                 ):
                     overall_status = HealthStatus.DEGRADED
 
-        end_time = datetime.now(tz=timezone.utc)
+        end_time = datetime.now(tz=UTC)
         duration_ms = (end_time - start_time).total_seconds() * 1000
 
         return {

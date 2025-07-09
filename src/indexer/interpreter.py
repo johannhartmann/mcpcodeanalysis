@@ -119,8 +119,8 @@ Description:""",
 
             return result.strip()
 
-        except Exception as e:
-            logger.exception("Error interpreting function %s: %s", name, e)
+        except Exception:
+            logger.exception("Error interpreting function %s", name)
             return f"Function {name} that takes {len(params)} parameters"
 
     async def interpret_class(
@@ -148,8 +148,8 @@ Description:""",
 
             return result.strip()
 
-        except Exception as e:
-            logger.exception("Error interpreting class %s: %s", name, e)
+        except Exception:
+            logger.exception("Error interpreting class %s", name)
             return f"Class {name} with {len(methods or [])} methods"
 
     async def interpret_module(
@@ -177,8 +177,8 @@ Description:""",
 
             return result.strip()
 
-        except Exception as e:
-            logger.exception("Error interpreting module %s: %s", name, e)
+        except Exception:
+            logger.exception("Error interpreting module %s", name)
             return f"Module {name} containing {len(classes or [])} classes and {len(functions or [])} functions"
 
     async def batch_interpret(

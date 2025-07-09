@@ -8,6 +8,9 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Constants
+MAX_DISPLAY_METHODS = 10
+
 
 class EmbeddingGenerator:
     """Generate embeddings for various code entities."""
@@ -126,9 +129,9 @@ class EmbeddingGenerator:
         if methods:
             method_names = [m["name"] for m in methods if not m["name"].startswith("_")]
             if method_names:
-                parts.append(f"Public methods: {', '.join(method_names[:10])}")
-                if len(method_names) > 10:
-                    parts.append(f"... and {len(method_names) - 10} more")
+                parts.append(f"Public methods: {', '.join(method_names[:MAX_DISPLAY_METHODS])}")
+                if len(method_names) > MAX_DISPLAY_METHODS:
+                    parts.append(f"... and {len(method_names) - MAX_DISPLAY_METHODS} more")
 
         return "\n".join(parts)
 

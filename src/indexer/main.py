@@ -122,8 +122,8 @@ class IndexerService:
 
             logger.info("Indexed file: %s", file.path)
 
-        except Exception as e:
-            logger.exception("Error indexing file %s: %s", file.path, e)
+        except Exception:
+            logger.exception("Error indexing file %s", file.path)
 
     async def process_chunk(
         self,
@@ -216,7 +216,7 @@ class IndexerService:
         self,
         chunk: dict[str, Any],
         file_id: int,
-    ) -> Tuple[str, int]:
+    ) -> tuple[str, int]:
         """Map a chunk to an entity type and ID."""
         # This is simplified - in practice, we'd look up actual entity IDs
         chunk_type = chunk["type"]

@@ -1,6 +1,6 @@
 """Tests for database models."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy.exc import IntegrityError
@@ -103,7 +103,7 @@ class TestRepository:
             sha="abc123",
             message="Test commit",
             author="Test Author",
-            timestamp=datetime.now(tz=timezone.utc),
+            timestamp=datetime.now(tz=UTC),
         )
         db_session.add(commit)
         db_session.commit()
@@ -391,7 +391,7 @@ class TestCommit:
             message="Add new feature",
             author="John Doe",
             author_email="john@example.com",
-            timestamp=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+            timestamp=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
             files_changed=["src/main.py", "tests/test_main.py"],
             additions=50,
             deletions=10,

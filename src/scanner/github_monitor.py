@@ -1,6 +1,6 @@
 """GitHub repository monitoring for the MCP Code Analysis Server."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -10,6 +10,14 @@ from src.utils.exceptions import GitHubError
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+# Constants
+MIN_URL_PARTS = 2
+HTTP_NOT_FOUND = 404
+HTTP_UNAUTHORIZED = 401
+HTTP_UNPROCESSABLE_ENTITY = 422
+COMMITS_PER_PAGE = 100
+MAX_PAGES = 10  # Max 1000 commits
 
 
 class GitHubMonitor:
@@ -38,7 +46,7 @@ class GitHubMonitor:
         """Get repository information from GitHub."""
         # Parse GitHub URL
         parts = repo_url.rstrip("/").split("/")
-        if len(parts) < 2:
+        if len(parts) < MIN_URL_PARTS:
             raise GitHubError(f"Invalid GitHub URL: {repo_url}")
 
         owner = parts[-2]
@@ -72,13 +80,13 @@ class GitHubMonitor:
                 "pushed_at": data.get("pushed_at"),
             }
         except httpx.HTTPStatusError as e:
-            if e.response.status_code == 404:
-                raise GitHubError(f"Repository not found: {repo_url}")
-            if e.response.status_code == 401:
-                raise GitHubError(f"Authentication failed for repository: {repo_url}")
-            raise GitHubError(f"GitHub API error: {e}")
+            if e.response.status_code == HTTP_NOT_FOUND:
+                raise GitHubError(f"Repository not found: {repo_url}") from e
+            if e.response.status_code == HTTP_UNAUTHORIZED:
+                raise GitHubError(f"Authentication failed for repository: {repo_url}") from e
+            raise GitHubError(f"GitHub API error: {e}") from e
         except Exception as e:
-            raise GitHubError(f"Failed to get repository info: {e}")
+            raise GitHubError(f"Failed to get repository info: {e}") from e
 
     async def get_commits_since(
         self,
@@ -134,13 +142,13 @@ class GitHubMonitor:
                     )
 
                 # Check if there are more pages
-                if len(page_commits) < 100:
+                if len(page_commits) < COMMITS_PER_PAGE:
                     break
 
                 page += 1
 
                 # Rate limit check
-                if page > 10:  # Max 1000 commits
+                if page > MAX_PAGES:  # Max 1000 commits
                     logger.warning(
                         f"Too many commits for {owner}/{repo}, stopping at 1000",
                     )
@@ -149,9 +157,9 @@ class GitHubMonitor:
             return commits
 
         except httpx.HTTPStatusError as e:
-            raise GitHubError(f"Failed to get commits: {e}")
+            raise GitHubError(f"Failed to get commits: {e}") from e
         except Exception as e:
-            raise GitHubError(f"Error fetching commits: {e}")
+            raise GitHubError(f"Error fetching commits: {e}") from e
 
     async def get_commit_files(
         self,
@@ -189,9 +197,9 @@ class GitHubMonitor:
             return files
 
         except httpx.HTTPStatusError as e:
-            raise GitHubError(f"Failed to get commit files: {e}")
+            raise GitHubError(f"Failed to get commit files: {e}") from e
         except Exception as e:
-            raise GitHubError(f"Error fetching commit files: {e}")
+            raise GitHubError(f"Error fetching commit files: {e}") from e
 
     async def check_rate_limit(self, token: str | None = None) -> dict[str, Any]:
         """Check GitHub API rate limit."""
@@ -211,7 +219,7 @@ class GitHubMonitor:
             return {
                 "limit": core_limit["limit"],
                 "remaining": core_limit["remaining"],
-                "reset": datetime.fromtimestamp(core_limit["reset"]),
+                "reset": datetime.fromtimestamp(core_limit["reset"], tz=UTC),
                 "used": core_limit["limit"] - core_limit["remaining"],
             }
 
@@ -220,7 +228,7 @@ class GitHubMonitor:
             return {
                 "limit": 60,  # Default for unauthenticated
                 "remaining": 0,
-                "reset": datetime.now() + timedelta(hours=1),
+                "reset": datetime.now(tz=UTC) + timedelta(hours=1),
                 "used": 60,
             }
 
@@ -258,13 +266,13 @@ class GitHubMonitor:
             return response.json()
 
         except httpx.HTTPStatusError as e:
-            if e.response.status_code == 422:
+            if e.response.status_code == HTTP_UNPROCESSABLE_ENTITY:
                 # Webhook might already exist
                 logger.warning("Webhook may already exist for %s/%s", owner, repo)
                 return {"status": "exists"}
-            raise GitHubError(f"Failed to create webhook: {e}")
+            raise GitHubError(f"Failed to create webhook: {e}") from e
         except Exception as e:
-            raise GitHubError(f"Error creating webhook: {e}")
+            raise GitHubError(f"Error creating webhook: {e}") from e
 
     async def verify_webhook_signature(self, payload: bytes, signature: str) -> bool:
         """Verify webhook signature."""

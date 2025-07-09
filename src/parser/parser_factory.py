@@ -44,7 +44,7 @@ class ParserFactory:
         parser_class = cls._language_parsers.get(language_lower)
         if parser_class:
             logger.debug(
-                "Creating %s for language: %s", parser_class.__name__, language
+                "Creating %s for language: %s", parser_class.__name__, language,
             )
             return parser_class()
 

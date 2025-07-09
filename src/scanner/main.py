@@ -3,7 +3,7 @@
 import asyncio
 import signal
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -199,8 +199,8 @@ class ScannerService:
 
             logger.info("Successfully synced repository: %s", repo_url)
 
-        except Exception as e:
-            logger.exception("Error syncing repository %s: %s", repo_url, e)
+        except Exception:
+            logger.exception("Error syncing repository %s", repo_url)
 
     async def process_all_files(self, db_repo: Any, owner: str, name: str) -> None:
         """Process all files in a repository."""
@@ -222,7 +222,7 @@ class ScannerService:
     ) -> None:
         """Process changed files in a repository."""
         logger.info(
-            "Processing %s changed files for %s/%s", len(changed_files), owner, name
+            "Processing %s changed files for %s/%s", len(changed_files), owner, name,
         )
 
         repo_path = self.git_sync.get_repo_path(owner, name)
@@ -262,7 +262,7 @@ class ScannerService:
             db_file, created = await repos["file"].update_or_create(
                 repo_id,
                 relative_path,
-                last_modified=metadata.get("last_modified", datetime.now()),
+                last_modified=metadata.get("last_modified", datetime.now(tz=UTC)),
                 git_hash=metadata.get("git_hash"),
                 size_bytes=file_path.stat().st_size,
                 language="python",
@@ -299,8 +299,8 @@ class ScannerService:
 
             logger.debug("Processed file: %s", relative_path)
 
-        except Exception as e:
-            logger.exception("Error processing file %s: %s", file_path, e)
+        except Exception:
+            logger.exception("Error processing file %s", file_path)
 
     async def handle_file_change(
         self,
@@ -328,8 +328,8 @@ class ScannerService:
                                 db_repo.name,
                                 Path(file_path),
                             )
-        except Exception as e:
-            logger.exception("Error handling file change %s: %s", file_path, e)
+        except Exception:
+            logger.exception("Error handling file change %s", file_path)
 
     async def periodic_sync(self) -> None:
         """Periodically sync all repositories."""

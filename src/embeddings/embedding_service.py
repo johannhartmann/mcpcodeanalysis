@@ -77,7 +77,7 @@ class EmbeddingService:
                     stats["modules"] += 1
                 except Exception as e:
                     logger.exception(
-                        "Failed to create embedding for module %s", module.id
+                        "Failed to create embedding for module %s", module.id,
                     )
                     stats["errors"].append(f"Module {module.name}: {e!s}")
 
@@ -89,7 +89,7 @@ class EmbeddingService:
                     stats["classes"] += 1
                 except Exception as e:
                     logger.exception(
-                        "Failed to create embedding for class %s", cls.id
+                        "Failed to create embedding for class %s", cls.id,
                     )
                     stats["errors"].append(f"Class {cls.name}: {e!s}")
 
@@ -101,7 +101,7 @@ class EmbeddingService:
                     stats["functions"] += 1
                 except Exception as e:
                     logger.exception(
-                        "Failed to create embedding for function %s", func.id
+                        "Failed to create embedding for function %s", func.id,
                     )
                     stats["errors"].append(f"Function {func.name}: {e!s}")
 

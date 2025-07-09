@@ -71,7 +71,7 @@ class TestGitHubClient:
         """Test rate limit check when limit is exhausted."""
         github_client._rate_limit_remaining = 5
         github_client._rate_limit_reset = datetime.now(UTC).replace(
-            second=datetime.now().second + 1,
+            second=datetime.now(tz=UTC).second + 1,
         )
 
         with patch("asyncio.sleep") as mock_sleep:

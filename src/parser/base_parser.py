@@ -186,7 +186,7 @@ class BaseParser(ABC):
             return result
 
         except Exception as e:
-            logger.exception("Error parsing file %s: %s", file_path, e)
+            logger.exception("Error parsing file %s", file_path)
 
             # Return error result
             return ParseResult(

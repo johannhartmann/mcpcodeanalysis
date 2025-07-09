@@ -228,7 +228,7 @@ class RepositoryTool:
                 "repository_url": repository_url,
             }
 
-    def _calculate_sync_age(self, last_synced: Optional[datetime]) -> Optional[str]:
+    def _calculate_sync_age(self, last_synced: datetime | None) -> str | None:
         """Calculate human-readable sync age."""
         if not last_synced:
             return "Never synced"
