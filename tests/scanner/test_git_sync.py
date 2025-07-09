@@ -57,24 +57,24 @@ class TestGitSync:
         path = git_sync._get_repo_path("test-owner", "test-repo")
         assert path == git_sync.storage_path / "test-owner" / "test-repo"
 
-    def test_extract_owner_repo_https(self, git_sync) -> None:
+    def testextract_owner_repo_https(self, git_sync) -> None:
         """Test extracting owner and repo from HTTPS URL."""
-        owner, repo = git_sync._extract_owner_repo(
+        owner, repo = git_sync.extract_owner_repo(
             "https://github.com/test-owner/test-repo",
         )
         assert owner == "test-owner"
         assert repo == "test-repo"
 
         # With .git suffix
-        owner, repo = git_sync._extract_owner_repo(
+        owner, repo = git_sync.extract_owner_repo(
             "https://github.com/test-owner/test-repo.git",
         )
         assert owner == "test-owner"
         assert repo == "test-repo"
 
-    def test_extract_owner_repo_ssh(self, git_sync) -> None:
+    def testextract_owner_repo_ssh(self, git_sync) -> None:
         """Test extracting owner and repo from SSH URL."""
-        owner, repo = git_sync._extract_owner_repo(
+        owner, repo = git_sync.extract_owner_repo(
             "git@github.com:test-owner/test-repo.git",
         )
         assert owner == "test-owner"
@@ -82,11 +82,13 @@ class TestGitSync:
 
     def test_extract_owner_repo_invalid(self, git_sync) -> None:
         """Test extracting owner and repo from invalid URL."""
-        with pytest.raises(ValueError, match="Invalid GitHub URL"):
-            git_sync._extract_owner_repo("https://example.com/test-repo")
+        from src.utils.exceptions import ValidationError
+        
+        with pytest.raises(ValidationError, match="Invalid GitHub URL"):
+            git_sync.extract_owner_repo("https://example.com/test-repo")
 
-        with pytest.raises(ValueError, match="Invalid repository path"):
-            git_sync._extract_owner_repo("https://github.com/invalid-path")
+        with pytest.raises(ValidationError, match="Invalid repository path"):
+            git_sync.extract_owner_repo("https://github.com/invalid-path")
 
     @pytest.mark.asyncio
     async def test_clone_repository_success(self, git_sync, mock_repo) -> None:

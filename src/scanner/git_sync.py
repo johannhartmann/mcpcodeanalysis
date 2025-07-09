@@ -6,17 +6,20 @@ import contextlib
 import hashlib
 import os
 import shutil
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import git
 from git.exc import GitCommandError, InvalidGitRepositoryError
 
 from src.mcp_server.config import get_settings
-from src.utils.exceptions import RepositoryError
+from src.utils.exceptions import RepositoryError, ValidationError
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+# Constants
+EXPECTED_REPO_PATH_PARTS = 2
 
 
 class GitSync:
@@ -31,7 +34,7 @@ class GitSync:
         """Get local path for a repository."""
         return self.storage_path / owner / name
 
-    def _extract_owner_repo(self, github_url: str) -> tuple[str, str]:
+    def extract_owner_repo(self, github_url: str) -> tuple[str, str]:
         """Extract owner and repository name from GitHub URL."""
         # Handle both HTTPS and SSH URLs
         if github_url.startswith("https://github.com/"):
@@ -39,15 +42,15 @@ class GitSync:
         elif github_url.startswith("git@github.com:"):
             path = github_url.replace("git@github.com:", "")
         else:
-            raise ValueError(f"Invalid GitHub URL: {github_url}")
+            raise ValidationError("Invalid GitHub URL", field="github_url", value=github_url)
 
         # Remove .git suffix if present
         if path.endswith(".git"):
             path = path[:-4]
 
         parts = path.split("/")
-        if len(parts) != 2:
-            raise ValueError(f"Invalid repository path: {path}")
+        if len(parts) != EXPECTED_REPO_PATH_PARTS:
+            raise ValidationError("Invalid repository path", field="path", value=path)
 
         return parts[0], parts[1]
 
@@ -58,7 +61,7 @@ class GitSync:
         access_token: str | None = None,
     ) -> git.Repo:
         """Clone a GitHub repository."""
-        owner, repo_name = self._extract_owner_repo(github_url)
+        owner, repo_name = self.extract_owner_repo(github_url)
         repo_path = self._get_repo_path(owner, repo_name)
 
         logger.info(
@@ -112,7 +115,7 @@ class GitSync:
 
         except GitCommandError as e:
             logger.exception("Failed to clone repository", url=github_url, error=str(e))
-            raise RepositoryError(f"Failed to clone repository: {e}")
+            raise RepositoryError("Failed to clone repository") from e
 
     async def update_repository(
         self,
@@ -121,7 +124,7 @@ class GitSync:
         access_token: str | None = None,
     ) -> git.Repo:
         """Update an existing repository."""
-        owner, repo_name = self._extract_owner_repo(github_url)
+        owner, repo_name = self.extract_owner_repo(github_url)
         repo_path = self._get_repo_path(owner, repo_name)
 
         if not repo_path.exists():
@@ -172,11 +175,11 @@ class GitSync:
                 path=str(repo_path),
                 error=str(e),
             )
-            raise RepositoryError(f"Failed to update repository: {e}")
+            raise RepositoryError("Failed to update repository") from e
 
     def get_repository(self, github_url: str) -> git.Repo | None:
         """Get a repository if it exists locally."""
-        owner, repo_name = self._extract_owner_repo(github_url)
+        owner, repo_name = self.extract_owner_repo(github_url)
         repo_path = self._get_repo_path(owner, repo_name)
 
         if not repo_path.exists():
@@ -240,7 +243,7 @@ class GitSync:
 
         except Exception as e:
             logger.exception("Error getting changed files", error=str(e))
-            raise RepositoryError(f"Failed to get changed files: {e}")
+            raise RepositoryError("Failed to get changed files") from e
 
         return changed_files
 
@@ -302,7 +305,7 @@ class GitSync:
                             "path": str(relative_path),
                             "absolute_path": str(file_path),
                             "size": stat.st_size,
-                            "modified_time": datetime.fromtimestamp(stat.st_mtime),
+                            "modified_time": datetime.fromtimestamp(stat.st_mtime, tz=UTC),
                             "content_hash": self.get_file_hash(file_path),
                             "git_hash": git_hash,
                             "language": self._detect_language(file_path),
@@ -353,7 +356,7 @@ class GitSync:
                 "message": commit.message.strip(),
                 "author": commit.author.name,
                 "author_email": commit.author.email,
-                "timestamp": datetime.fromtimestamp(commit.committed_date),
+                "timestamp": datetime.fromtimestamp(commit.committed_date, tz=UTC),
                 "files_changed": [],
                 "additions": 0,
                 "deletions": 0,
@@ -367,7 +370,7 @@ class GitSync:
                 commit_info["deletions"] = stats.total["deletions"]
             except Exception as stats_error:
                 logger.warning(
-                    f"Could not get commit stats for {commit_sha}: {stats_error}",
+                    "Could not get commit stats for %s: %s", commit_sha, stats_error,
                 )
 
             return commit_info
@@ -377,7 +380,7 @@ class GitSync:
                 commit_sha=commit_sha,
                 error=str(e),
             )
-            raise RepositoryError(f"Failed to get commit info: {e}")
+            raise RepositoryError("Failed to get commit info") from e
 
     async def get_recent_commits(
         self,
@@ -402,7 +405,7 @@ class GitSync:
 
             # Filter by date if needed
             for commit in commit_iter:
-                commit_date = datetime.fromtimestamp(commit.committed_date)
+                commit_date = datetime.fromtimestamp(commit.committed_date, tz=UTC)
                 if since and commit_date < since:
                     break
 
@@ -410,6 +413,6 @@ class GitSync:
 
         except Exception as e:
             logger.exception("Error getting recent commits", error=str(e))
-            raise RepositoryError(f"Failed to get recent commits: {e}")
+            raise RepositoryError("Failed to get recent commits") from e
 
         return commits

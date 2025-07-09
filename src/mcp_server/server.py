@@ -466,7 +466,7 @@ def create_server():
         async def initialize(self) -> None:
             await initialize_server()
 
-        async def _shutdown(self) -> None:
+        async def shutdown(self) -> None:
             if _engine:
                 await _engine.dispose()
 
