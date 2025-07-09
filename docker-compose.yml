@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -63,6 +61,11 @@ services:
     networks:
       - mcp-network
     command: server
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/mcp/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   scanner:
     build:
