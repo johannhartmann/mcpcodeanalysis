@@ -118,7 +118,9 @@ class Calculator:
             assert expected in tool_names, f"Missing tool: {expected}"
 
     @pytest.mark.asyncio
-    async def test_add_and_scan_repository(self, mcp_server_url, test_repo_path) -> None:
+    async def test_add_and_scan_repository(
+        self, mcp_server_url, test_repo_path
+    ) -> None:
         """Test adding and scanning a repository."""
         # First, list repositories to check initial state
         list_result = await self.send_mcp_request(

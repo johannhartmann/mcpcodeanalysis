@@ -177,12 +177,15 @@ class TestMCPCodeAnalysisServer:
             return_value={"total_embeddings": 20},
         )
 
-        with patch(
-            "src.mcp_server.server.RepositoryScanner",
-            return_value=mock_scanner,
-        ), patch(
-            "src.mcp_server.server.EmbeddingService",
-            return_value=mock_embedding_service,
+        with (
+            patch(
+                "src.mcp_server.server.RepositoryScanner",
+                return_value=mock_scanner,
+            ),
+            patch(
+                "src.mcp_server.server.EmbeddingService",
+                return_value=mock_embedding_service,
+            ),
         ):
             result = await mcp_server.scan_repository(
                 "https://github.com/test/repo",

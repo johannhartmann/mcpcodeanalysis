@@ -221,7 +221,9 @@ class ScannerService:
         changed_files: set,
     ) -> None:
         """Process changed files in a repository."""
-        logger.info("Processing %s changed files for %s/%s", len(changed_files), owner, name)
+        logger.info(
+            "Processing %s changed files for %s/%s", len(changed_files), owner, name
+        )
 
         repo_path = self.git_sync.get_repo_path(owner, name)
 

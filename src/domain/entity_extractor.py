@@ -337,7 +337,9 @@ Output JSON with this structure:
 
         # Extract entities from each chunk
         for i, chunk in enumerate(chunks):
-            logger.info("Processing chunk %d/%d from %s", i+1, len(chunks), module_path)
+            logger.info(
+                "Processing chunk %d/%d from %s", i + 1, len(chunks), module_path
+            )
 
             context = {
                 "file_path": module_path,

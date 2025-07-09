@@ -249,7 +249,9 @@ def test_calculator_multiply():
         ]
 
     @pytest.mark.asyncio
-    async def test_incremental_scanning(self, db_session, openai_client, sample_repo) -> None:
+    async def test_incremental_scanning(
+        self, db_session, openai_client, sample_repo
+    ) -> None:
         """Test incremental scanning after file changes."""
         import subprocess
 
@@ -318,7 +320,9 @@ def greet(name: str) -> str:
         assert helper_file is not None
 
     @pytest.mark.asyncio
-    async def test_search_functionality(self, db_session, openai_client, sample_repo) -> None:
+    async def test_search_functionality(
+        self, db_session, openai_client, sample_repo
+    ) -> None:
         """Test code search functionality (without embeddings)."""
         from fastmcp import FastMCP
 

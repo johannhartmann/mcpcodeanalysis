@@ -93,7 +93,9 @@ class SemanticGraphBuilder:
             DomainRelationship.confidence_score >= min_confidence,
         )
         if not include_weak_relationships:
-            rel_query = rel_query.where(DomainRelationship.strength >= DEFAULT_MIN_CONFIDENCE)
+            rel_query = rel_query.where(
+                DomainRelationship.strength >= DEFAULT_MIN_CONFIDENCE
+            )
 
         result = await self.db_session.execute(rel_query)
         relationships = result.scalars().all()

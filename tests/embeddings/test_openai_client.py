@@ -97,7 +97,7 @@ class TestOpenAIClient:
         mock_request = MagicMock(spec=httpx.Request)
         mock_request.method = "POST"
         mock_request.url = "https://api.openai.com/v1/embeddings"
-        
+
         with (
             patch.object(
                 openai_client.client.embeddings,

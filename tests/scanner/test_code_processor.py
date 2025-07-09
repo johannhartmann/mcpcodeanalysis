@@ -123,23 +123,27 @@ class TestCodeProcessor:
         mock_db_session,
     ) -> None:
         """Test successful file processing."""
-        with patch.object(
-            code_processor.parser_factory,
-            "is_supported",
-            return_value=True,
-        ), patch.object(
-            code_processor,
-            "_extract_entities",
-            return_value=sample_entities,
-        ), patch.object(
-            code_processor,
-            "_store_entities",
-            return_value={
-                "modules": 1,
-                "classes": 1,
-                "functions": 1,
-                "imports": 1,
-            },
+        with (
+            patch.object(
+                code_processor.parser_factory,
+                "is_supported",
+                return_value=True,
+            ),
+            patch.object(
+                code_processor,
+                "_extract_entities",
+                return_value=sample_entities,
+            ),
+            patch.object(
+                code_processor,
+                "_store_entities",
+                return_value={
+                    "modules": 1,
+                    "classes": 1,
+                    "functions": 1,
+                    "imports": 1,
+                },
+            ),
         ):
             result = await code_processor.process_file(mock_file_record)
 
@@ -154,11 +158,14 @@ class TestCodeProcessor:
         mock_file_record,
     ) -> None:
         """Test file processing with extraction failure."""
-        with patch.object(
-            code_processor.parser_factory,
-            "is_supported",
-            return_value=True,
-        ), patch.object(code_processor, "_extract_entities", return_value=None):
+        with (
+            patch.object(
+                code_processor.parser_factory,
+                "is_supported",
+                return_value=True,
+            ),
+            patch.object(code_processor, "_extract_entities", return_value=None),
+        ):
             result = await code_processor.process_file(mock_file_record)
 
             assert result["status"] == "failed"
@@ -172,14 +179,17 @@ class TestCodeProcessor:
         mock_db_session,
     ) -> None:
         """Test file processing with error."""
-        with patch.object(
-            code_processor.parser_factory,
-            "is_supported",
-            return_value=True,
-        ), patch.object(
-            code_processor,
-            "_extract_entities",
-            side_effect=Exception("Test error"),
+        with (
+            patch.object(
+                code_processor.parser_factory,
+                "is_supported",
+                return_value=True,
+            ),
+            patch.object(
+                code_processor,
+                "_extract_entities",
+                side_effect=Exception("Test error"),
+            ),
         ):
             result = await code_processor.process_file(mock_file_record)
 
@@ -276,13 +286,35 @@ class TestCodeProcessor:
             MagicMock(id=1, name="test", docstring="Test", start_line=1, end_line=100),
         ]
         mock_classes = [
-            MagicMock(id=1, name="TestClass", base_classes=["Base"], is_abstract=False, start_line=10, end_line=50),
+            MagicMock(
+                id=1,
+                name="TestClass",
+                base_classes=["Base"],
+                is_abstract=False,
+                start_line=10,
+                end_line=50,
+            ),
         ]
         mock_functions = [
-            MagicMock(id=1, name="test_func", class_id=None, parameters=[], return_type=None, is_async=False, start_line=60, end_line=70),
+            MagicMock(
+                id=1,
+                name="test_func",
+                class_id=None,
+                parameters=[],
+                return_type=None,
+                is_async=False,
+                start_line=60,
+                end_line=70,
+            ),
         ]
         mock_imports = [
-            MagicMock(id=1, import_statement="import os", module_name=None, imported_names=["os"], line_number=3),
+            MagicMock(
+                id=1,
+                import_statement="import os",
+                module_name=None,
+                imported_names=["os"],
+                line_number=3,
+            ),
         ]
 
         mock_db_session.execute.side_effect = [

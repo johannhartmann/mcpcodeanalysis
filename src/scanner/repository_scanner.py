@@ -149,7 +149,9 @@ class RepositoryScanner:
         parse_results = await code_processor.process_files(scanned_files)
 
         # Update repository last sync time
-        repo_record.last_synced = datetime.now(tz=datetime.UTC)  # PostgreSQL expects naive datetime
+        repo_record.last_synced = datetime.now(
+            tz=datetime.UTC
+        )  # PostgreSQL expects naive datetime
         await self.db_session.commit()
 
         # Run bounded context detection if domain analysis is enabled

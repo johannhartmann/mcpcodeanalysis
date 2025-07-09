@@ -341,8 +341,7 @@ class DomainIndexer:
 
             if not source_entity or not target_entity:
                 logger.warning(
-                    "Skipping relationship %s -> %s: "
-                    "entity not found",
+                    "Skipping relationship %s -> %s: " "entity not found",
                     rel_data["source"],
                     rel_data["target"],
                 )
@@ -406,4 +405,6 @@ class DomainIndexer:
                 embedding = await self.openai_client.generate_embedding(text)
                 entity.concept_embedding = embedding
             except Exception as e:
-                logger.exception("Error generating embedding for %s: %s", entity.name, e)
+                logger.exception(
+                    "Error generating embedding for %s: %s", entity.name, e
+                )

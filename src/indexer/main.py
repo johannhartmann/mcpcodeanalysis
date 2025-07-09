@@ -75,16 +75,16 @@ class IndexerService:
     async def process_unindexed_entities(self) -> None:
         """Process entities that don't have embeddings yet."""
         async with get_session() as session, get_repositories(session) as repos:
-                # Get files without embeddings
-                # This is simplified - in practice, we'd have a more sophisticated query
-                files = await session.execute(
-                    "SELECT f.* FROM files f "
-                    "LEFT JOIN code_embeddings e ON e.entity_type = 'file' AND e.entity_id = f.id "
-                    "WHERE e.id IS NULL LIMIT 100",
-                )
+            # Get files without embeddings
+            # This is simplified - in practice, we'd have a more sophisticated query
+            files = await session.execute(
+                "SELECT f.* FROM files f "
+                "LEFT JOIN code_embeddings e ON e.entity_type = 'file' AND e.entity_id = f.id "
+                "WHERE e.id IS NULL LIMIT 100",
+            )
 
-                for file in files:
-                    await self.index_file(repos, file)
+            for file in files:
+                await self.index_file(repos, file)
 
     async def index_file(self, repos: dict[str, Any], file: Any) -> None:
         """Index a single file."""
