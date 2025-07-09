@@ -52,12 +52,12 @@ class Repository(Base):
     repo_metadata = Column(JSON, default={})
 
     # Relationships
-    files: Mapped[list["File"]] = relationship(
+    files: Mapped[list[File]] = relationship(
         "File",
         back_populates="repository",
         cascade="all, delete-orphan",
     )
-    commits: Mapped[list["Commit"]] = relationship(
+    commits: Mapped[list[Commit]] = relationship(
         "Commit",
         back_populates="repository",
         cascade="all, delete-orphan",
@@ -86,17 +86,17 @@ class File(Base):
 
     # Relationships
     repository: Mapped[Repository] = relationship("Repository", back_populates="files")
-    modules: Mapped[list["Module"]] = relationship(
+    modules: Mapped[list[Module]] = relationship(
         "Module",
         back_populates="file",
         cascade="all, delete-orphan",
     )
-    imports: Mapped[list["Import"]] = relationship(
+    imports: Mapped[list[Import]] = relationship(
         "Import",
         back_populates="file",
         cascade="all, delete-orphan",
     )
-    embeddings: Mapped[list["CodeEmbedding"]] = relationship(
+    embeddings: Mapped[list[CodeEmbedding]] = relationship(
         "CodeEmbedding",
         back_populates="file",
         cascade="all, delete-orphan",
@@ -125,13 +125,13 @@ class Module(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
-    file: Mapped["File"] = relationship("File", back_populates="modules")
-    classes: Mapped[list["Class"]] = relationship(
+    file: Mapped[File] = relationship("File", back_populates="modules")
+    classes: Mapped[list[Class]] = relationship(
         "Class",
         back_populates="module",
         cascade="all, delete-orphan",
     )
-    functions: Mapped[list["Function"]] = relationship(
+    functions: Mapped[list[Function]] = relationship(
         "Function",
         primaryjoin="and_(Module.id==Function.module_id, Function.class_id==None)",
         back_populates="module",
@@ -162,8 +162,8 @@ class Class(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
-    module: Mapped["Module"] = relationship("Module", back_populates="classes")
-    methods: Mapped[list["Function"]] = relationship(
+    module: Mapped[Module] = relationship("Module", back_populates="classes")
+    methods: Mapped[list[Function]] = relationship(
         "Function",
         primaryjoin="Class.id==Function.class_id",
         back_populates="parent_class",

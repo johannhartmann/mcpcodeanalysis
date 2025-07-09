@@ -11,6 +11,12 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Constants for analysis thresholds
+MODERATE_COUPLING_THRESHOLD = 3
+HIGH_COUPLING_THRESHOLD = 5
+CRITICAL_ISSUE_COUNT_THRESHOLD = 5
+HIGH_COUPLING_PAIRS_THRESHOLD = 3
+MAX_ISSUES_TO_DISPLAY = 10
 
 # Pydantic models for tool parameters
 class AnalyzeCouplingRequest(BaseModel):
@@ -171,7 +177,7 @@ class AnalysisTools:
                 # Generate insights
                 insights = []
 
-                if coupling["metrics"]["average_coupling"] > 3:
+                if coupling["metrics"]["average_coupling"] > MODERATE_COUPLING_THRESHOLD:
                     insights.append(
                         {
                             "type": "high_coupling",
@@ -180,7 +186,7 @@ class AnalysisTools:
                         },
                     )
 
-                if severity_counts["high"] > 5:
+                if severity_counts["high"] > CRITICAL_ISSUE_COUNT_THRESHOLD:
                     insights.append(
                         {
                             "type": "many_critical_issues",
@@ -189,7 +195,7 @@ class AnalysisTools:
                         },
                     )
 
-                if len(coupling["high_coupling_pairs"]) > 3:
+                if len(coupling["high_coupling_pairs"]) > HIGH_COUPLING_PAIRS_THRESHOLD:
                     insights.append(
                         {
                             "type": "chatty_contexts",
@@ -235,9 +241,9 @@ class AnalysisTools:
 
         # Deduct for coupling issues
         avg_coupling = coupling["metrics"]["average_coupling"]
-        if avg_coupling > 5:
+        if avg_coupling > HIGH_COUPLING_THRESHOLD:
             score -= 30
-        elif avg_coupling > 3:
+        elif avg_coupling > MODERATE_COUPLING_THRESHOLD:
             score -= 20
         elif avg_coupling > 1:
             score -= 10
@@ -290,10 +296,10 @@ class AnalysisTools:
                             },
                         )
 
-                    if len(issues) >= 10:
+                    if len(issues) >= MAX_ISSUES_TO_DISPLAY:
                         break
 
-            if len(issues) >= 10:
+            if len(issues) >= MAX_ISSUES_TO_DISPLAY:
                 break
 
         return issues[:10]

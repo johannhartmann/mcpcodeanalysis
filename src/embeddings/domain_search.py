@@ -266,9 +266,9 @@ class DomainAwareSearch:
 
         # Search by concept names
         if concepts:
-            concept_conditions = []
-            for concept in concepts:
-                concept_conditions.append(DomainEntity.name.ilike(f"%{concept}%"))
+            concept_conditions = [
+                DomainEntity.name.ilike(f"%{concept}%") for concept in concepts
+            ]
             query = query.where(func.or_(*concept_conditions))
 
         result = await self.db_session.execute(query.limit(20))
