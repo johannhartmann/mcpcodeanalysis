@@ -1,7 +1,7 @@
 """Health check utilities for MCP Code Analysis Server."""
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -30,17 +30,17 @@ class HealthCheck:
 
     async def check(self) -> dict[str, Any]:
         """Perform health check."""
-        start_time = datetime.utcnow()
+        start_time = datetime.now(tz=timezone.utc)
         try:
             result = await self._perform_check()
             status = HealthStatus.HEALTHY if result else HealthStatus.UNHEALTHY
             details = result if isinstance(result, dict) else {}
         except Exception as e:
-            logger.exception(f"Health check failed: {self.name}")
+            logger.exception("Health check failed: %s", self.name)
             status = HealthStatus.UNHEALTHY
             details = {"error": str(e)}
 
-        end_time = datetime.utcnow()
+        end_time = datetime.now(tz=timezone.utc)
         duration_ms = (end_time - start_time).total_seconds() * 1000
 
         return {
@@ -247,7 +247,7 @@ class HealthCheckManager:
 
     async def check_all(self) -> dict[str, Any]:
         """Run all health checks."""
-        start_time = datetime.utcnow()
+        start_time = datetime.now(tz=timezone.utc)
 
         # Run all checks concurrently
         check_results = await asyncio.gather(
@@ -280,7 +280,7 @@ class HealthCheckManager:
                 ):
                     overall_status = HealthStatus.DEGRADED
 
-        end_time = datetime.utcnow()
+        end_time = datetime.now(tz=timezone.utc)
         duration_ms = (end_time - start_time).total_seconds() * 1000
 
         return {

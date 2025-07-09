@@ -64,7 +64,7 @@ class RepositoryRepo:
         )
         repo = await self.get_by_id(repo_id)
         if repo:
-            repo.last_synced = datetime.utcnow()
+            repo.last_synced = datetime.now(tz=datetime.UTC)
             await self.session.commit()
 
 
@@ -211,15 +211,15 @@ class CodeEntityRepo:
                 .options(selectinload(Function.module), selectinload(Function.class_))
                 .where(Function.name == name),
             )
-            for func in funcs.scalars():
-                results.append(
-                    {
-                        "type": "function",
-                        "entity": func,
-                        "module": func.module,
-                        "class": func.class_,
-                    },
-                )
+            results.extend(
+                {
+                    "type": "function",
+                    "entity": func,
+                    "module": func.module,
+                    "class": func.class_,
+                }
+                for func in funcs.scalars()
+            )
 
         if entity_type in (None, "class"):
             classes = await self.session.execute(
@@ -227,15 +227,15 @@ class CodeEntityRepo:
                 .options(selectinload(Class.module))
                 .where(Class.name == name),
             )
-            for cls in classes.scalars():
-                results.append(
-                    {
-                        "type": "class",
-                        "entity": cls,
-                        "module": cls.module,
-                        "class": None,
-                    },
-                )
+            results.extend(
+                {
+                    "type": "class",
+                    "entity": cls,
+                    "module": cls.module,
+                    "class": None,
+                }
+                for cls in classes.scalars()
+            )
 
         if entity_type in (None, "module"):
             modules = await self.session.execute(
@@ -243,15 +243,15 @@ class CodeEntityRepo:
                 .options(selectinload(Module.file))
                 .where(Module.name == name),
             )
-            for module in modules.scalars():
-                results.append(
-                    {
-                        "type": "module",
-                        "entity": module,
-                        "module": module,
-                        "class": None,
-                    },
-                )
+            results.extend(
+                {
+                    "type": "module",
+                    "entity": module,
+                    "module": module,
+                    "class": None,
+                }
+                for module in modules.scalars()
+            )
 
         return results
 

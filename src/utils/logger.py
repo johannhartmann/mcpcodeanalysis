@@ -3,7 +3,7 @@
 import json
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from rich.console import Console
@@ -18,7 +18,7 @@ class JSONFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as JSON."""
         log_data = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -72,29 +72,29 @@ class StructuredLogger:
         new_logger._context = {**self._context, **kwargs}
         return new_logger
 
-    def _log(self, level: int, msg: str, **kwargs) -> None:
+    def _log(self, level: int, msg: str, *args, **kwargs) -> None:
         """Log with context."""
         extra = {**self._context, **kwargs}
-        self.logger.log(level, msg, extra=extra)
+        self.logger.log(level, msg, *args, extra=extra)
 
-    def debug(self, msg: str, **kwargs) -> None:
-        self._log(logging.DEBUG, msg, **kwargs)
+    def debug(self, msg: str, *args, **kwargs) -> None:
+        self._log(logging.DEBUG, msg, *args, **kwargs)
 
-    def info(self, msg: str, **kwargs) -> None:
-        self._log(logging.INFO, msg, **kwargs)
+    def info(self, msg: str, *args, **kwargs) -> None:
+        self._log(logging.INFO, msg, *args, **kwargs)
 
-    def warning(self, msg: str, **kwargs) -> None:
-        self._log(logging.WARNING, msg, **kwargs)
+    def warning(self, msg: str, *args, **kwargs) -> None:
+        self._log(logging.WARNING, msg, *args, **kwargs)
 
-    def error(self, msg: str, **kwargs) -> None:
-        self._log(logging.ERROR, msg, **kwargs)
+    def error(self, msg: str, *args, **kwargs) -> None:
+        self._log(logging.ERROR, msg, *args, **kwargs)
 
-    def critical(self, msg: str, **kwargs) -> None:
-        self._log(logging.CRITICAL, msg, **kwargs)
+    def critical(self, msg: str, *args, **kwargs) -> None:
+        self._log(logging.CRITICAL, msg, *args, **kwargs)
 
-    def exception(self, msg: str, **kwargs) -> None:
+    def exception(self, msg: str, *args, **kwargs) -> None:
         """Log exception with traceback."""
-        self.logger.exception(msg, extra={**self._context, **kwargs})
+        self.logger.exception(msg, *args, extra={**self._context, **kwargs})
 
 
 def setup_logging(config: LoggingConfig | None = None) -> None:

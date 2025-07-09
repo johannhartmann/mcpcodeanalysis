@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
@@ -153,7 +153,7 @@ class BaseParser(ABC):
 
     def parse_file(self, file_path: Path) -> ParseResult:
         """Parse a file and extract code elements."""
-        logger.info(f"Parsing file: {file_path}")
+        logger.info("Parsing file: %s", file_path)
 
         try:
             # Read file content
@@ -172,7 +172,7 @@ class BaseParser(ABC):
             result = ParseResult(
                 file_path=file_path,
                 language=self.get_language_name(),
-                parsed_at=datetime.now(),
+                parsed_at=datetime.now(tz=UTC),
                 root_element=root_element,
                 imports=imports,
                 dependencies=dependencies,
@@ -186,13 +186,13 @@ class BaseParser(ABC):
             return result
 
         except Exception as e:
-            logger.exception(f"Error parsing file {file_path}: {e}")
+            logger.exception("Error parsing file %s: %s", file_path, e)
 
             # Return error result
             return ParseResult(
                 file_path=file_path,
                 language=self.get_language_name(),
-                parsed_at=datetime.now(),
+                parsed_at=datetime.now(tz=UTC),
                 root_element=ParsedElement(
                     type=ElementType.MODULE,
                     name=file_path.stem,
@@ -222,7 +222,7 @@ class BaseParser(ABC):
         return ParseResult(
             file_path=Path(filename),
             language=self.get_language_name(),
-            parsed_at=datetime.now(),
+            parsed_at=datetime.now(tz=UTC),
             root_element=root_element,
             imports=imports,
             dependencies=dependencies,
