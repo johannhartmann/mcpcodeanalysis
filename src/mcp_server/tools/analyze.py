@@ -30,8 +30,7 @@ class AnalyzeTool:
             Dictionary containing dependency analysis
         """
         try:
-            async with get_session() as session:
-                async with get_repositories(session) as repos:
+            async with get_session() as session, get_repositories(session) as repos:
                     # Find the file
                     file = None
                     all_files = await session.execute(
@@ -125,8 +124,7 @@ class AnalyzeTool:
         try:
             suggestions = []
 
-            async with get_session() as session:
-                async with get_repositories(session) as repos:
+            async with get_session() as session, get_repositories(session) as repos:
                     # Parse the code path to find entity
                     entity_info = await self._find_entity_by_path(repos, code_path)
 
@@ -171,8 +169,7 @@ class AnalyzeTool:
                 code_snippet,
             )
 
-            async with get_session() as session:
-                async with get_repositories(session) as repos:
+            async with get_session() as session, get_repositories(session) as repos:
                     # Search for similar embeddings
                     similar = await repos["embedding"].search_similar(
                         snippet_embedding,
@@ -216,8 +213,7 @@ class AnalyzeTool:
             Hierarchical structure information
         """
         try:
-            async with get_session() as session:
-                async with get_repositories(session) as repos:
+            async with get_session() as session, get_repositories(session) as repos:
                     # Check if it's a file or directory
                     if path.endswith(".py"):
                         # Single module
