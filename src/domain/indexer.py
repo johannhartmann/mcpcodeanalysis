@@ -300,7 +300,9 @@ class DomainIndexer:
                 )
                 # Merge other fields
                 existing.business_rules = list(
-                    set(existing.business_rules + entity_data.get("business_rules", [])),
+                    set(
+                        existing.business_rules + entity_data.get("business_rules", [])
+                    ),
                 )
                 existing.invariants = list(
                     set(existing.invariants + entity_data.get("invariants", [])),

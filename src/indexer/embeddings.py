@@ -78,7 +78,9 @@ class EmbeddingGenerator:
                     )
 
                     for idx, embedding_data in zip(
-                        uncached_indices, response.data, strict=False,
+                        uncached_indices,
+                        response.data,
+                        strict=False,
                     ):
                         embedding = np.array(embedding_data.embedding, dtype=np.float32)
                         batch_embeddings.append((idx, embedding))

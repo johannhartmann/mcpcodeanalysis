@@ -86,7 +86,8 @@ class CodeProcessor:
                     domain_stats = {
                         "domain_entities": domain_result.get("entities_extracted", 0),
                         "domain_relationships": domain_result.get(
-                            "relationships_extracted", 0,
+                            "relationships_extracted",
+                            0,
                         ),
                     }
                 except Exception as e:

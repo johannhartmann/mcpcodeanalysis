@@ -20,7 +20,9 @@ class RepositoryScanner:
     """Main repository scanner that coordinates all scanning operations."""
 
     def __init__(
-        self, db_session: AsyncSession, openai_client: OpenAIClient | None = None,
+        self,
+        db_session: AsyncSession,
+        openai_client: OpenAIClient | None = None,
     ) -> None:
         self.db_session = db_session
         self.settings = get_settings()

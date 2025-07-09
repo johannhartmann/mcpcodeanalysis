@@ -156,7 +156,8 @@ class DomainPatternAnalyzer:
                 if count > 5:  # Threshold for high coupling
                     ctx2_metrics = context_metrics.get(ctx2_id, {})
                     cast(
-                        "list[dict[str, Any]]", coupling_analysis["high_coupling_pairs"],
+                        "list[dict[str, Any]]",
+                        coupling_analysis["high_coupling_pairs"],
                     ).append(
                         {
                             "source": ctx1_metrics["name"],

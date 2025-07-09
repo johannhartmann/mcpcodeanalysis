@@ -28,7 +28,8 @@ class ExtractDomainModelRequest(BaseModel):
 
     code_path: str = Field(..., description="Path to file or module to analyze")
     include_relationships: bool = Field(
-        default=True, description="Whether to extract relationships",
+        default=True,
+        description="Whether to extract relationships",
     )
 
 
@@ -36,7 +37,8 @@ class FindAggregateRootsRequest(BaseModel):
     """Request to find aggregate roots."""
 
     context_name: str | None = Field(
-        None, description="Optional bounded context to search within",
+        None,
+        description="Optional bounded context to search within",
     )
 
 
@@ -56,7 +58,8 @@ class FindBoundedContextsRequest(BaseModel):
     """Request to find bounded contexts."""
 
     min_entities: int = Field(
-        default=3, description="Minimum number of entities for a context",
+        default=3,
+        description="Minimum number of entities for a context",
     )
 
 
@@ -64,7 +67,8 @@ class GenerateContextMapRequest(BaseModel):
     """Request to generate context map."""
 
     output_format: str = Field(
-        default="json", description="Output format: json, mermaid, or plantuml",
+        default="json",
+        description="Output format: json, mermaid, or plantuml",
     )
 
 
@@ -100,7 +104,8 @@ class DomainTools:
         ) -> dict[str, Any]:
             """Extract domain model from code."""
             return await self.extract_domain_model(
-                request.code_path, request.include_relationships,
+                request.code_path,
+                request.include_relationships,
             )
 
         @self.mcp.tool(
@@ -617,7 +622,9 @@ class DomainTools:
         try:
             # Get all contexts
             result = await self.db_session.execute(
-                select(BoundedContext).options(selectinload(BoundedContext.memberships)),
+                select(BoundedContext).options(
+                    selectinload(BoundedContext.memberships)
+                ),
             )
             contexts = result.scalars().all()
 

@@ -16,7 +16,8 @@ class RepositoryConfig(BaseModel):
     branch: str | None = None
     access_token: SecretStr | None = None
     enable_domain_analysis: bool = Field(
-        default=False, description="Enable domain-driven analysis during indexing",
+        default=False,
+        description="Enable domain-driven analysis during indexing",
     )
 
     @field_validator("url")
@@ -72,7 +73,8 @@ class DomainAnalysisConfig(BaseModel):
     """Domain-driven analysis configuration."""
 
     enabled: bool = Field(
-        default=False, description="Enable domain analysis by default",
+        default=False,
+        description="Enable domain analysis by default",
     )
     chunk_size: int = Field(default=1000, ge=500, le=5000)
     chunk_overlap: int = Field(default=200, ge=0, le=500)

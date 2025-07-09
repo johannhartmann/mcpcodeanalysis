@@ -125,7 +125,8 @@ class DomainRelationship(Base):
 
     # Evidence from code supporting this relationship
     evidence = Column(
-        JSON, default=[],
+        JSON,
+        default=[],
     )  # List of {file_path, line_number, code_snippet}
 
     # Additional semantic information
@@ -228,7 +229,9 @@ class BoundedContextMembership(Base):
     id = Column(Integer, primary_key=True)
     domain_entity_id = Column(Integer, ForeignKey("domain_entities.id"), nullable=False)
     bounded_context_id = Column(
-        Integer, ForeignKey("bounded_contexts.id"), nullable=False,
+        Integer,
+        ForeignKey("bounded_contexts.id"),
+        nullable=False,
     )
 
     # Role of entity within context
@@ -239,7 +242,8 @@ class BoundedContextMembership(Base):
 
     # Relationships
     domain_entity = relationship(
-        "DomainEntity", back_populates="bounded_context_memberships",
+        "DomainEntity",
+        back_populates="bounded_context_memberships",
     )
     bounded_context = relationship("BoundedContext", back_populates="memberships")
 
@@ -261,10 +265,14 @@ class ContextRelationship(Base):
 
     id = Column(Integer, primary_key=True)
     source_context_id = Column(
-        Integer, ForeignKey("bounded_contexts.id"), nullable=False,
+        Integer,
+        ForeignKey("bounded_contexts.id"),
+        nullable=False,
     )
     target_context_id = Column(
-        Integer, ForeignKey("bounded_contexts.id"), nullable=False,
+        Integer,
+        ForeignKey("bounded_contexts.id"),
+        nullable=False,
     )
 
     relationship_type = Column(

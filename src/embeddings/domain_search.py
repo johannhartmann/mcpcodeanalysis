@@ -320,7 +320,8 @@ class DomainAwareSearch:
             CodeEmbedding.entity_type,
             CodeEmbedding.file_id,
             func.case(
-                (CodeEmbedding.file_id.in_(list(source_ids)), 1.2), else_=1.0,
+                (CodeEmbedding.file_id.in_(list(source_ids)), 1.2),
+                else_=1.0,
             ).label("domain_boost"),
         )
 

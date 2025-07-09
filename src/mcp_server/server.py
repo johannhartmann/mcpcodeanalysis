@@ -71,10 +71,12 @@ async def add_repository(
     url: str = Field(description="Repository URL (GitHub or file://)"),
     branch: str = Field(default=None, description="Branch to track (optional)"),
     scan_immediately: bool = Field(
-        default=True, description="Scan repository immediately",
+        default=True,
+        description="Scan repository immediately",
     ),
     generate_embeddings: bool = Field(
-        default=True, description="Generate embeddings for code",
+        default=True,
+        description="Generate embeddings for code",
     ),
 ) -> dict[str, Any]:
     """Add a new repository to track."""
@@ -154,7 +156,8 @@ async def add_repository(
 @mcp.tool(name="list_repositories", description="List all tracked repositories")
 async def list_repositories(
     include_stats: bool = Field(
-        default=False, description="Include repository statistics",
+        default=False,
+        description="Include repository statistics",
     ),
 ) -> dict[str, Any]:
     """List all tracked repositories."""
@@ -186,7 +189,9 @@ async def list_repositories(
                     from src.database.models import CodeEmbedding, File
 
                     file_count_result = await session.execute(
-                        select(func.count(File.id)).where(File.repository_id == repo.id),
+                        select(func.count(File.id)).where(
+                            File.repository_id == repo.id
+                        ),
                     )
                     file_count = file_count_result.scalar() or 0
 
@@ -276,7 +281,8 @@ async def update_repository_settings(
 async def semantic_search(
     query: str = Field(description="Natural language search query"),
     repository_id: int = Field(
-        default=None, description="Limit to specific repository",
+        default=None,
+        description="Limit to specific repository",
     ),
     limit: int = Field(default=10, description="Maximum results to return"),
 ) -> dict[str, Any]:
@@ -298,10 +304,12 @@ async def semantic_search(
 async def keyword_search(
     keywords: list[str] = Field(description="Keywords to search for"),
     scope: str = Field(
-        default="all", description="Search scope: all, functions, classes, modules",
+        default="all",
+        description="Search scope: all, functions, classes, modules",
     ),
     repository_id: int = Field(
-        default=None, description="Limit to specific repository",
+        default=None,
+        description="Limit to specific repository",
     ),
     limit: int = Field(default=20, description="Maximum results"),
 ) -> dict[str, Any]:
@@ -324,7 +332,8 @@ async def keyword_search(
 async def find_similar_code(
     code_snippet: str = Field(description="Code snippet to find similar code for"),
     repository_id: int = Field(
-        default=None, description="Limit to specific repository",
+        default=None,
+        description="Limit to specific repository",
     ),
     threshold: float = Field(default=0.7, description="Similarity threshold (0-1)"),
     limit: int = Field(default=10, description="Maximum results"),
@@ -350,7 +359,8 @@ async def get_code(
     entity_type: str = Field(description="Entity type: function, class, or module"),
     entity_id: int = Field(description="Entity ID"),
     include_context: bool = Field(
-        default=False, description="Include surrounding context",
+        default=False,
+        description="Include surrounding context",
     ),
 ) -> dict[str, Any]:
     """Get code for a specific entity."""
@@ -390,7 +400,8 @@ async def get_file_structure(
     file_path: str = Field(description="File path within repository"),
     repository_id: int = Field(description="Repository ID"),
     include_imports: bool = Field(
-        default=True, description="Include import statements",
+        default=True,
+        description="Include import statements",
     ),
 ) -> dict[str, Any]:
     """Get the structure of a file."""
@@ -408,7 +419,8 @@ async def get_file_structure(
 
 
 @mcp.tool(
-    name="analyze_dependencies", description="Analyze dependencies of a module or file",
+    name="analyze_dependencies",
+    description="Analyze dependencies of a module or file",
 )
 async def analyze_dependencies(
     file_path: str = Field(description="File path to analyze"),

@@ -40,10 +40,12 @@ class SearchRequest(BaseModel):
         description="Minimum similarity threshold",
     )
     use_domain_knowledge: bool = Field(
-        default=False, description="Use domain knowledge to enhance search",
+        default=False,
+        description="Use domain knowledge to enhance search",
     )
     bounded_context: str | None = Field(
-        None, description="Limit search to specific bounded context",
+        None,
+        description="Limit search to specific bounded context",
     )
 
 
@@ -134,7 +136,8 @@ class CodeSearchTools:
                             "modules": DomainSearchScope.BOUNDED_CONTEXT,
                         }
                         domain_scope = domain_scope_map.get(
-                            request.scope.lower(), DomainSearchScope.ALL,
+                            request.scope.lower(),
+                            DomainSearchScope.ALL,
                         )
 
                         results = await self.domain_search.search_with_domain_context(
