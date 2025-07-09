@@ -1,6 +1,6 @@
 """Database repositories for the MCP Code Analysis Server."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import numpy as np
@@ -17,7 +17,7 @@ from src.database.models import (
     Import,
     Module,
     Repository,
-    SearchQuery,
+    SearchHistory,
 )
 from src.utils.logger import get_logger
 
@@ -64,7 +64,7 @@ class RepositoryRepo:
         )
         repo = await self.get_by_id(repo_id)
         if repo:
-            repo.last_synced = datetime.now(tz=datetime.UTC)
+            repo.last_synced = datetime.now(tz=UTC)
             await self.session.commit()
 
 
@@ -208,7 +208,7 @@ class CodeEntityRepo:
         if entity_type in (None, "function"):
             funcs = await self.session.execute(
                 select(Function)
-                .options(selectinload(Function.module), selectinload(Function.class_))
+                .options(selectinload(Function.module), selectinload(Function.parent_class))
                 .where(Function.name == name),
             )
             results.extend(
@@ -216,7 +216,7 @@ class CodeEntityRepo:
                     "type": "function",
                     "entity": func,
                     "module": func.module,
-                    "class": func.class_,
+                    "class": func.parent_class,
                 }
                 for func in funcs.scalars()
             )
@@ -410,7 +410,7 @@ class CommitRepo:
         await self.session.commit()
 
 
-class SearchQueryRepo:
+class SearchHistoryRepo:
     """Repository for search query analytics."""
 
     def __init__(self, session: AsyncSession) -> None:
@@ -425,7 +425,7 @@ class SearchQueryRepo:
         **kwargs: Any,
     ) -> None:
         """Log a search query."""
-        search_query = SearchQuery(
+        search_query = SearchHistory(
             query=query,
             tool_name=tool_name,
             results_count=results_count,

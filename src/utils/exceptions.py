@@ -187,3 +187,19 @@ class WebhookError(MCPError):
             self.details["event_type"] = event_type
         if delivery_id:
             self.details["delivery_id"] = delivery_id
+
+
+class DomainError(MCPError):
+    """Domain analysis related errors."""
+
+    def __init__(
+        self,
+        message: str,
+        entity_type: str | None = None,
+        entity_id: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        if entity_type:
+            self.details["entity_type"] = entity_type
+        if entity_id:
+            self.details["entity_id"] = entity_id
