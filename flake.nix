@@ -70,11 +70,24 @@
         let
           pkgs = nixpkgs.legacyPackages.${system};
           
-          # Apply overlays to get Python packages
+          # Python version
           python = pkgs.python313;
-          pythonPkgs = (pkgs.appendOverlays [
-            self.overlays.default
-          ]).python313Packages;
+          
+          # Construct Python package set
+          pythonSet = (pkgs.callPackage pyproject-nix.build.packages { 
+            inherit python; 
+          }).overrideScope (
+            nixpkgs.lib.composeManyExtensions [
+              pyproject-build-systems.overlays.default
+              overlay
+              pyprojectOverrides
+            ]
+          );
+          
+          # Create a virtual environment with all dependencies
+          virtualenv = pythonSet.mkVirtualEnv "mcp-code-analysis-env" {
+            mcp-code-analysis-server = [ "dev" ];
+          };
 
           # PostgreSQL with pgvector
           postgresqlWithExtensions = pkgs.postgresql_16.withPackages (p: [
@@ -86,8 +99,8 @@
           # Pure development shell with dependencies from uv.lock
           default = pkgs.mkShell {
             packages = [
-              # Python with all workspace dependencies
-              (python.withPackages (ps: workspace.deps.all ps))
+              # Virtual environment with all workspace dependencies
+              virtualenv
               
               # System libraries
               pkgs.stdenv.cc.cc.lib
@@ -116,6 +129,7 @@
               echo "────────────────────────────────────────────"
               echo ""
               echo "Python environment is ready!"
+              echo "Python: ${virtualenv}/bin/python"
               echo ""
               echo "Available commands:"
               echo "  pytest               - Run tests"
@@ -130,6 +144,7 @@
               echo ""
               
               # Set up environment
+              export PATH="${virtualenv}/bin:$PATH"
               export PYTHONPATH="$PWD/src:$PYTHONPATH"
               export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
               
