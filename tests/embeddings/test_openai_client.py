@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
+import httpx
 import openai
 import pytest
 from openai.types import CreateEmbeddingResponse, Embedding
@@ -92,11 +93,16 @@ class TestOpenAIClient:
     @pytest.mark.asyncio
     async def test_generate_embedding_api_error(self, openai_client) -> None:
         """Test embedding generation with API error."""
+        # Create a mock request object
+        mock_request = MagicMock(spec=httpx.Request)
+        mock_request.method = "POST"
+        mock_request.url = "https://api.openai.com/v1/embeddings"
+        
         with (
             patch.object(
                 openai_client.client.embeddings,
                 "create",
-                side_effect=openai.APIError("API Error", response=None, body=None),
+                side_effect=openai.APIError("API Error", mock_request, body=None),
             ),
             pytest.raises(EmbeddingError, match="Failed to generate embedding"),
         ):

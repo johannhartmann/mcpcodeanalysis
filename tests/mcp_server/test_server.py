@@ -6,7 +6,7 @@ import pytest
 from fastmcp import FastMCP
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from src.mcp_server.server import MCPCodeAnalysisServer, create_server
+from src.mcp_server.server import initialize_server, mcp
 
 
 @pytest.fixture
@@ -180,17 +180,16 @@ class TestMCPCodeAnalysisServer:
         with patch(
             "src.mcp_server.server.RepositoryScanner",
             return_value=mock_scanner,
+        ), patch(
+            "src.mcp_server.server.EmbeddingService",
+            return_value=mock_embedding_service,
         ):
-            with patch(
-                "src.mcp_server.server.EmbeddingService",
-                return_value=mock_embedding_service,
-            ):
-                result = await mcp_server.scan_repository(
-                    "https://github.com/test/repo",
-                )
+            result = await mcp_server.scan_repository(
+                "https://github.com/test/repo",
+            )
 
-                assert "embeddings" in result
-                assert result["embeddings"]["total_embeddings"] == 20
+            assert "embeddings" in result
+            assert result["embeddings"]["total_embeddings"] == 20
 
     @pytest.mark.asyncio
     async def test_search_with_vector_search(self, mcp_server, mock_session) -> None:

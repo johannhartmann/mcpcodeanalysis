@@ -125,18 +125,17 @@ class TestGitSync:
         repo_path = git_sync._get_repo_path("test-owner", "test-repo")
         repo_path.mkdir(parents=True)
 
-        with patch("git.Repo", return_value=mock_repo):
-            with patch.object(
-                git_sync,
-                "update_repository",
-                return_value=mock_repo,
-            ) as mock_update:
-                repo = await git_sync.clone_repository(
-                    "https://github.com/test-owner/test-repo",
-                )
+        with patch("git.Repo", return_value=mock_repo), patch.object(
+            git_sync,
+            "update_repository",
+            return_value=mock_repo,
+        ) as mock_update:
+            repo = await git_sync.clone_repository(
+                "https://github.com/test-owner/test-repo",
+            )
 
-                assert repo == mock_repo
-                mock_update.assert_called_once()
+            assert repo == mock_repo
+            mock_update.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_clone_repository_git_error(self, git_sync) -> None:
@@ -144,11 +143,10 @@ class TestGitSync:
         with patch(
             "git.Repo.clone_from",
             side_effect=GitCommandError("clone", "error"),
-        ):
-            with pytest.raises(RepositoryError, match="Failed to clone repository"):
-                await git_sync.clone_repository(
-                    "https://github.com/test-owner/test-repo",
-                )
+        ), pytest.raises(RepositoryError, match="Failed to clone repository"):
+            await git_sync.clone_repository(
+                "https://github.com/test-owner/test-repo",
+            )
 
     @pytest.mark.asyncio
     async def test_update_repository_success(self, git_sync, mock_repo) -> None:

@@ -14,7 +14,7 @@ class TestDockerMCPIntegration:
     """Test MCP server running in Docker containers."""
 
     @pytest.fixture
-    def mcp_server_url(self):
+    def mcp_server_url(self) -> str:
         """Get MCP server URL."""
         return "http://localhost:8080/mcp/"
 
@@ -36,7 +36,7 @@ def hello_world():
 
 class Calculator:
     """Simple calculator."""
-    
+
     def add(self, a, b):
         """Add two numbers."""
         return a + b
@@ -54,7 +54,7 @@ class Calculator:
 
             yield repo_path
 
-    async def send_mcp_request(self, url: str, method: str, params: dict = None):
+    async def send_mcp_request(self, url: str, method: str, params: dict | None = None):
         """Send an MCP request to the server."""
         request_data = {
             "jsonrpc": "2.0",
@@ -92,7 +92,7 @@ class Calculator:
             return result
 
     @pytest.mark.asyncio
-    async def test_list_tools(self, mcp_server_url):
+    async def test_list_tools(self, mcp_server_url) -> None:
         """Test listing available tools."""
         result = await self.send_mcp_request(mcp_server_url, "tools/list")
 
@@ -118,7 +118,7 @@ class Calculator:
             assert expected in tool_names, f"Missing tool: {expected}"
 
     @pytest.mark.asyncio
-    async def test_add_and_scan_repository(self, mcp_server_url, test_repo_path):
+    async def test_add_and_scan_repository(self, mcp_server_url, test_repo_path) -> None:
         """Test adding and scanning a repository."""
         # First, list repositories to check initial state
         list_result = await self.send_mcp_request(
@@ -168,7 +168,7 @@ class Calculator:
         assert test_repo["stats"]["total_files"] > 0
 
     @pytest.mark.asyncio
-    async def test_search_functionality(self, mcp_server_url, test_repo_path):
+    async def test_search_functionality(self, mcp_server_url, test_repo_path) -> None:
         """Test search functionality after indexing."""
         # Add and scan repository
         add_result = await self.send_mcp_request(
@@ -219,7 +219,7 @@ class Calculator:
         assert calculator_found, "Calculator class not found in search results"
 
     @pytest.mark.asyncio
-    async def test_get_code(self, mcp_server_url, test_repo_path):
+    async def test_get_code(self, mcp_server_url, test_repo_path) -> None:
         """Test getting code for a specific entity."""
         # Add and scan repository
         add_result = await self.send_mcp_request(

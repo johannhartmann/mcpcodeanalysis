@@ -1,10 +1,10 @@
 """Tests for database models."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import sessionmaker
 
 from src.database.models import (
     Class,
@@ -25,13 +25,17 @@ def db_session(sync_engine):
     connection = sync_engine.connect()
     transaction = connection.begin()
 
-    Session_ = Session(bind=connection)
-    session = Session_()
+    Session = sessionmaker(bind=connection)
+    session = Session()
 
     yield session
 
     session.close()
-    transaction.rollback()
+    try:
+        transaction.rollback()
+    except Exception:
+        # Transaction might already be rolled back if test failed
+        pass
     connection.close()
 
 
@@ -99,7 +103,7 @@ class TestRepository:
             sha="abc123",
             message="Test commit",
             author="Test Author",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(tz=timezone.utc),
         )
         db_session.add(commit)
         db_session.commit()
@@ -224,9 +228,11 @@ class TestClass:
             name="repo",
         )
         db_session.add(repo)
+        db_session.commit()
 
         file = File(repository_id=repo.id, path="models.py")
         db_session.add(file)
+        db_session.commit()
 
         module = Module(file_id=file.id, name="models")
         db_session.add(module)
@@ -261,9 +267,11 @@ class TestFunction:
             name="repo",
         )
         db_session.add(repo)
+        db_session.commit()
 
         file = File(repository_id=repo.id, path="utils.py")
         db_session.add(file)
+        db_session.commit()
 
         module = Module(file_id=file.id, name="utils")
         db_session.add(module)
@@ -300,12 +308,15 @@ class TestFunction:
             name="repo",
         )
         db_session.add(repo)
+        db_session.commit()
 
         file = File(repository_id=repo.id, path="models.py")
         db_session.add(file)
+        db_session.commit()
 
         module = Module(file_id=file.id, name="models")
         db_session.add(module)
+        db_session.commit()
 
         cls = Class(module_id=module.id, name="DataProcessor")
         db_session.add(cls)
@@ -340,6 +351,7 @@ class TestImport:
             name="repo",
         )
         db_session.add(repo)
+        db_session.commit()
 
         file = File(repository_id=repo.id, path="main.py")
         db_session.add(file)
@@ -379,7 +391,7 @@ class TestCommit:
             message="Add new feature",
             author="John Doe",
             author_email="john@example.com",
-            timestamp=datetime(2024, 1, 1, 12, 0, 0),
+            timestamp=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
             files_changed=["src/main.py", "tests/test_main.py"],
             additions=50,
             deletions=10,
@@ -403,12 +415,15 @@ class TestCodeEmbedding:
             name="repo",
         )
         db_session.add(repo)
+        db_session.commit()
 
         file = File(repository_id=repo.id, path="main.py")
         db_session.add(file)
+        db_session.commit()
 
         module = Module(file_id=file.id, name="main")
         db_session.add(module)
+        db_session.commit()
 
         func = Function(module_id=module.id, name="main")
         db_session.add(func)

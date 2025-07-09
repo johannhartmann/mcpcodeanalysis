@@ -127,29 +127,27 @@ class TestCodeProcessor:
             code_processor.parser_factory,
             "is_supported",
             return_value=True,
+        ), patch.object(
+            code_processor,
+            "_extract_entities",
+            return_value=sample_entities,
+        ), patch.object(
+            code_processor,
+            "_store_entities",
+            return_value={
+                "modules": 1,
+                "classes": 1,
+                "functions": 1,
+                "imports": 1,
+            },
         ):
-            with patch.object(
-                code_processor,
-                "_extract_entities",
-                return_value=sample_entities,
-            ):
-                with patch.object(
-                    code_processor,
-                    "_store_entities",
-                    return_value={
-                        "modules": 1,
-                        "classes": 1,
-                        "functions": 1,
-                        "imports": 1,
-                    },
-                ):
-                    result = await code_processor.process_file(mock_file_record)
+            result = await code_processor.process_file(mock_file_record)
 
-                    assert result["status"] == "success"
-                    assert result["statistics"]["modules"] == 1
-                    assert mock_file_record.parsed_at is not None
-                    assert mock_file_record.parse_error is None
-                    mock_db_session.commit.assert_called()
+            assert result["status"] == "success"
+            assert result["statistics"]["modules"] == 1
+            assert mock_file_record.parsed_at is not None
+            assert mock_file_record.parse_error is None
+            mock_db_session.commit.assert_called()
 
     @pytest.mark.asyncio
     async def test_process_file_extraction_failed(
@@ -162,12 +160,11 @@ class TestCodeProcessor:
             code_processor.parser_factory,
             "is_supported",
             return_value=True,
-        ):
-            with patch.object(code_processor, "_extract_entities", return_value=None):
-                result = await code_processor.process_file(mock_file_record)
+        ), patch.object(code_processor, "_extract_entities", return_value=None):
+            result = await code_processor.process_file(mock_file_record)
 
-                assert result["status"] == "failed"
-                assert result["reason"] == "extraction_failed"
+            assert result["status"] == "failed"
+            assert result["reason"] == "extraction_failed"
 
     @pytest.mark.asyncio
     async def test_process_file_error(
@@ -181,19 +178,18 @@ class TestCodeProcessor:
             code_processor.parser_factory,
             "is_supported",
             return_value=True,
+        ), patch.object(
+            code_processor,
+            "_extract_entities",
+            side_effect=Exception("Test error"),
         ):
-            with patch.object(
-                code_processor,
-                "_extract_entities",
-                side_effect=Exception("Test error"),
-            ):
-                result = await code_processor.process_file(mock_file_record)
+            result = await code_processor.process_file(mock_file_record)
 
-                assert result["status"] == "failed"
-                assert result["reason"] == "processing_error"
-                assert "Test error" in result["error"]
-                assert mock_file_record.parse_error == "Test error"
-                mock_db_session.commit.assert_called()
+            assert result["status"] == "failed"
+            assert result["reason"] == "processing_error"
+            assert "Test error" in result["error"]
+            assert mock_file_record.parse_error == "Test error"
+            mock_db_session.commit.assert_called()
 
     @pytest.mark.asyncio
     async def test_extract_entities(self, code_processor, sample_entities) -> None:

@@ -1,6 +1,6 @@
 """Tests for pattern analyzer functionality."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -205,7 +205,7 @@ async def sample_domain_data(db_session: AsyncSession):
 async def test_analyze_cross_context_coupling(
     db_session: AsyncSession,
     sample_domain_data,
-):
+) -> None:
     """Test cross-context coupling analysis."""
     analyzer = DomainPatternAnalyzer(db_session)
 
@@ -227,7 +227,7 @@ async def test_analyze_cross_context_coupling(
 
 
 @pytest.mark.asyncio
-async def test_detect_anti_patterns(db_session: AsyncSession, sample_domain_data):
+async def test_detect_anti_patterns(db_session: AsyncSession, sample_domain_data) -> None:
     """Test anti-pattern detection."""
     analyzer = DomainPatternAnalyzer(db_session)
 
@@ -250,7 +250,7 @@ async def test_detect_anti_patterns(db_session: AsyncSession, sample_domain_data
 
 
 @pytest.mark.asyncio
-async def test_suggest_context_splits(db_session: AsyncSession, sample_domain_data):
+async def test_suggest_context_splits(db_session: AsyncSession, sample_domain_data) -> None:
     """Test context split suggestions."""
     # First, create a large context with low cohesion
     large_ctx = BoundedContext(
@@ -296,7 +296,7 @@ async def test_suggest_context_splits(db_session: AsyncSession, sample_domain_da
 
 
 @pytest.mark.asyncio
-async def test_analyze_evolution(db_session: AsyncSession, sample_domain_data):
+async def test_analyze_evolution(db_session: AsyncSession, sample_domain_data) -> None:
     """Test domain evolution analysis."""
     analyzer = DomainPatternAnalyzer(db_session)
 
@@ -306,7 +306,7 @@ async def test_analyze_evolution(db_session: AsyncSession, sample_domain_data):
         entity_type="entity",
         description="Recently added entity",
         source_entities=[],
-        created_at=datetime.utcnow() - timedelta(days=5),
+        created_at=datetime.now(UTC) - timedelta(days=5),
     )
     db_session.add(recent_entity)
     await db_session.commit()

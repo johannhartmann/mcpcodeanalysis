@@ -44,7 +44,7 @@ class TestMCPEndToEnd:
             yield session
 
     @pytest_asyncio.fixture
-    async def openai_client(self):
+    async def openai_client(self) -> None:
         """Create OpenAI client (mocked for tests)."""
         # In real tests, you might want to mock this
         # For now, return None to skip embeddings
@@ -74,11 +74,11 @@ class TestMCPEndToEnd:
 
 class Calculator:
     """A simple calculator class."""
-    
+
     def add(self, a: int, b: int) -> int:
         """Add two numbers."""
         return a + b
-    
+
     def multiply(self, a: int, b: int) -> int:
         """Multiply two numbers."""
         return a * b
@@ -156,7 +156,7 @@ def test_calculator_multiply():
         return repo_path
 
     @pytest.mark.asyncio
-    async def test_full_workflow(self, db_session, openai_client, sample_repo):
+    async def test_full_workflow(self, db_session, openai_client, sample_repo) -> None:
         """Test the complete workflow: add repo -> scan -> search -> analyze."""
         from fastmcp import FastMCP
 
@@ -249,7 +249,7 @@ def test_calculator_multiply():
         ]
 
     @pytest.mark.asyncio
-    async def test_incremental_scanning(self, db_session, openai_client, sample_repo):
+    async def test_incremental_scanning(self, db_session, openai_client, sample_repo) -> None:
         """Test incremental scanning after file changes."""
         import subprocess
 
@@ -318,7 +318,7 @@ def greet(name: str) -> str:
         assert helper_file is not None
 
     @pytest.mark.asyncio
-    async def test_search_functionality(self, db_session, openai_client, sample_repo):
+    async def test_search_functionality(self, db_session, openai_client, sample_repo) -> None:
         """Test code search functionality (without embeddings)."""
         from fastmcp import FastMCP
 
@@ -361,7 +361,7 @@ def greet(name: str) -> str:
         assert calc_results[0]["entity"]["type"] == "class"
 
     @pytest.mark.asyncio
-    async def test_error_handling(self, db_session, openai_client):
+    async def test_error_handling(self, db_session, openai_client) -> None:
         """Test error handling in various scenarios."""
         from fastmcp import FastMCP
 
