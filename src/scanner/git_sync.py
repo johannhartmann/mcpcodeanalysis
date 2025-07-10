@@ -317,7 +317,7 @@ class GitSync:
                         },
                     )
 
-                except Exception as e:
+                except (OSError, ValueError, UnicodeDecodeError) as e:
                     logger.warning(
                         "Error processing file",
                         file=str(file_path),

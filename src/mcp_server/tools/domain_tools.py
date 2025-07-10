@@ -538,46 +538,46 @@ class DomainTools:
                 )
 
             # Check for anemic domain models
-            for entity in entities:
-                if entity.entity_type in ["entity", "aggregate_root"] and not entity.business_rules and not entity.invariants:
-                    suggestions.append(
-                        {
-                            "type": "anemic_domain_model",
-                            "severity": "medium",
-                            "entity": entity.name,
-                            "message": f"Entity '{entity.name}' has no business rules or invariants",
-                            "suggestion": "Move business logic into the entity to create a rich domain model",
-                        },
-                    )
+            suggestions.extend(
+                {
+                    "type": "anemic_domain_model",
+                    "severity": "medium",
+                    "entity": entity.name,
+                    "message": f"Entity '{entity.name}' has no business rules or invariants",
+                    "suggestion": "Move business logic into the entity to create a rich domain model",
+                }
+                for entity in entities
+                if entity.entity_type in ["entity", "aggregate_root"] and not entity.business_rules and not entity.invariants
+            )
 
             # Check for missing value objects
             # Simple heuristic: entities with few responsibilities might be value objects
-            for entity in entities:
-                if entity.entity_type == "entity" and len(entity.responsibilities) <= 1:
-                    suggestions.append(
-                        {
-                            "type": "potential_value_object",
-                            "severity": "low",
-                            "entity": entity.name,
-                            "message": f"Entity '{entity.name}' might be better as a value object",
-                            "suggestion": "Consider making this a value object if it has no identity and is defined by its attributes",
-                        },
-                    )
+            suggestions.extend(
+                {
+                    "type": "potential_value_object",
+                    "severity": "low",
+                    "entity": entity.name,
+                    "message": f"Entity '{entity.name}' might be better as a value object",
+                    "suggestion": "Consider making this a value object if it has no identity and is defined by its attributes",
+                }
+                for entity in entities
+                if entity.entity_type == "entity" and len(entity.responsibilities) <= 1
+            )
 
             # Check for missing domain services
             # Look for entities with too many responsibilities
-            for entity in entities:
-                if len(entity.responsibilities) > MAX_ENTITY_RESPONSIBILITIES:
-                    suggestions.append(
-                        {
-                            "type": "bloated_entity",
-                            "severity": "medium",
-                            "entity": entity.name,
-                            "message": f"Entity '{entity.name}' has too many responsibilities ({len(entity.responsibilities)})",
-                            "suggestion": "Extract some responsibilities into domain services",
-                            "responsibilities": [*entity.responsibilities[:5], "..."],
-                        },
-                    )
+            suggestions.extend(
+                {
+                    "type": "bloated_entity",
+                    "severity": "medium",
+                    "entity": entity.name,
+                    "message": f"Entity '{entity.name}' has too many responsibilities ({len(entity.responsibilities)})",
+                    "suggestion": "Extract some responsibilities into domain services",
+                    "responsibilities": [*entity.responsibilities[:5], "..."],
+                }
+                for entity in entities
+                if len(entity.responsibilities) > MAX_ENTITY_RESPONSIBILITIES
+            )
 
             # Check bounded context cohesion
             if entities:
@@ -630,19 +630,18 @@ class DomainTools:
             )
             contexts = result.scalars().all()
 
-            context_data = []
-            for context in contexts:
-                if len(context.memberships) >= min_entities:
-                    context_data.append(
-                        {
-                            "name": context.name,
-                            "description": context.description,
-                            "entity_count": len(context.memberships),
-                            "core_concepts": context.core_concepts[:5],
-                            "cohesion_score": context.cohesion_score,
-                            "type": context.context_type,
-                        },
-                    )
+            context_data = [
+                {
+                    "name": context.name,
+                    "description": context.description,
+                    "entity_count": len(context.memberships),
+                    "core_concepts": context.core_concepts[:5],
+                    "cohesion_score": context.cohesion_score,
+                    "type": context.context_type,
+                }
+                for context in contexts
+                if len(context.memberships) >= min_entities
+            ]
 
             # Sort by cohesion score
             context_data.sort(key=lambda x: x.get("cohesion_score", 0), reverse=True)

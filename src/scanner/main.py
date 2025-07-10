@@ -194,7 +194,7 @@ class ScannerService:
                     self.file_watcher.add_watch(
                         repo_path,
                         file_changed,
-                        extensions={".py"},  # TODO: Support more languages
+                        extensions={".py"},  # TODO(@dev): Support more languages
                     )
 
             logger.info("Successfully synced repository: %s", repo_url)
@@ -288,13 +288,13 @@ class ScannerService:
                 for class_data in entities["classes"]:
                     await repos["code_entity"].create_class(
                         module_id=1,
-                        **class_data,  # TODO: Get actual module ID
+                        **class_data,  # TODO(@dev): Get actual module ID
                     )
 
                 for func_data in entities["functions"]:
                     await repos["code_entity"].create_function(
                         module_id=1,
-                        **func_data,  # TODO: Get actual module ID
+                        **func_data,  # TODO(@dev): Get actual module ID
                     )
 
             logger.debug("Processed file: %s", relative_path)

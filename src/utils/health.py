@@ -293,7 +293,7 @@ class HealthCheckManager:
             "timestamp": end_time.isoformat(),
             "duration_ms": round(duration_ms, 2),
             "checks": checks,
-            "version": "0.1.0",  # TODO: Get from package
+            "version": "0.1.0",  # TODO(@dev): Get from package
             "environment": {
                 "debug": get_settings().debug,
             },

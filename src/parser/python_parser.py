@@ -128,7 +128,7 @@ class PythonCodeParser:
     def _calculate_complexity(self, func_info: dict[str, Any]) -> int:
         """Calculate cyclomatic complexity of a function."""
         # Simple approximation based on function size
-        # TODO: Implement proper cyclomatic complexity calculation
+        # TODO(@dev): Implement proper cyclomatic complexity calculation
         lines = func_info["end_line"] - func_info["start_line"] + 1
         return max(1, lines // 10)
 

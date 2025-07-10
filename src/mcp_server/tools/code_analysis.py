@@ -382,7 +382,7 @@ class CodeAnalysisTools:
                     for i in imports
                 ]
 
-                # TODO: Add reference analysis (which entities use this one)
+                # TODO(@dev): Add reference analysis (which entities use this one)
 
                 return dependencies
 

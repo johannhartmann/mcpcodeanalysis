@@ -91,7 +91,7 @@ class CodeProcessor:
                             0,
                         ),
                     }
-                except Exception as e:
+                except (ValueError, TypeError, AttributeError) as e:
                     logger.warning(
                         "Domain analysis failed for %s: %s",
                         file_record.path,
@@ -254,7 +254,7 @@ class CodeProcessor:
         logger.info("Processing %s files", len(file_records))
 
         # Process files sequentially to avoid database session conflicts
-        # TODO: Implement proper session management for parallel processing
+        # TODO(@dev): Implement proper session management for parallel processing
         results = []
         for file in file_records:
             try:
