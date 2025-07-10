@@ -8,6 +8,11 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Display limits
+MAX_DISPLAY_METHODS = 10
+MAX_DISPLAY_CLASSES = 5
+MAX_DISPLAY_FUNCTIONS = 5
+
 
 class CodeExtractor:
     """Extract and structure code entities for analysis."""
@@ -157,11 +162,11 @@ class CodeExtractor:
 
         if methods:
             parts.append(f"\n\nMethods ({len(methods)}):")
-            for method in methods[:10]:  # Limit to first 10 methods
+            for method in methods[:MAX_DISPLAY_METHODS]:  # Limit to first 10 methods
                 parts.append(f"- {self._describe_function(method)}")
 
-            if len(methods) > 10:
-                parts.append(f"... and {len(methods) - 10} more methods")
+            if len(methods) > MAX_DISPLAY_METHODS:
+                parts.append(f"... and {len(methods) - MAX_DISPLAY_METHODS} more methods")
 
         return "\n".join(parts)
 
@@ -177,18 +182,18 @@ class CodeExtractor:
 
         if classes:
             parts.append(f"\n\nClasses ({len(classes)}):")
-            for cls in classes[:5]:  # Limit to first 5 classes
+            for cls in classes[:MAX_DISPLAY_CLASSES]:  # Limit to first 5 classes
                 parts.append(f"- {self._describe_class(cls)}")
 
-            if len(classes) > 5:
-                parts.append(f"... and {len(classes) - 5} more classes")
+            if len(classes) > MAX_DISPLAY_CLASSES:
+                parts.append(f"... and {len(classes) - MAX_DISPLAY_CLASSES} more classes")
 
         if functions:
             parts.append(f"\n\nFunctions ({len(functions)}):")
-            for func in functions[:5]:  # Limit to first 5 functions
+            for func in functions[:MAX_DISPLAY_FUNCTIONS]:  # Limit to first 5 functions
                 parts.append(f"- {self._describe_function(func)}")
 
-            if len(functions) > 5:
-                parts.append(f"... and {len(functions) - 5} more functions")
+            if len(functions) > MAX_DISPLAY_FUNCTIONS:
+                parts.append(f"... and {len(functions) - MAX_DISPLAY_FUNCTIONS} more functions")
 
         return "\n".join(parts)

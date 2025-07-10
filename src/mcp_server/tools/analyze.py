@@ -12,6 +12,13 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Constants for code quality thresholds
+MAX_FUNCTION_LENGTH = 50
+MAX_FUNCTION_PARAMS = 5
+MAX_CLASS_METHODS = 20
+MAX_FILE_LENGTH = 200
+HIGH_COMPLEXITY_THRESHOLD = 20
+
 
 class AnalyzeTool:
     """MCP tools for code analysis."""
@@ -273,7 +280,7 @@ class AnalyzeTool:
         suggestions = []
 
         # Check function length
-        if func.end_line - func.start_line > 50:
+        if func.end_line - func.start_line > MAX_FUNCTION_LENGTH:
             suggestions.append(
                 {
                     "type": "complexity",
@@ -285,7 +292,7 @@ class AnalyzeTool:
 
         # Check parameter count
         param_count = len(func.parameters or [])
-        if param_count > 5:
+        if param_count > MAX_FUNCTION_PARAMS:
             suggestions.append(
                 {
                     "type": "complexity",
@@ -336,7 +343,7 @@ class AnalyzeTool:
         method_list = list(methods.scalars().all()) if methods else []
 
         # Check class size
-        if cls.end_line - cls.start_line > 200:
+        if cls.end_line - cls.start_line > MAX_FILE_LENGTH:
             suggestions.append(
                 {
                     "type": "complexity",
@@ -347,7 +354,7 @@ class AnalyzeTool:
             )
 
         # Check method count
-        if len(method_list) > 20:
+        if len(method_list) > MAX_CLASS_METHODS:
             suggestions.append(
                 {
                     "type": "complexity",
@@ -399,7 +406,7 @@ class AnalyzeTool:
             )
             import_count = len(list(imports.scalars().all())) if imports else 0
 
-            if import_count > 20:
+            if import_count > MAX_CLASS_METHODS:
                 suggestions.append(
                     {
                         "type": "complexity",

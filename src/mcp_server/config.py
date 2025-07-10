@@ -269,8 +269,9 @@ class Settings(BaseSettings):
             self.logging.file_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Validate ranking weights sum to 1.0
+        WEIGHT_SUM_TOLERANCE = 0.001
         weight_sum = sum(self.query.ranking_weights.values())
-        if abs(weight_sum - 1.0) > 0.001:
+        if abs(weight_sum - 1.0) > WEIGHT_SUM_TOLERANCE:
             msg = f"Ranking weights must sum to 1.0, got {weight_sum}"
             raise ValueError(msg)
 

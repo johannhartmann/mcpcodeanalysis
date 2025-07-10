@@ -8,6 +8,16 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Age thresholds in days
+AGE_VERY_RECENT = 7
+AGE_RECENT = 30
+AGE_QUARTER = 90
+AGE_YEAR = 365
+
+# Complexity thresholds
+HIGH_COMPLEXITY = 10
+MEDIUM_COMPLEXITY = 5
+
 
 class ResultRanker:
     """Rank and score search results."""
@@ -56,13 +66,13 @@ class ResultRanker:
         age_days = (datetime.now(tz=UTC) - last_modified).days
 
         # Score decays over time
-        if age_days < 7:
+        if age_days < AGE_VERY_RECENT:
             return 1.0
-        if age_days < 30:
+        if age_days < AGE_RECENT:
             return 0.8
-        if age_days < 90:
+        if age_days < AGE_QUARTER:
             return 0.6
-        if age_days < 365:
+        if age_days < AGE_YEAR:
             return 0.4
         return 0.2
 
@@ -101,9 +111,9 @@ class ResultRanker:
         # Boost for classes with many methods
         if entity_data.get("type") == "class":
             method_count = entity_data.get("method_count", 0)
-            if method_count > 10:
+            if method_count > HIGH_COMPLEXITY:
                 score += 0.2
-            elif method_count > 5:
+            elif method_count > MEDIUM_COMPLEXITY:
                 score += 0.1
 
         return min(1.0, score)

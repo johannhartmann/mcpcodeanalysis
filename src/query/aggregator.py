@@ -12,6 +12,9 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Display limits
+MAX_DISPLAY_ITEMS = 5
+
 
 class CodeAggregator:
     """Aggregate code information for explanations."""
@@ -454,15 +457,15 @@ class CodeAggregator:
 
         # Main components
         if classes:
-            class_names = [cls.name for cls in classes[:5]]
+            class_names = [cls.name for cls in classes[:MAX_DISPLAY_ITEMS]]
             parts.append(f"\n\nMain classes: {', '.join(class_names)}")
-            if len(classes) > 5:
-                parts.append(f"and {len(classes) - 5} more")
+            if len(classes) > MAX_DISPLAY_ITEMS:
+                parts.append(f"and {len(classes) - MAX_DISPLAY_ITEMS} more")
 
         if functions:
-            func_names = [func.name for func in functions[:5]]
+            func_names = [func.name for func in functions[:MAX_DISPLAY_ITEMS]]
             parts.append(f"\n\nMain functions: {', '.join(func_names)}")
-            if len(functions) > 5:
-                parts.append(f"and {len(functions) - 5} more")
+            if len(functions) > MAX_DISPLAY_ITEMS:
+                parts.append(f"and {len(functions) - MAX_DISPLAY_ITEMS} more")
 
         return ". ".join(parts) + "."

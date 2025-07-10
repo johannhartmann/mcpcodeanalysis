@@ -10,6 +10,11 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Constants
+MIN_CLASS_METHODS = 2
+MIN_MODULE_COMPONENTS = 3
+MAX_FUNCTION_LIST = 10
+
 
 class ExplainTool:
     """MCP tool for explaining code entities."""
@@ -77,7 +82,7 @@ class ExplainTool:
                     entity = results[0]
                     return {"type": entity["type"], "id": entity["entity"].id}
 
-            elif len(parts) == 2:
+            elif len(parts) == MIN_CLASS_METHODS:
                 # Could be module.function or class.method
                 # First try module.function
                 module_results = await repos["code_entity"].find_by_name(
@@ -113,7 +118,7 @@ class ExplainTool:
                     if method:
                         return {"type": "function", "id": method.id}
 
-            elif len(parts) >= 3:
+            elif len(parts) >= MIN_MODULE_COMPONENTS:
                 # module.class.method
                 module_results = await repos["code_entity"].find_by_name(
                     parts[0],
@@ -129,7 +134,7 @@ class ExplainTool:
                     )
                     cls = classes.scalar_one_or_none() if classes else None
                     if cls:
-                        if len(parts) == 3:
+                        if len(parts) == MIN_MODULE_COMPONENTS:
                             # Look for method
                             methods = await session.execute(
                                 text("SELECT * FROM functions WHERE class_id = :class_id "
@@ -248,7 +253,7 @@ class ExplainTool:
                 parts.append("## Imports")
                 for imp in explanation["imports"][:10]:
                     parts.append(f"- {imp['statement']}")
-                if len(explanation["imports"]) > 10:
+                if len(explanation["imports"]) > MAX_FUNCTION_LIST:
                     parts.append(f"- ... and {len(explanation['imports']) - 10} more")
                 parts.append("")
 

@@ -12,6 +12,10 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Time constants
+SECONDS_PER_HOUR = 3600
+SECONDS_PER_MINUTE = 60
+
 
 class RepositoryTool:
     """MCP tools for repository management."""
@@ -237,10 +241,10 @@ class RepositoryTool:
 
         if age.days > 0:
             return f"{age.days} day{'s' if age.days > 1 else ''} ago"
-        if age.seconds > 3600:
-            hours = age.seconds // 3600
+        if age.seconds > SECONDS_PER_HOUR:
+            hours = age.seconds // SECONDS_PER_HOUR
             return f"{hours} hour{'s' if hours > 1 else ''} ago"
-        if age.seconds > 60:
-            minutes = age.seconds // 60
+        if age.seconds > SECONDS_PER_MINUTE:
+            minutes = age.seconds // SECONDS_PER_MINUTE
             return f"{minutes} minute{'s' if minutes > 1 else ''} ago"
         return "Just now"

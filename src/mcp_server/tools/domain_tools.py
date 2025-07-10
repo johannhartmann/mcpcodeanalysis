@@ -19,6 +19,9 @@ from src.database.models import File
 from src.embeddings.openai_client import OpenAIClient
 from src.utils.logger import get_logger
 
+# Constants
+MAX_ENTITY_RESPONSIBILITIES = 5
+
 logger = get_logger(__name__)
 
 
@@ -564,7 +567,7 @@ class DomainTools:
             # Check for missing domain services
             # Look for entities with too many responsibilities
             for entity in entities:
-                if len(entity.responsibilities) > 5:
+                if len(entity.responsibilities) > MAX_ENTITY_RESPONSIBILITIES:
                     suggestions.append(
                         {
                             "type": "bloated_entity",
