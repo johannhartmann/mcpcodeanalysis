@@ -143,7 +143,8 @@ class VectorSearch:
         source_embedding = result.scalar_one_or_none()
 
         if not source_embedding:
-            raise ValueError(f"Embedding {embedding_id} not found")
+            msg = f"Embedding {embedding_id} not found"
+            raise ValueError(msg)
 
         # Build similarity query
         query = select(

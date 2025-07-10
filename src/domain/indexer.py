@@ -60,7 +60,8 @@ class DomainIndexer:
         file = result.scalar_one_or_none()
 
         if not file:
-            raise NotFoundError("File not found", resource_type="file", resource_id=str(file_id))
+            msg = "File not found"
+            raise NotFoundError(msg)
 
         # Check if already indexed
         if not force_reindex:

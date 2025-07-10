@@ -103,20 +103,17 @@ class GitHubClient:
 
         if response.status_code == HTTP_TOO_MANY_REQUESTS:
             retry_after = int(response.headers.get("Retry-After", 60))
-            raise RateLimitError(
-                "Rate limit hit",
-                retry_after=retry_after,
-                limit=int(response.headers.get("X-RateLimit-Limit", 0)),
-                remaining=0,
-            )
+            msg = "Rate limit hit"
+            raise RateLimitError(msg)
 
         if response.status_code >= HTTP_ERROR_THRESHOLD:
             error_data = {}
             with contextlib.suppress(Exception):
                 error_data = response.json()
 
+            msg = "API error"
             raise GitHubError(
-                "API error",
+                msg,
                 status_code=response.status_code,
                 github_error=error_data,
             )

@@ -36,7 +36,8 @@ class CodeAggregator:
                 return await self._explain_module(repos, entity_id, include_code=include_code)
             if entity_type == "package":
                 return await self._explain_package(repos, entity_id, include_code=include_code)
-            raise ValueError(f"Unknown entity type: {entity_type}")
+            msg = f"Unknown entity type: {entity_type}"
+            raise ValueError(msg)
 
     async def _explain_function(
         self,

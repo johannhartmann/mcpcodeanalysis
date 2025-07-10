@@ -64,7 +64,8 @@ class HierarchicalSummarizer:
         function = result.scalar_one_or_none()
 
         if not function:
-            raise NotFoundError("Not found", resource_type="function", resource_id=str(function_id))
+            msg = "Function not found"
+            raise NotFoundError(msg)
 
         # Get related domain entities
         domain_entities = []
@@ -122,7 +123,8 @@ class HierarchicalSummarizer:
         class_obj = result.scalar_one_or_none()
 
         if not class_obj:
-            raise NotFoundError("Not found", resource_type="class", resource_id=str(class_id))
+            msg = "Class not found"
+            raise NotFoundError(msg)
 
         # Get method summaries if requested
         method_summaries = []
@@ -195,7 +197,8 @@ class HierarchicalSummarizer:
         module = result.scalar_one_or_none()
 
         if not module:
-            raise NotFoundError("Not found", resource_type="module", resource_id=str(module_id))
+            msg = "Module not found"
+            raise NotFoundError(msg)
 
         # Get summaries for classes and functions
         class_summaries = []
@@ -278,7 +281,8 @@ class HierarchicalSummarizer:
         context = result.scalar_one_or_none()
 
         if not context:
-            raise NotFoundError("Not found", resource_type="bounded_context", resource_id=str(context_id))
+            msg = "Context not found"
+            raise NotFoundError(msg)
 
         # Load domain entities
         entity_ids = [m.domain_entity_id for m in context.memberships]

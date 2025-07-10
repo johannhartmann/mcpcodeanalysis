@@ -123,7 +123,8 @@ class FileWatcher:
     ) -> str:
         """Add a directory to watch."""
         if not path.exists():
-            raise ValidationError("Path not found", field="path", value=str(path))
+            msg = "Path not found"
+            raise ValidationError(msg)
 
         handler = CodeFileHandler(callback, extensions)
         watch = self.observer.schedule(handler, str(path), recursive=recursive)

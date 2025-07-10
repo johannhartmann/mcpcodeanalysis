@@ -34,7 +34,8 @@ class TreeSitterParser:
     def parse_content(self, content: bytes) -> tree_sitter.Tree | None:
         """Parse content and return the syntax tree."""
         if not self.language:
-            raise ValueError("Language not set for parser")
+            msg = "Language not set for parser"
+            raise ValueError(msg)
 
         try:
             return self.parser.parse(content)

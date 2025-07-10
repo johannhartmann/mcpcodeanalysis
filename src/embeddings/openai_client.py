@@ -73,7 +73,8 @@ class OpenAIClient:
 
         except openai.APIError as e:
             logger.exception("OpenAI API error: %s")
-            raise OpenAIError("API error") from e
+            msg = "API error"
+            raise OpenAIError(msg) from e
         except Exception as e:
             logger.exception("Unexpected error generating embedding: %s")
             raise EmbeddingError("Error") from e
@@ -96,7 +97,8 @@ class OpenAIClient:
             return []
 
         if metadata and len(metadata) != len(texts):
-            raise ValueError("Length mismatch")
+            msg = "Length mismatch"
+            raise ValueError(msg)
 
         results = []
 

@@ -42,7 +42,8 @@ class GitSync:
         elif github_url.startswith("git@github.com:"):
             path = github_url.replace("git@github.com:", "")
         else:
-            raise ValidationError("Invalid URL", field="github_url", value=github_url)
+            msg = "Invalid URL"
+            raise ValidationError(msg)
 
         # Remove .git suffix if present
         if path.endswith(".git"):
@@ -50,7 +51,8 @@ class GitSync:
 
         parts = path.split("/")
         if len(parts) != EXPECTED_REPO_PATH_PARTS:
-            raise ValidationError("Invalid path", field="path", value=path)
+            msg = "Invalid path"
+            raise ValidationError(msg)
 
         return parts[0], parts[1]
 
@@ -115,7 +117,8 @@ class GitSync:
 
         except GitCommandError as e:
             logger.exception("Failed to clone repository", url=github_url, error=str(e))
-            raise RepositoryError("Clone failed") from e
+            msg = "Clone failed"
+            raise RepositoryError(msg) from e
 
     async def update_repository(
         self,
@@ -175,7 +178,8 @@ class GitSync:
                 path=str(repo_path),
                 error=str(e),
             )
-            raise RepositoryError("Update failed") from e
+            msg = "Update failed"
+            raise RepositoryError(msg) from e
 
     def get_repository(self, github_url: str) -> git.Repo | None:
         """Get a repository if it exists locally."""
@@ -243,7 +247,8 @@ class GitSync:
 
         except Exception as e:
             logger.exception("Error getting changed files", error=str(e))
-            raise RepositoryError("Get changes failed") from e
+            msg = "Get changes failed"
+            raise RepositoryError(msg) from e
 
         return changed_files
 
@@ -380,7 +385,8 @@ class GitSync:
                 commit_sha=commit_sha,
                 error=str(e),
             )
-            raise RepositoryError("Get commit failed") from e
+            msg = "Get commit failed"
+            raise RepositoryError(msg) from e
 
     async def get_recent_commits(
         self,
@@ -413,6 +419,7 @@ class GitSync:
 
         except Exception as e:
             logger.exception("Error getting recent commits", error=str(e))
-            raise RepositoryError("Get commits failed") from e
+            msg = "Get commits failed"
+            raise RepositoryError(msg) from e
 
         return commits

@@ -47,7 +47,8 @@ class GitHubMonitor:
         # Parse GitHub URL
         parts = repo_url.rstrip("/").split("/")
         if len(parts) < MIN_URL_PARTS:
-            raise GitHubError("Invalid URL", details={"url": repo_url})
+            msg = "Invalid URL"
+            raise GitHubError(msg)
 
         owner = parts[-2]
         repo = parts[-1].replace(".git", "")
@@ -81,12 +82,16 @@ class GitHubMonitor:
             }
         except httpx.HTTPStatusError as e:
             if e.response.status_code == HTTP_NOT_FOUND:
-                raise GitHubError("Not found", details={"url": repo_url}) from e
+                msg = "Not found"
+                raise GitHubError(msg) from e
             if e.response.status_code == HTTP_UNAUTHORIZED:
-                raise GitHubError("Auth failed", details={"url": repo_url}) from e
-            raise GitHubError("API error", details={"error": str(e)}) from e
+                msg = "Auth failed"
+                raise GitHubError(msg) from e
+            msg = "API error"
+            raise GitHubError(msg) from e
         except Exception as e:
-            raise GitHubError("Fetch failed", details={"error": str(e)}) from e
+            msg = "Fetch failed"
+            raise GitHubError(msg) from e
 
     async def get_commits_since(
         self,
@@ -159,9 +164,11 @@ class GitHubMonitor:
             return commits
 
         except httpx.HTTPStatusError as e:
-            raise GitHubError("Get commits failed", details={"error": str(e)}) from e
+            msg = "Get commits failed"
+            raise GitHubError(msg) from e
         except Exception as e:
-            raise GitHubError("Fetch error", details={"error": str(e)}) from e
+            msg = "Fetch error"
+            raise GitHubError(msg) from e
 
     async def get_commit_files(
         self,
@@ -199,9 +206,11 @@ class GitHubMonitor:
             return files
 
         except httpx.HTTPStatusError as e:
-            raise GitHubError("Get files failed", details={"error": str(e)}) from e
+            msg = "Get files failed"
+            raise GitHubError(msg) from e
         except Exception as e:
-            raise GitHubError("Fetch error", details={"error": str(e)}) from e
+            msg = "Fetch error"
+            raise GitHubError(msg) from e
 
     async def check_rate_limit(self, token: str | None = None) -> dict[str, Any]:
         """Check GitHub API rate limit."""
@@ -272,9 +281,11 @@ class GitHubMonitor:
                 # Webhook might already exist
                 logger.warning("Webhook may already exist for %s/%s", owner, repo)
                 return {"status": "exists"}
-            raise GitHubError("Create failed", details={"error": str(e)}) from e
+            msg = "Create failed"
+            raise GitHubError(msg) from e
         except Exception as e:
-            raise GitHubError("Create error", details={"error": str(e)}) from e
+            msg = "Create error"
+            raise GitHubError(msg) from e
 
     async def verify_webhook_signature(self, payload: bytes, signature: str) -> bool:
         """Verify webhook signature."""

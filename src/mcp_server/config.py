@@ -25,7 +25,8 @@ class RepositoryConfig(BaseModel):
     def validate_github_url(cls, v: str) -> str:
         """Validate GitHub URL format."""
         if not v.startswith(("https://github.com/", "git@github.com:")):
-            raise ValueError(f"Invalid GitHub URL: {v}")
+            msg = f"Invalid GitHub URL: {v}"
+            raise ValueError(msg)
         return v
 
 
@@ -192,7 +193,8 @@ class Settings(BaseSettings):
     def from_yaml(cls, config_path: Path) -> "Settings":
         """Load settings from YAML configuration file."""
         if not config_path.exists():
-            raise FileNotFoundError(f"Configuration file not found: {config_path}")
+            msg = f"Configuration file not found: {config_path}"
+            raise FileNotFoundError(msg)
 
         with open(config_path) as f:
             config_data = yaml.safe_load(f)
@@ -269,7 +271,8 @@ class Settings(BaseSettings):
         # Validate ranking weights sum to 1.0
         weight_sum = sum(self.query.ranking_weights.values())
         if abs(weight_sum - 1.0) > 0.001:
-            raise ValueError(f"Ranking weights must sum to 1.0, got {weight_sum}")
+            msg = f"Ranking weights must sum to 1.0, got {weight_sum}"
+            raise ValueError(msg)
 
 
 # Global settings instance

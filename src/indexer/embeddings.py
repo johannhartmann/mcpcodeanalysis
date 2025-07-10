@@ -45,7 +45,8 @@ class EmbeddingGenerator:
 
         except Exception as e:
             logger.exception("Error generating embedding: %s")
-            raise EmbeddingError(f"Failed to generate embedding: {e}") from e
+            msg = f"Failed to generate embedding: {e}"
+            raise EmbeddingError(msg) from e
 
     async def generate_embeddings_batch(self, texts: list[str]) -> list[np.ndarray]:
         """Generate embeddings for multiple texts in batch."""

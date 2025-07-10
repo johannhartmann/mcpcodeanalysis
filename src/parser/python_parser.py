@@ -26,7 +26,8 @@ class PythonCodeParser:
             # Parse with TreeSitter
             tree = self.parser.parse_content(content)
             if not tree:
-                raise ParserError(f"Failed to parse file: {file_path}", str(file_path))
+                msg = f"Failed to parse file: {file_path}"
+                raise ParserError(msg, str(file_path))
 
             # Extract module information
             module_info = self.parser.extract_module_info(tree, content)
@@ -40,8 +41,9 @@ class PythonCodeParser:
 
         except Exception as e:
             logger.exception("Error parsing Python file %s", file_path)
+            msg = f"Failed to parse Python file: {file_path}"
             raise ParserError(
-                f"Failed to parse Python file: {file_path}",
+                msg,
                 str(file_path),
             ) from e
 

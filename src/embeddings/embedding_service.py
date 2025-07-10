@@ -56,7 +56,8 @@ class EmbeddingService:
         file_record = result.scalar_one_or_none()
 
         if not file_record:
-            raise NotFoundError("File not found", resource_type="file", resource_id=str(file_id))
+            msg = "File not found"
+            raise NotFoundError(msg)
 
         stats = {
             "file_id": file_id,
@@ -119,7 +120,8 @@ class EmbeddingService:
 
         except Exception as e:
             logger.exception("Failed to create embeddings for file %s", file_id)
-            raise EmbeddingError("Failed to create embeddings") from e
+            msg = "Failed to create embeddings"
+            raise EmbeddingError(msg) from e
 
         return stats
 
@@ -281,7 +283,8 @@ class EmbeddingService:
         )
 
         if not results or not results[0].get("embedding"):
-            raise EmbeddingError("Failed to generate class embedding")
+            msg = "Failed to generate class embedding"
+            raise EmbeddingError(msg)
 
         result = results[0]
 
@@ -343,7 +346,8 @@ class EmbeddingService:
         )
 
         if not results or not results[0].get("embedding"):
-            raise EmbeddingError("Failed to generate function embedding")
+            msg = "Failed to generate function embedding"
+            raise EmbeddingError(msg)
 
         result = results[0]
 
