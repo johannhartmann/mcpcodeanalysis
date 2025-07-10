@@ -375,7 +375,7 @@ class GitSync:
                 commit_info["files_changed"] = list(stats.files.keys())
                 commit_info["additions"] = stats.total["insertions"]
                 commit_info["deletions"] = stats.total["deletions"]
-            except Exception as stats_error:
+            except (AttributeError, KeyError, TypeError) as stats_error:
                 logger.warning(
                     "Could not get commit stats for %s: %s",
                     commit_sha,

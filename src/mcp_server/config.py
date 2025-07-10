@@ -276,28 +276,41 @@ class Settings(BaseSettings):
             raise ValueError(msg)
 
 
-# Global settings instance
-_settings: Settings | None = None
+class SettingsManager:
+    """Manages the singleton settings instance."""
+    
+    def __init__(self):
+        self._settings: Settings | None = None
+    
+    def get(self) -> Settings:
+        """Get application settings singleton."""
+        if self._settings is None:
+            config_path = Path(os.getenv("CONFIG_PATH", "config.yaml"))
+            if config_path.exists():
+                self._settings = Settings.from_yaml(config_path)
+            else:
+                self._settings = Settings()
+            self._settings.validate_config()
+        return self._settings
+    
+    def reload(self, config_path: Path | None = None) -> Settings:
+        """Reload settings from configuration file."""
+        if config_path is None:
+            config_path = Path(os.getenv("CONFIG_PATH", "config.yaml"))
+        self._settings = Settings.from_yaml(config_path) if config_path.exists() else Settings()
+        self._settings.validate_config()
+        return self._settings
+
+
+# Global settings manager instance
+_settings_manager = SettingsManager()
 
 
 def get_settings() -> Settings:
     """Get application settings singleton."""
-    global _settings
-    if _settings is None:
-        config_path = Path(os.getenv("CONFIG_PATH", "config.yaml"))
-        if config_path.exists():
-            _settings = Settings.from_yaml(config_path)
-        else:
-            _settings = Settings()
-        _settings.validate_config()
-    return _settings
+    return _settings_manager.get()
 
 
 def reload_settings(config_path: Path | None = None) -> Settings:
     """Reload settings from configuration file."""
-    global _settings
-    if config_path is None:
-        config_path = Path(os.getenv("CONFIG_PATH", "config.yaml"))
-    _settings = Settings.from_yaml(config_path) if config_path.exists() else Settings()
-    _settings.validate_config()
-    return _settings
+    return _settings_manager.reload(config_path)

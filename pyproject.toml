@@ -52,6 +52,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "rich>=13.7.0",
     "tenacity>=8.2.3",
+    "aiofiles>=23.2.1",
     
     # OpenAI
     "openai>=1.10.0",
@@ -246,8 +247,13 @@ unfixable = []
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "D104"]
-"tests/**/*.py" = ["S101", "ARG", "FBT", "PLR2004", "PLR0913"]
+"tests/**/*.py" = ["S101", "ARG", "FBT", "PLR2004", "PLR0913", "TRY003"]
 "src/mcp_server/tools/*.py" = ["ANN201"]  # dynamic return types for MCP tools
+"src/mcp_server/server.py" = ["PLW0603"]  # global statements for shared resources
+"src/mcp_server/config.py" = ["PLW0603"]  # global statements for singleton config
+"src/mcp_server/tools/explain.py" = ["PERF401"]  # false positive on list append
+"src/parser/code_extractor.py" = ["PERF401"]  # false positive on list append
+"src/scanner/github_monitor.py" = ["PERF401"]  # false positive on list append
 
 [tool.ruff.lint.isort]
 known-third-party = ["fastapi", "pydantic", "sqlalchemy", "langchain", "langgraph", "fastmcp"]

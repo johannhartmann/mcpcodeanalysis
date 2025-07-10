@@ -80,8 +80,9 @@ class DomainIndexer:
             logger.warning("File %s not found on disk", file.path)
             return {"status": "error", "file_id": file_id, "error": "File not found"}
 
-        with file_path.open(encoding="utf-8") as f:
-            content = f.read()
+        import aiofiles
+        async with aiofiles.open(file_path, encoding="utf-8") as f:
+            content = await f.read()
 
         # Extract entities
         logger.info("Extracting domain entities from %s", file.path)
