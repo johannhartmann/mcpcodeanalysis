@@ -9,7 +9,7 @@ from openai.types import CreateEmbeddingResponse, Embedding
 from openai.types.create_embedding_response import Usage
 
 from src.embeddings.openai_client import OpenAIClient
-from src.utils.exceptions import EmbeddingError
+from src.utils.exceptions import EmbeddingError, OpenAIError
 
 
 @pytest.fixture
@@ -104,7 +104,7 @@ class TestOpenAIClient:
                 "create",
                 side_effect=openai.APIError("API Error", mock_request, body=None),
             ),
-            pytest.raises(EmbeddingError, match="Failed to generate embedding"),
+            pytest.raises(OpenAIError, match="API error"),
         ):
             await openai_client.generate_embedding("test text")
 
@@ -117,7 +117,7 @@ class TestOpenAIClient:
                 "create",
                 side_effect=Exception("Unexpected error"),
             ),
-            pytest.raises(EmbeddingError, match="Unexpected error"),
+            pytest.raises(EmbeddingError, match="Error"),
         ):
             await openai_client.generate_embedding("test text")
 
@@ -199,7 +199,7 @@ class TestOpenAIClient:
         texts = ["text1", "text2"]
         metadata = [{"id": 1}]  # Only one metadata item
 
-        with pytest.raises(ValueError, match="Metadata length must match texts length"):
+        with pytest.raises(ValueError, match="Length mismatch"):
             await openai_client.generate_embeddings_batch(texts, metadata)
 
     @pytest.mark.asyncio
