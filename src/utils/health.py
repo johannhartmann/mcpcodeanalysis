@@ -227,6 +227,7 @@ class DiskSpaceHealthCheck(HealthCheck):
 
         results = {}
         for name, path in paths_to_check.items():
+            path = Path(path) if isinstance(path, str) else path
             if path.exists():
                 stat = shutil.disk_usage(path)
                 results[name] = {

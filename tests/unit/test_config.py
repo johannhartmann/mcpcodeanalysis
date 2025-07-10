@@ -202,11 +202,6 @@ class TestSettingsSingleton:
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         monkeypatch.setenv("CONFIG_PATH", str(test_config_file))
 
-        # Clear singleton
-        from src.mcp_server import config
-
-        config._settings = None
-
         # This test is disabled as we're now using Dynaconf
         pytest.skip("get_settings replaced with Dynaconf")
 
@@ -216,11 +211,6 @@ class TestSettingsSingleton:
         """Test reload_settings."""
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         monkeypatch.setenv("CONFIG_PATH", str(test_config_file))
-
-        # Clear singleton
-        from src.mcp_server import config
-
-        config._settings = None
 
         # This test is disabled as we're now using Dynaconf
         pytest.skip("get_settings and reload_settings replaced with Dynaconf")
