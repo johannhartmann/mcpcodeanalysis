@@ -16,7 +16,7 @@ from src.domain.pattern_analyzer import DomainPatternAnalyzer
 
 
 @pytest.fixture
-async def sample_domain_data(db_session: AsyncSession):
+async def sample_domain_data(async_session: AsyncSession):
     """Create sample domain data for testing."""
     # Create repository
     repo = Repository(
@@ -24,8 +24,8 @@ async def sample_domain_data(db_session: AsyncSession):
         owner="test",
         name="repo",
     )
-    db_session.add(repo)
-    await db_session.flush()
+    async_session.add(repo)
+    await async_session.flush()
 
     # Create files
     file1 = File(
@@ -40,8 +40,8 @@ async def sample_domain_data(db_session: AsyncSession):
         content_hash="hash2",
         language="python",
     )
-    db_session.add_all([file1, file2])
-    await db_session.flush()
+    async_session.add_all([file1, file2])
+    await async_session.flush()
 
     # Create bounded contexts
     sales_ctx = BoundedContext(
@@ -56,8 +56,8 @@ async def sample_domain_data(db_session: AsyncSession):
         cohesion_score=0.7,
         coupling_score=0.4,
     )
-    db_session.add_all([sales_ctx, inventory_ctx])
-    await db_session.flush()
+    async_session.add_all([sales_ctx, inventory_ctx])
+    await async_session.flush()
 
     # Create entities
     order_entity = DomainEntity(
@@ -119,7 +119,7 @@ async def sample_domain_data(db_session: AsyncSession):
         ],  # Too many responsibilities
     )
 
-    db_session.add_all(
+    async_session.add_all(
         [
             order_entity,
             order_item_entity,
@@ -128,10 +128,10 @@ async def sample_domain_data(db_session: AsyncSession):
             service_entity,
         ],
     )
-    await db_session.flush()
+    await async_session.flush()
 
     # Create context memberships
-    db_session.add_all(
+    async_session.add_all(
         [
             BoundedContextMembership(
                 bounded_context_id=sales_ctx.id,
@@ -173,19 +173,20 @@ async def sample_domain_data(db_session: AsyncSession):
         description="Order references products",
     )
 
-    # Multiple relationships for high coupling
-    for i in range(10):
-        db_session.add(
+    async_session.add_all([rel1, rel2])
+    
+    # Multiple relationships for high coupling (skip depends_on as rel2 already has it)
+    relationship_types = ["uses", "references", "queries", "modifies", "validates"]
+    for i, rel_type in enumerate(relationship_types):
+        async_session.add(
             DomainRelationship(
                 source_entity_id=order_entity.id,
                 target_entity_id=product_entity.id,
-                relationship_type="depends_on",
+                relationship_type=rel_type,
                 description=f"Dependency {i}",
             ),
         )
-
-    db_session.add_all([rel1, rel2])
-    await db_session.commit()
+    await async_session.commit()
 
     return {
         "repository": repo,
@@ -203,11 +204,11 @@ async def sample_domain_data(db_session: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_analyze_cross_context_coupling(
-    db_session: AsyncSession,
+    async_session: AsyncSession,
     sample_domain_data,
 ) -> None:
     """Test cross-context coupling analysis."""
-    analyzer = DomainPatternAnalyzer(db_session)
+    analyzer = DomainPatternAnalyzer(async_session)
 
     result = await analyzer.analyze_cross_context_coupling(
         sample_domain_data["repository"].id,
@@ -228,11 +229,11 @@ async def test_analyze_cross_context_coupling(
 
 @pytest.mark.asyncio
 async def test_detect_anti_patterns(
-    db_session: AsyncSession,
+    async_session: AsyncSession,
     sample_domain_data,
 ) -> None:
     """Test anti-pattern detection."""
-    analyzer = DomainPatternAnalyzer(db_session)
+    analyzer = DomainPatternAnalyzer(async_session)
 
     result = await analyzer.detect_anti_patterns(sample_domain_data["repository"].id)
 
@@ -254,7 +255,7 @@ async def test_detect_anti_patterns(
 
 @pytest.mark.asyncio
 async def test_suggest_context_splits(
-    db_session: AsyncSession,
+    async_session: AsyncSession,
     sample_domain_data,
 ) -> None:
     """Test context split suggestions."""
@@ -264,8 +265,8 @@ async def test_suggest_context_splits(
         description="Large context with many entities",
         cohesion_score=0.3,  # Low cohesion
     )
-    db_session.add(large_ctx)
-    await db_session.flush()
+    async_session.add(large_ctx)
+    await async_session.flush()
 
     # Add many entities to it
     for i in range(25):
@@ -275,19 +276,19 @@ async def test_suggest_context_splits(
             description=f"Entity {i}",
             source_entities=[],
         )
-        db_session.add(entity)
-        await db_session.flush()
+        async_session.add(entity)
+        await async_session.flush()
 
-        db_session.add(
+        async_session.add(
             BoundedContextMembership(
                 bounded_context_id=large_ctx.id,
                 domain_entity_id=entity.id,
             ),
         )
 
-    await db_session.commit()
+    await async_session.commit()
 
-    analyzer = DomainPatternAnalyzer(db_session)
+    analyzer = DomainPatternAnalyzer(async_session)
 
     result = await analyzer.suggest_context_splits(
         min_entities=20,
@@ -302,9 +303,9 @@ async def test_suggest_context_splits(
 
 
 @pytest.mark.asyncio
-async def test_analyze_evolution(db_session: AsyncSession, sample_domain_data) -> None:
+async def test_analyze_evolution(async_session: AsyncSession, sample_domain_data) -> None:
     """Test domain evolution analysis."""
-    analyzer = DomainPatternAnalyzer(db_session)
+    analyzer = DomainPatternAnalyzer(async_session)
 
     # Create some recent entities
     recent_entity = DomainEntity(
@@ -314,8 +315,8 @@ async def test_analyze_evolution(db_session: AsyncSession, sample_domain_data) -
         source_entities=[],
         created_at=datetime.now(UTC) - timedelta(days=5),
     )
-    db_session.add(recent_entity)
-    await db_session.commit()
+    async_session.add(recent_entity)
+    await async_session.commit()
 
     result = await analyzer.analyze_evolution(
         sample_domain_data["repository"].id,
