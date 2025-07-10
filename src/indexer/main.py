@@ -109,7 +109,7 @@ class IndexerService:
                 return
 
             # Read file content
-            with open(full_path, encoding="utf-8", errors="ignore") as f:
+            with full_path.open(encoding="utf-8", errors="ignore") as f:
                 content = f.read()
 
             # Create chunks

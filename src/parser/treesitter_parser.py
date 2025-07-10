@@ -240,13 +240,12 @@ class PythonParser(TreeSitterParser):
                     func_data["return_type"] = (
                         self.get_node_text(child, content).strip("->").strip()
                     )
-                elif child.type == "block":
+                elif child.type == "block" and (
+                    self.find_nodes_by_type(child, "yield_statement")
+                    or self.find_nodes_by_type(child, "yield_expression")
+                ):
                     # Check if it's a generator
-                    if self.find_nodes_by_type(
-                        child,
-                        "yield_statement",
-                    ) or self.find_nodes_by_type(child, "yield_expression"):
-                        func_data["is_generator"] = True
+                    func_data["is_generator"] = True
 
             # Extract docstring
             func_data["docstring"] = self.get_docstring(node, content)

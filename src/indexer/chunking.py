@@ -193,11 +193,7 @@ class CodeChunker:
             chunk_size = chunk["end_line"] - chunk["start_line"] + 1
 
             if chunk_size < min_size and chunk["type"] in ("function", "method"):
-                if buffer is None:
-                    buffer = chunk
-                else:
-                    # Merge with buffer
-                    buffer = self._merge_chunks(buffer, chunk)
+                buffer = chunk if buffer is None else self._merge_chunks(buffer, chunk)
             else:
                 if buffer:
                     merged.append(buffer)

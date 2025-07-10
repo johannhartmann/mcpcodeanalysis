@@ -86,8 +86,7 @@ class ScannerService:
                 repo_config.get("access_token"),
             )
 
-            async with get_session() as session:
-                async with get_repositories(session) as repos:
+            async with get_session() as session, get_repositories(session) as repos:
                     # Create or update repository in database
                     db_repo = await repos["repository"].get_by_url(repo_url)
 
@@ -310,8 +309,7 @@ class ScannerService:
     ) -> None:
         """Handle a file change event."""
         try:
-            async with get_session() as session:
-                async with get_repositories(session) as repos:
+            async with get_session() as session, get_repositories(session) as repos:
                     if event_type == "deleted":
                         # Remove file from database
                         db_file = await repos["file"].get_by_path(repo_id, file_path)
