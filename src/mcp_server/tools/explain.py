@@ -4,9 +4,8 @@ from typing import Any
 
 from sqlalchemy import text
 
-from src.database import get_repositories, get_session
+from src.logger import get_logger
 from src.query.aggregator import CodeAggregator
-from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -57,104 +56,105 @@ class ExplainTool:
 
     async def _parse_code_path(self, path: str) -> dict[str, Any] | None:
         """Parse a code path to find the entity."""
-        async with get_session() as session, get_repositories(session) as repos:
-            # Check if it's a file path
-            if "/" in path or path.endswith(".py"):
-                # File path - look for module
-                file = await repos["file"].get_by_path(None, path)
-                if file:
-                    modules = await session.execute(
-                        text("SELECT * FROM modules WHERE file_id = :file_id LIMIT 1"),
-                        {"file_id": file.id},
-                    )
-                    module = modules.scalar_one_or_none() if modules else None
-                    if module:
-                        return {"type": "module", "id": module.id}
-
-            # Check if it's a qualified name (module.Class.method)
-            parts = path.split(".")
-
-            # Try to find by name
-            if len(parts) == 1:
-                # Single name - could be function, class, or module
-                results = await repos["code_entity"].find_by_name(parts[0])
-                if results:
-                    entity = results[0]
-                    return {"type": entity["type"], "id": entity["entity"].id}
-
-            elif len(parts) == MIN_CLASS_METHODS:
-                # Could be module.function or class.method
-                # First try module.function
-                module_results = await repos["code_entity"].find_by_name(
-                    parts[0],
-                    "module",
+        # TODO: Need to implement database session handling
+            # async with get_session() as session:
+        # Check if it's a file path
+        if "/" in path or path.endswith(".py"):
+            # File path - look for module
+            file = await session.get_by_path(None, path)
+            if file:
+                modules = await session.execute(
+                    text("SELECT * FROM modules WHERE file_id = :file_id LIMIT 1"),
+                    {"file_id": file.id},
                 )
-                if module_results:
-                    module = module_results[0]["entity"]
-                    # Look for function in this module
-                    funcs = await session.execute(
-                        text(
-                            "SELECT * FROM functions WHERE module_id = :module_id "
-                            "AND name = :name AND class_id IS NULL LIMIT 1"
-                        ),
-                        {"module_id": module.id, "name": parts[1]},
-                    )
-                    func = funcs.scalar_one_or_none() if funcs else None
-                    if func:
-                        return {"type": "function", "id": func.id}
+                module = modules.scalar_one_or_none() if modules else None
+                if module:
+                    return {"type": "module", "id": module.id}
 
-                # Try class.method
-                class_results = await repos["code_entity"].find_by_name(
-                    parts[0],
-                    "class",
-                )
-                if class_results:
-                    cls = class_results[0]["entity"]
-                    # Look for method in this class
-                    methods = await session.execute(
-                        text(
-                            "SELECT * FROM functions WHERE class_id = :class_id "
-                            "AND name = :name LIMIT 1"
-                        ),
-                        {"class_id": cls.id, "name": parts[1]},
-                    )
-                    method = methods.scalar_one_or_none() if methods else None
-                    if method:
-                        return {"type": "function", "id": method.id}
+        # Check if it's a qualified name (module.Class.method)
+        parts = path.split(".")
 
-            elif len(parts) >= MIN_MODULE_COMPONENTS:
-                # module.class.method
-                module_results = await repos["code_entity"].find_by_name(
-                    parts[0],
-                    "module",
+        # Try to find by name
+        if len(parts) == 1:
+            # Single name - could be function, class, or module
+            results = await session.find_by_name(parts[0])
+            if results:
+                entity = results[0]
+                return {"type": entity["type"], "id": entity["entity"].id}
+
+        elif len(parts) == MIN_CLASS_METHODS:
+            # Could be module.function or class.method
+            # First try module.function
+            module_results = await session.find_by_name(
+                parts[0],
+                "module",
+            )
+            if module_results:
+                module = module_results[0]["entity"]
+                # Look for function in this module
+                funcs = await session.execute(
+                    text(
+                        "SELECT * FROM functions WHERE module_id = :module_id "
+                        "AND name = :name AND class_id IS NULL LIMIT 1"
+                    ),
+                    {"module_id": module.id, "name": parts[1]},
                 )
-                if module_results:
-                    module = module_results[0]["entity"]
-                    # Look for class in module
-                    classes = await session.execute(
-                        text(
-                            "SELECT * FROM classes WHERE module_id = :module_id "
-                            "AND name = :name LIMIT 1"
-                        ),
-                        {"module_id": module.id, "name": parts[1]},
-                    )
-                    cls = classes.scalar_one_or_none() if classes else None
-                    if cls:
-                        if len(parts) == MIN_MODULE_COMPONENTS:
-                            # Look for method
-                            methods = await session.execute(
-                                text(
-                                    "SELECT * FROM functions WHERE class_id = :class_id "
-                                    "AND name = :name LIMIT 1"
-                                ),
-                                {"class_id": cls.id, "name": parts[2]},
-                            )
-                            method = methods.scalar_one_or_none() if methods else None
-                            if method:
-                                return {"type": "function", "id": method.id}
-                        else:
-                            # Return the class
-                            return {"type": "class", "id": cls.id}
+                func = funcs.scalar_one_or_none() if funcs else None
+                if func:
+                    return {"type": "function", "id": func.id}
+
+            # Try class.method
+            class_results = await session.find_by_name(
+                parts[0],
+                "class",
+            )
+            if class_results:
+                cls = class_results[0]["entity"]
+                # Look for method in this class
+                methods = await session.execute(
+                    text(
+                        "SELECT * FROM functions WHERE class_id = :class_id "
+                        "AND name = :name LIMIT 1"
+                    ),
+                    {"class_id": cls.id, "name": parts[1]},
+                )
+                method = methods.scalar_one_or_none() if methods else None
+                if method:
+                    return {"type": "function", "id": method.id}
+
+        elif len(parts) >= MIN_MODULE_COMPONENTS:
+            # module.class.method
+            module_results = await session.find_by_name(
+                parts[0],
+                "module",
+            )
+            if module_results:
+                module = module_results[0]["entity"]
+                # Look for class in module
+                classes = await session.execute(
+                    text(
+                        "SELECT * FROM classes WHERE module_id = :module_id "
+                        "AND name = :name LIMIT 1"
+                    ),
+                    {"module_id": module.id, "name": parts[1]},
+                )
+                cls = classes.scalar_one_or_none() if classes else None
+                if cls:
+                    if len(parts) == MIN_MODULE_COMPONENTS:
+                        # Look for method
+                        methods = await session.execute(
+                            text(
+                                "SELECT * FROM functions WHERE class_id = :class_id "
+                                "AND name = :name LIMIT 1"
+                            ),
+                            {"class_id": cls.id, "name": parts[2]},
+                        )
+                        method = methods.scalar_one_or_none() if methods else None
+                        if method:
+                            return {"type": "function", "id": method.id}
+                    else:
+                        # Return the class
+                        return {"type": "class", "id": cls.id}
 
         return None
 

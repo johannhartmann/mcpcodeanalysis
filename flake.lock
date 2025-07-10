@@ -180,11 +180,11 @@
         "uv2nix": "uv2nix_2"
       },
       "locked": {
-        "lastModified": 1751980745,
-        "narHash": "sha256-QSeH1mTII4yUu+q2/IzvOkLnMnhCDz3W+TQcD2b5yak=",
+        "lastModified": 1752133309,
+        "narHash": "sha256-XMB11zTMKaXogsE9PafCmyx9MpMGBiwNZThYFhEmE+c=",
         "owner": "johannhartmann",
         "repo": "viberdash",
-        "rev": "84a1ec5f7ab2aaf7ca758fd56173cc051edde6e0",
+        "rev": "551aed43163489e15fb722ce874c012ee0b4f74a",
         "type": "github"
       },
       "original": {

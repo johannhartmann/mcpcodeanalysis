@@ -7,9 +7,9 @@ from pathlib import Path
 
 import click
 
-from src.mcp_server.config import get_settings
+from src.config import settings
+from src.logger import setup_logging
 from src.mcp_server.server import create_server
-from src.utils.logger import setup_logging
 
 # Default server configuration
 DEFAULT_HOST = "127.0.0.1"
@@ -53,7 +53,7 @@ def serve(host: str, port: int, reload: bool, log_level: str) -> None:  # noqa: 
         logging.getLogger().setLevel(log_level.upper())
 
     # Get settings
-    settings = get_settings()
+    # settings imported globally from src.config
 
     # Override with CLI options
     if host != DEFAULT_HOST:

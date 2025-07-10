@@ -9,7 +9,7 @@ from typing import Any, Optional
 
 from tree_sitter import Language, Node, Parser, Tree
 
-from src.utils.logger import get_logger
+from src.logger import get_logger
 
 logger = get_logger(__name__)
 

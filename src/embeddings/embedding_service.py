@@ -15,8 +15,8 @@ from src.database.models import (
     Module,
 )
 from src.embeddings.embedding_generator import EmbeddingGenerator
+from src.logger import get_logger
 from src.utils.exceptions import EmbeddingError, NotFoundError
-from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

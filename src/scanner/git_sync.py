@@ -12,9 +12,9 @@ from pathlib import Path
 import git
 from git.exc import GitCommandError, InvalidGitRepositoryError
 
-from src.mcp_server.config import get_settings
+from src.config import settings
+from src.logger import get_logger
 from src.utils.exceptions import RepositoryError, ValidationError
-from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -26,8 +26,10 @@ class GitSync:
     """Git repository synchronization manager."""
 
     def __init__(self) -> None:
-        self.settings = get_settings()
-        self.storage_path = self.settings.scanner.storage_path
+        # Using global settings from src.config
+        self.storage_path = Path(
+            settings.scanner.root_paths[0] if settings.scanner.root_paths else "."
+        )
         self.storage_path.mkdir(parents=True, exist_ok=True)
 
     def _get_repo_path(self, owner: str, name: str) -> Path:

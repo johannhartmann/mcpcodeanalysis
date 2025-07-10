@@ -2,8 +2,8 @@
 
 from typing import Any
 
-from src.mcp_server.config import config
-from src.utils.logger import get_logger
+from src.config import settings
+from src.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -15,8 +15,8 @@ class CodeChunker:
     """Chunk code into logical units for embedding."""
 
     def __init__(self) -> None:
-        self.chunk_size = config.parser.chunk_size
-        self.max_tokens = config.embeddings.max_tokens
+        self.chunk_size = settings.parser.chunk_size
+        self.max_tokens = settings.embeddings.max_tokens
 
     def chunk_by_entity(
         self,

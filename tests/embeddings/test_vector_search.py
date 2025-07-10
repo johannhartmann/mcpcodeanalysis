@@ -31,7 +31,9 @@ def mock_embeddings():
 @pytest.fixture
 def vector_search(mock_db_session, mock_embeddings):
     """Create vector search fixture."""
-    with patch("src.embeddings.vector_search.get_settings"):
+    with patch("src.embeddings.vector_search.settings") as mock_settings:
+        mock_settings.openai_api_key.get_secret_value.return_value = "test-key"
+        mock_settings.embeddings.model = "text-embedding-ada-002"
         return VectorSearch(mock_db_session)
 
 

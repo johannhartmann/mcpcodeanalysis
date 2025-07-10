@@ -5,10 +5,9 @@ from typing import Any
 
 from sqlalchemy import text
 
-from src.database import get_repositories, get_session
 from src.database.models import Class, File, Function, Module
 from src.indexer.embeddings import EmbeddingGenerator
-from src.utils.logger import get_logger
+from src.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -37,82 +36,83 @@ class AnalyzeTool:
             Dictionary containing dependency analysis
         """
         try:
-            async with get_session() as session, get_repositories(session) as repos:
-                # Find the file
-                file = None
-                all_files = await session.execute(
-                    "SELECT * FROM files WHERE path LIKE :pattern",
-                    {"pattern": f"%{module_path}"},
-                )
+            # TODO: Need to implement database session handling
+            # async with get_session() as session:
+            # Find the file
+            file = None
+            all_files = await session.execute(
+                "SELECT * FROM files WHERE path LIKE :pattern",
+                {"pattern": f"%{module_path}"},
+            )
 
-                for f in all_files:
-                    if f.path.endswith(module_path):
-                        file = f
-                        break
+            for f in all_files:
+                if f.path.endswith(module_path):
+                    file = f
+                    break
 
-                if not file:
-                    return {"error": f"Module not found: {module_path}"}
+            if not file:
+                return {"error": f"Module not found: {module_path}"}
 
-                # Get imports
-                imports = await session.execute(
-                    text("SELECT * FROM imports WHERE file_id = :file_id"),
-                    {"file_id": file.id},
-                )
-                import_list = list(imports.scalars().all()) if imports else []
+            # Get imports
+            imports = await session.execute(
+                text("SELECT * FROM imports WHERE file_id = :file_id"),
+                {"file_id": file.id},
+            )
+            import_list = list(imports.scalars().all()) if imports else []
 
-                # Analyze dependencies
-                analysis = {
-                    "module": module_path,
-                    "direct_dependencies": [],
-                    "external_dependencies": [],
-                    "internal_dependencies": [],
-                    "dependency_graph": {},
-                    "circular_dependencies": [],
+            # Analyze dependencies
+            analysis = {
+                "module": module_path,
+                "direct_dependencies": [],
+                "external_dependencies": [],
+                "internal_dependencies": [],
+                "dependency_graph": {},
+                "circular_dependencies": [],
+            }
+
+            # Categorize imports
+            for imp in import_list:
+                dep_info = {
+                    "module": imp.imported_from or "direct import",
+                    "names": imp.imported_names,
+                    "statement": imp.import_statement,
+                    "is_relative": imp.is_relative,
                 }
 
-                # Categorize imports
-                for imp in import_list:
-                    dep_info = {
-                        "module": imp.imported_from or "direct import",
-                        "names": imp.imported_names,
-                        "statement": imp.import_statement,
-                        "is_relative": imp.is_relative,
-                    }
+                # Categorize
+                if imp.imported_from:
+                    module_name = imp.imported_from.split(".")[0]
+                    if module_name in [
+                        "os",
+                        "sys",
+                        "json",
+                        "datetime",
+                        "typing",
+                        "pathlib",
+                    ]:
+                        dep_info["type"] = "stdlib"
+                        analysis["external_dependencies"].append(dep_info)
+                    elif imp.is_relative or module_name == "src":
+                        dep_info["type"] = "internal"
+                        analysis["internal_dependencies"].append(dep_info)
+                    else:
+                        dep_info["type"] = "third_party"
+                        analysis["external_dependencies"].append(dep_info)
 
-                    # Categorize
-                    if imp.imported_from:
-                        module_name = imp.imported_from.split(".")[0]
-                        if module_name in [
-                            "os",
-                            "sys",
-                            "json",
-                            "datetime",
-                            "typing",
-                            "pathlib",
-                        ]:
-                            dep_info["type"] = "stdlib"
-                            analysis["external_dependencies"].append(dep_info)
-                        elif imp.is_relative or module_name == "src":
-                            dep_info["type"] = "internal"
-                            analysis["internal_dependencies"].append(dep_info)
-                        else:
-                            dep_info["type"] = "third_party"
-                            analysis["external_dependencies"].append(dep_info)
+                analysis["direct_dependencies"].append(dep_info)
 
-                    analysis["direct_dependencies"].append(dep_info)
+            # Build dependency graph (simplified)
+            analysis["dependency_graph"] = {
+                "module": module_path,
+                "imports": len(import_list),
+                "imported_by": await self._find_importers(repos, module_path),
+            }
 
-                # Build dependency graph (simplified)
-                analysis["dependency_graph"] = {
-                    "module": module_path,
-                    "imports": len(import_list),
-                    "imported_by": await self._find_importers(repos, module_path),
-                }
+            # Check for circular dependencies (simplified)
+            # This would need more sophisticated analysis in practice
+            analysis["circular_dependencies"] = []
 
-                # Check for circular dependencies (simplified)
-                # This would need more sophisticated analysis in practice
-                analysis["circular_dependencies"] = []
-
-                return analysis
+            return analysis
 
         except Exception as e:
             logger.exception("Error in analyze_dependencies: %s")
@@ -131,30 +131,32 @@ class AnalyzeTool:
         try:
             suggestions = []
 
-            async with get_session() as session, get_repositories(session) as repos:
-                # Parse the code path to find entity
-                entity_info = await self._find_entity_by_path(repos, code_path)
+            # TODO: Need to implement database session handling
+            # async with get_session() as session:
+            # Parse the code path to find entity
+            repos = {}  # Placeholder for now
+            entity_info = await self._find_entity_by_path(repos, code_path)
 
-                if not entity_info:
-                    return [
-                        {
-                            "error": f"Entity not found: {code_path}",
-                            "suggestions": [],
-                        },
-                    ]
+            if not entity_info:
+                return [
+                    {
+                        "error": f"Entity not found: {code_path}",
+                        "suggestions": [],
+                    },
+                ]
 
-                entity = entity_info["entity"]
-                entity_type = entity_info["type"]
+            entity = entity_info["entity"]
+            entity_type = entity_info["type"]
 
-                # Analyze based on entity type
-                if entity_type == "function":
-                    suggestions.extend(await self._analyze_function(entity))
-                elif entity_type == "class":
-                    suggestions.extend(await self._analyze_class(repos, entity))
-                elif entity_type == "module":
-                    suggestions.extend(await self._analyze_module(repos, entity))
+            # Analyze based on entity type
+            if entity_type == "function":
+                suggestions.extend(await self._analyze_function(entity))
+            elif entity_type == "class":
+                suggestions.extend(await self._analyze_class(repos, entity))
+            elif entity_type == "module":
+                suggestions.extend(await self._analyze_module(repos, entity))
 
-                return suggestions
+            return suggestions
 
         except Exception as e:
             logger.exception("Error in suggest_refactoring: %s")
@@ -176,34 +178,35 @@ class AnalyzeTool:
                 code_snippet,
             )
 
-            async with get_session() as session, get_repositories(session) as repos:
-                # Search for similar embeddings
-                similar = await repos["embedding"].search_similar(
-                    snippet_embedding,
-                    limit=20,
-                    threshold=0.8,
-                    embedding_type="raw",
+            # TODO: Need to implement database session handling
+            # async with get_session() as session:
+            # Search for similar embeddings
+            similar = await session.search_similar(
+                snippet_embedding,
+                limit=20,
+                threshold=0.8,
+                embedding_type="raw",
+            )
+
+            results = []
+            for embedding, similarity in similar:
+                # Get entity details
+                entity_data = await self._get_entity_details(
+                    repos,
+                    embedding.entity_type,
+                    embedding.entity_id,
                 )
 
-                results = []
-                for embedding, similarity in similar:
-                    # Get entity details
-                    entity_data = await self._get_entity_details(
-                        repos,
-                        embedding.entity_type,
-                        embedding.entity_id,
+                if entity_data:
+                    results.append(
+                        {
+                            "similarity": round(similarity, 3),
+                            "entity": entity_data,
+                            "matched_content": embedding.content[:200] + "...",
+                        },
                     )
 
-                    if entity_data:
-                        results.append(
-                            {
-                                "similarity": round(similarity, 3),
-                                "entity": entity_data,
-                                "matched_content": embedding.content[:200] + "...",
-                            },
-                        )
-
-                return results
+            return results
 
         except Exception as e:
             logger.exception("Error in find_similar_code: %s")
@@ -220,13 +223,14 @@ class AnalyzeTool:
             Hierarchical structure information
         """
         try:
-            async with get_session() as session, get_repositories(session) as repos:
-                # Check if it's a file or directory
-                if path.endswith(".py"):
-                    # Single module
-                    return await self._get_module_structure(repos, path)
-                # Package/directory
-                return await self._get_package_structure(repos, path)
+            # TODO: Need to implement database session handling
+            # async with get_session() as session:
+            # Check if it's a file or directory
+            if path.endswith(".py"):
+                # Single module
+                return await self._get_module_structure(repos, path)
+            # Package/directory
+            return await self._get_package_structure(repos, path)
 
         except Exception as e:
             logger.exception("Error in get_code_structure: %s")
@@ -238,7 +242,7 @@ class AnalyzeTool:
         module_path: str,
     ) -> list[str]:
         """Find modules that import this module."""
-        session = repos["repository"].session
+        session = session.session
         importers = []
 
         # Extract module name from path
@@ -268,7 +272,7 @@ class AnalyzeTool:
 
         if len(parts) == 1:
             # Could be function, class, or module
-            results = await repos["code_entity"].find_by_name(parts[0])
+            results = await session.find_by_name(parts[0])
             if results:
                 return {"entity": results[0]["entity"], "type": results[0]["type"]}
 
@@ -332,7 +336,7 @@ class AnalyzeTool:
     ) -> list[dict[str, Any]]:
         """Analyze a class for refactoring suggestions."""
         suggestions = []
-        session = repos["repository"].session
+        session = session.session
 
         # Get methods
         methods = await session.execute(
@@ -394,10 +398,10 @@ class AnalyzeTool:
     ) -> list[dict[str, Any]]:
         """Analyze a module for refactoring suggestions."""
         suggestions = []
-        session = repos["repository"].session
+        session = session.session
 
         # Get imports
-        file = await repos["file"].get_by_id(module.file_id)
+        file = await session.get_by_id(module.file_id)
         if file:
             imports = await session.execute(
                 text("SELECT * FROM imports WHERE file_id = :file_id"),
@@ -435,7 +439,7 @@ class AnalyzeTool:
         entity_id: int,
     ) -> dict[str, Any] | None:
         """Get entity details for similarity results."""
-        session = repos["repository"].session
+        session = session.session
 
         if entity_type == "function":
             func = await session.get(Function, entity_id)
@@ -443,7 +447,7 @@ class AnalyzeTool:
                 module = await session.get(Module, func.module_id)
                 file = await session.get(File, module.file_id) if module else None
                 repo = (
-                    await repos["repository"].get_by_id(file.repository_id)
+                    await session.get_by_id(file.repository_id)
                     if file
                     else None
                 )
@@ -467,7 +471,7 @@ class AnalyzeTool:
         module_path: str,
     ) -> dict[str, Any]:
         """Get structure of a single module."""
-        session = repos["repository"].session
+        session = session.session
 
         # Find the file
         file = None

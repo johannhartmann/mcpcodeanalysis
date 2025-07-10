@@ -3,8 +3,8 @@
 import json
 import logging
 
-from src.mcp_server.config import LoggingConfig
-from src.utils.logger import JSONFormatter, StructuredLogger, get_logger, setup_logging
+from src.models import LoggingConfig
+from src.logger import get_logger, setup_logging
 
 
 class TestJSONFormatter:

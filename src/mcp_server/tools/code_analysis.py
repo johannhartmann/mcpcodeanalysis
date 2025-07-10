@@ -10,8 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.database.models import Class, File, Function, Import, Module
+from src.logger import get_logger
 from src.parser.code_extractor import CodeExtractor
-from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -78,7 +78,7 @@ class CodeAnalysisTools:
         self.mcp = mcp
         self.code_extractor = CodeExtractor()
 
-    async def register_tools(self):
+    async def register_tools(self) -> None:
         """Register all code analysis tools."""
 
         @self.mcp.tool(name="get_code", description="Get code content for an entity")

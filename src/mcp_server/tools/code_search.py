@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.embeddings.domain_search import DomainAwareSearch, DomainSearchScope
 from src.embeddings.vector_search import SearchScope, VectorSearch
-from src.utils.logger import get_logger
+from src.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -100,7 +100,7 @@ class CodeSearchTools:
         self.vector_search = VectorSearch(db_session)
         self.domain_search = DomainAwareSearch(db_session)
 
-    async def register_tools(self):
+    async def register_tools(self) -> None:
         """Register all code search tools."""
         if self.vector_search:
             # Semantic search tools

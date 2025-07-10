@@ -2,9 +2,9 @@
 
 from typing import Any
 
+from src.logger import get_logger
 from src.query.ranking import ResultRanker
 from src.query.search_engine import SearchEngine
-from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

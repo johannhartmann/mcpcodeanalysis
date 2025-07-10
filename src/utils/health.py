@@ -1,15 +1,17 @@
 """Health check utilities for MCP Code Analysis Server."""
 
 import asyncio
+import os
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import httpx
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from src.mcp_server.config import get_settings
-from src.utils.logger import get_logger
+from src.config import get_database_url, settings
+from src.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -66,12 +68,12 @@ class DatabaseHealthCheck(HealthCheck):
 
     def __init__(self) -> None:
         super().__init__("database")
-        self.settings = get_settings()
+        # Using global settings from src.config
 
     async def _perform_check(self) -> dict[str, Any]:
         """Check database connectivity and pgvector extension."""
         engine = create_async_engine(
-            self.settings.get_database_url().replace(
+            get_database_url().replace(
                 "postgresql://",
                 "postgresql+asyncpg://",
             ),
@@ -131,7 +133,7 @@ class GitHubHealthCheck(HealthCheck):
 
     def __init__(self) -> None:
         super().__init__("github")
-        self.settings = get_settings()
+        # Using global settings from src.config
 
     async def _perform_check(self) -> dict[str, Any]:
         """Check GitHub API connectivity and rate limits."""
@@ -170,7 +172,7 @@ class OpenAIHealthCheck(HealthCheck):
 
     def __init__(self) -> None:
         super().__init__("openai")
-        self.settings = get_settings()
+        # Using global settings from src.config
 
     async def _perform_check(self) -> dict[str, Any]:
         """Check OpenAI API connectivity."""
@@ -179,7 +181,7 @@ class OpenAIHealthCheck(HealthCheck):
             response = await client.get(
                 "https://api.openai.com/v1/models",
                 headers={
-                    "Authorization": f"Bearer {self.settings.openai_api_key.get_secret_value()}",
+                    "Authorization": f"Bearer {os.getenv('OPENAI_API_KEY', '')}",
                 },
                 timeout=10.0,
             )
@@ -199,8 +201,8 @@ class OpenAIHealthCheck(HealthCheck):
             return {
                 "connected": True,
                 "embedding_models_available": embedding_models,
-                "configured_model": self.settings.embeddings.model,
-                "model_available": self.settings.embeddings.model in embedding_models,
+                "configured_model": settings.embeddings.model,
+                "model_available": settings.embeddings.model in embedding_models,
             }
 
 
@@ -209,16 +211,18 @@ class DiskSpaceHealthCheck(HealthCheck):
 
     def __init__(self) -> None:
         super().__init__("disk_space")
-        self.settings = get_settings()
+        # Using global settings from src.config
 
     async def _perform_check(self) -> dict[str, Any]:
         """Check available disk space."""
         import shutil
 
         paths_to_check = {
-            "repositories": self.settings.scanner.storage_path,
-            "cache": self.settings.embeddings.cache_dir,
-            "logs": self.settings.logging.file_path.parent,
+            "repositories": (
+                settings.scanner.root_paths[0] if settings.scanner.root_paths else "."
+            ),
+            "cache": settings.embeddings.cache_dir,
+            "logs": Path(settings.logging.file_path).parent,
         }
 
         results = {}
@@ -299,7 +303,7 @@ class HealthCheckManager:
             "checks": checks,
             "version": "0.1.0",  # TODO(@dev): Get from package
             "environment": {
-                "debug": get_settings().debug,
+                "debug": settings.debug,
             },
         }
 

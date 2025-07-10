@@ -39,7 +39,7 @@ def mock_session():
 @pytest.fixture
 def mcp_server(mock_settings):
     """Create MCP server fixture."""
-    with patch("src.mcp_server.server.get_settings", return_value=mock_settings):
+    with patch("src.mcp_server.server.settings", mock_settings):
         return create_server()
 
 

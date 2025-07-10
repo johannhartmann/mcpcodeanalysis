@@ -3,9 +3,9 @@
 from pathlib import Path
 from typing import Any
 
+from src.logger import get_logger
 from src.parser.treesitter_parser import PythonParser as TreeSitterPythonParser
 from src.utils.exceptions import ParserError
-from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

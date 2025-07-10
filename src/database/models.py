@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 try:
     from pgvector.sqlalchemy import Vector
 except ImportError:
     # For SQLite tests, use JSON instead of Vector
-    def Vector(dim):  # noqa: ARG001, N802
+    def Vector(dim: int) -> type[JSON]:  # noqa: ARG001, N802
         return JSON
+
 
 
 from sqlalchemy import (
@@ -27,44 +28,47 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+
+# SQLAlchemy compatibility
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
-# Type hints for SQLAlchemy 2.0 style
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Mapped
-else:
-    # Runtime compatibility
-    Mapped = Any
+# Create base class
+Base: Any = declarative_base()
 
-Base = declarative_base()
+# For type annotations (using Any to avoid import errors)
+Mapped = Any
+mapped_column = Column
 
 
 class Repository(Base):
     """GitHub repository model."""
 
     __tablename__ = "repositories"
+    __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
     github_url = Column(String(500), unique=True, nullable=False)
     owner = Column(String(255), nullable=False)
     name = Column(String(255), nullable=False)
     default_branch = Column(String(255), default="main")
-    access_token_id = Column(String(255))  # Reference to secure token storage
+    access_token_id = Column(String(255), nullable=True)
     last_synced = Column(DateTime, default=func.now())
     created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime, default=func.now(), onupdate=func.now()
+    )
     is_active = Column(Boolean, default=True)
-    webhook_id = Column(String(255))
-    repo_metadata = Column(JSON, default={})
+    webhook_id = Column(String(255), nullable=True)
+    repo_metadata = Column(JSON, default=dict)
 
     # Relationships
-    files: Mapped[list["File"]] = relationship(
+    files: Any = relationship(
         "File",
         back_populates="repository",
         cascade="all, delete-orphan",
     )
-    commits: Mapped[list["Commit"]] = relationship(
+    commits: Any = relationship(
         "Commit",
         back_populates="repository",
         cascade="all, delete-orphan",
@@ -77,9 +81,12 @@ class File(Base):
     """Source code file model."""
 
     __tablename__ = "files"
+    __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
-    repository_id = Column(Integer, ForeignKey("repositories.id"), nullable=False)
+    repository_id = Column(
+        Integer, ForeignKey("repositories.id"), nullable=False
+    )
     path = Column(String(1000), nullable=False)
     content_hash = Column(String(64))  # SHA-256 hash
     git_hash = Column(String(40))  # Git blob hash
@@ -88,22 +95,24 @@ class File(Base):
     language = Column(String(50))
     last_modified = Column(DateTime, default=func.now())
     created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime, default=func.now(), onupdate=func.now()
+    )
     is_deleted = Column(Boolean, default=False)
 
     # Relationships
-    repository: Mapped[Repository] = relationship("Repository", back_populates="files")
-    modules: Mapped[list["Module"]] = relationship(
+    repository: Any = relationship("Repository", back_populates="files")
+    modules: Any = relationship(
         "Module",
         back_populates="file",
         cascade="all, delete-orphan",
     )
-    imports: Mapped[list["Import"]] = relationship(
+    imports: Any = relationship(
         "Import",
         back_populates="file",
         cascade="all, delete-orphan",
     )
-    embeddings: Mapped[list["CodeEmbedding"]] = relationship(
+    embeddings: Any = relationship(
         "CodeEmbedding",
         back_populates="file",
         cascade="all, delete-orphan",
@@ -121,24 +130,29 @@ class Module(Base):
     """Python module model."""
 
     __tablename__ = "modules"
+    __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
-    file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
+    file_id = Column(
+        Integer, ForeignKey("files.id"), nullable=False
+    )
     name = Column(String(255), nullable=False)
     docstring = Column(Text)
     start_line = Column(Integer)
     end_line = Column(Integer)
     created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime, default=func.now(), onupdate=func.now()
+    )
 
     # Relationships
-    file: Mapped[File] = relationship("File", back_populates="modules")
-    classes: Mapped[list["Class"]] = relationship(
+    file: Any = relationship("File", back_populates="modules")
+    classes: Any = relationship(
         "Class",
         back_populates="module",
         cascade="all, delete-orphan",
     )
-    functions: Mapped[list["Function"]] = relationship(
+    functions: Any = relationship(
         "Function",
         primaryjoin="and_(Module.id==Function.module_id, Function.class_id==None)",
         back_populates="module",
@@ -155,22 +169,29 @@ class Class(Base):
     """Class definition model."""
 
     __tablename__ = "classes"
+    __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
-    module_id = Column(Integer, ForeignKey("modules.id"), nullable=False)
+    module_id = Column(
+        Integer, ForeignKey("modules.id"), nullable=False
+    )
     name = Column(String(255), nullable=False)
     docstring = Column(Text)
-    base_classes = Column(JSON, default=[])  # List of base class names
-    decorators = Column(JSON, default=[])  # List of decorator names
+    base_classes = Column(JSON, default=[]
+    )  # List of base class names
+    decorators = Column(JSON, default=[]
+    )  # List of decorator names
     start_line = Column(Integer)
     end_line = Column(Integer)
     is_abstract = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime, default=func.now(), onupdate=func.now()
+    )
 
     # Relationships
-    module: Mapped[Module] = relationship("Module", back_populates="classes")
-    methods: Mapped[list["Function"]] = relationship(
+    module: Any = relationship("Module", back_populates="classes")
+    methods: Any = relationship(
         "Function",
         primaryjoin="Class.id==Function.class_id",
         back_populates="parent_class",
@@ -187,15 +208,22 @@ class Function(Base):
     """Function/method definition model."""
 
     __tablename__ = "functions"
+    __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
-    module_id = Column(Integer, ForeignKey("modules.id"), nullable=False)
-    class_id = Column(Integer, ForeignKey("classes.id"), nullable=True)
+    module_id = Column(
+        Integer, ForeignKey("modules.id"), nullable=False
+    )
+    class_id = Column(
+        Integer, ForeignKey("classes.id"), nullable=True
+    )
     name = Column(String(255), nullable=False)
     docstring = Column(Text)
-    parameters = Column(JSON, default=[])  # List of parameter info
+    parameters = Column(JSON, default=[]
+    )  # List of parameter info
     return_type = Column(String(255))
-    decorators = Column(JSON, default=[])  # List of decorator names
+    decorators = Column(JSON, default=[]
+    )  # List of decorator names
     start_line = Column(Integer)
     end_line = Column(Integer)
     is_async = Column(Boolean, default=False)
@@ -205,15 +233,17 @@ class Function(Base):
     is_classmethod = Column(Boolean, default=False)
     complexity = Column(Integer)  # Cyclomatic complexity
     created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime, default=func.now(), onupdate=func.now()
+    )
 
     # Relationships
-    module: Mapped[Module] = relationship(
+    module: Any = relationship(
         "Module",
         back_populates="functions",
         foreign_keys=[module_id],
     )
-    parent_class: Mapped[Class | None] = relationship(
+    parent_class: Any = relationship(
         "Class",
         back_populates="methods",
         foreign_keys=[class_id],
@@ -230,19 +260,25 @@ class Import(Base):
     """Import statement model."""
 
     __tablename__ = "imports"
+    __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
-    file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
+    file_id = Column(
+        Integer, ForeignKey("files.id"), nullable=False
+    )
     import_statement = Column(String(500), nullable=False)
     module_name = Column(String(255))
-    imported_names = Column(JSON, default=[])  # List of imported names
+    imported_names = Column(JSON, default=[]
+    )  # List of imported names
     is_relative = Column(Boolean, default=False)
-    level = Column(Integer, default=0)  # Relative import level
+    level = Column(
+        Integer, default=0
+    )  # Relative import level
     line_number = Column(Integer)
     created_at = Column(DateTime, default=func.now())
 
     # Relationships
-    file: Mapped[File] = relationship("File", back_populates="imports")
+    file: Any = relationship("File", back_populates="imports")
 
     __table_args__ = (
         Index("idx_import_file", "file_id"),
@@ -254,22 +290,26 @@ class Commit(Base):
     """Git commit model."""
 
     __tablename__ = "commits"
+    __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
-    repository_id = Column(Integer, ForeignKey("repositories.id"), nullable=False)
+    repository_id = Column(
+        Integer, ForeignKey("repositories.id"), nullable=False
+    )
     sha = Column(String(40), unique=True, nullable=False)
     message = Column(Text)
     author = Column(String(255))
     author_email = Column(String(255))
     timestamp = Column(DateTime, nullable=False)
-    files_changed = Column(JSON, default=[])  # List of file paths
+    files_changed = Column(JSON, default=[]
+    )  # List of file paths
     additions = Column(Integer, default=0)
     deletions = Column(Integer, default=0)
     processed = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
 
     # Relationships
-    repository: Mapped[Repository] = relationship(
+    repository: Any = relationship(
         "Repository", back_populates="commits"
     )
 
@@ -284,6 +324,7 @@ class CodeEmbedding(Base):
     """Code embedding model with pgvector."""
 
     __tablename__ = "code_embeddings"
+    __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
     entity_type = Column(
@@ -291,21 +332,27 @@ class CodeEmbedding(Base):
         nullable=False,
     )
     entity_id = Column(Integer, nullable=False)
-    file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
+    file_id = Column(
+        Integer, ForeignKey("files.id"), nullable=False
+    )
     embedding_type = Column(
         Enum("raw", "interpreted", name="embedding_type"),
         nullable=False,
     )
     # Use Vector for PostgreSQL, JSON for SQLite
-    embedding = Column(Vector(1536), nullable=False)  # OpenAI ada-002 dimension
+    embedding = Column(
+        Vector(1536), nullable=False
+    )  # OpenAI ada-002 dimension
     content = Column(Text, nullable=False)
     tokens = Column(Integer)
     repo_metadata = Column(JSON, default={})
     created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime, default=func.now(), onupdate=func.now()
+    )
 
     # Relationships
-    file: Mapped[File] = relationship("File", back_populates="embeddings")
+    file: Any = relationship("File", back_populates="embeddings")
 
     __table_args__ = (
         Index("idx_embedding_entity", "entity_type", "entity_id"),
@@ -319,10 +366,13 @@ class SearchHistory(Base):
     """Search query history for analytics."""
 
     __tablename__ = "search_history"
+    __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
     query = Column(Text, nullable=False)
-    query_type = Column(String(50))  # search_code, find_definition, etc.
+    query_type = Column(
+        String(50)
+    )  # search_code, find_definition, etc.
     results_count = Column(Integer, default=0)
     response_time_ms = Column(Float)
     user_id = Column(String(255))  # Optional user tracking

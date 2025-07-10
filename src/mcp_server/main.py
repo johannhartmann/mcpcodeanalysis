@@ -7,14 +7,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastmcp import FastMCP
 
+from src.config import settings  # TODO(johann): Review imports: config, settings
 from src.database import init_database
-from src.mcp_server.config import config, settings
+from src.logger import get_logger, setup_logging
 from src.mcp_server.tools.analyze import AnalyzeTool
 from src.mcp_server.tools.explain import ExplainTool
 from src.mcp_server.tools.find import FindTool
 from src.mcp_server.tools.repository import RepositoryTool
 from src.mcp_server.tools.search import SearchTool
-from src.utils.logger import get_logger, setup_logging
 
 logger = get_logger(__name__)
 
@@ -53,7 +53,7 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=config.mcp.allow_origins,
+    allow_origins=settings.mcp.allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -143,7 +143,7 @@ async def sync_repository(repository_url: str) -> dict[str, Any]:
 
 # Health check endpoint
 @app.get("/health")
-async def health_check():
+async def health_check() -> dict[str, str]:
     """Health check endpoint."""
     return {
         "status": "healthy",
@@ -165,14 +165,14 @@ def main() -> None:
     # Run the server
     import uvicorn
 
-    logger.info("Starting server on %s:%s", settings.mcp_host, settings.mcp_port)
+    logger.info("Starting server on %s:%s", settings.mcp.host, settings.mcp.port)
 
     uvicorn.run(
         "src.mcp_server.main:app",
-        host=settings.mcp_host,
-        port=settings.mcp_port,
-        reload=settings.reload,
-        log_level=settings.log_level.lower(),
+        host=settings.mcp.host,
+        port=settings.mcp.port,
+        reload=getattr(settings, "reload", False),
+        log_level=settings.logging.level.lower(),
     )
 
 

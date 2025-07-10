@@ -1,5 +1,6 @@
 """MCP Code Analysis Server implementation - Fixed version."""
 
+from collections.abc import AsyncGenerator
 from typing import Any
 
 from fastmcp import FastMCP
@@ -8,11 +9,11 @@ from sqlalchemy import select
 
 from src.database.init_db import get_session_factory, init_database
 from src.database.models import Repository
-from src.mcp_server.config import get_settings
+from src.logger import get_logger
 from src.mcp_server.tools.code_analysis import CodeAnalysisTools
 from src.mcp_server.tools.code_search import CodeSearchTools
 from src.mcp_server.tools.repository_management import RepositoryManagementTools
-from src.utils.logger import get_logger
+from src.models import RepositoryConfig
 
 logger = get_logger(__name__)
 
@@ -27,7 +28,7 @@ _settings = None
 
 async def initialize_server() -> None:
     """Initialize server resources."""
-    global _engine, _session_factory, _settings
+    global _engine, _session_factory
 
     if _engine is not None:
         return  # Already initialized
@@ -35,7 +36,7 @@ async def initialize_server() -> None:
     logger.info("Starting MCP Code Analysis Server")
 
     # Load settings
-    _settings = get_settings()
+    # settings imported globally from src.config
 
     # Initialize database
     logger.info("Initializing database connection")
@@ -47,7 +48,7 @@ async def initialize_server() -> None:
     logger.info("Server initialized successfully")
 
 
-async def get_db_session():
+async def get_db_session() -> AsyncGenerator[Any, None]:
     """Get a database session."""
     if _session_factory is None:
         await initialize_server()
@@ -103,7 +104,6 @@ async def add_repository(
 
             # Scan if requested
             if scan_immediately:
-                from src.mcp_server.config import RepositoryConfig
                 from src.scanner.repository_scanner import RepositoryScanner
 
                 repo_config = RepositoryConfig(
@@ -449,7 +449,7 @@ server = mcp
 app = mcp
 
 
-def create_server():
+def create_server() -> "MockServer":
     """Create server instance for compatibility."""
 
     # Return a mock object that has the required methods
@@ -461,7 +461,7 @@ def create_server():
             if _engine:
                 await _engine.dispose()
 
-        async def scan_repository(self, url, branch=None, generate_embeddings=True):
+        async def scan_repository(self, url: str, branch: str | None = None, generate_embeddings: bool = True) -> dict[str, Any] | None:
             await initialize_server()
             async for session in get_db_session():
                 repo_tools = RepositoryManagementTools(session, mcp)
@@ -475,7 +475,7 @@ def create_server():
                 )
             return None
 
-        async def search(self, query, repository_id=None, limit=10):
+        async def search(self, query: str, repository_id: int | None = None, limit: int = 10) -> dict[str, Any] | None:
             await initialize_server()
             async for session in get_db_session():
                 search_tools = CodeSearchTools(session, mcp)

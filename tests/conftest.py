@@ -11,9 +11,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
+from src.config import settings
 from src.database.models import Base
-from src.mcp_server.config import Settings
-from src.utils.logger import setup_logging
+from src.logger import setup_logging
 
 
 @pytest.fixture(scope="session")
@@ -27,36 +27,94 @@ def event_loop():
 @pytest.fixture(scope="session")
 def test_config_file() -> Generator[Path, None, None]:
     """Create a temporary test configuration file."""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
         f.write(
             """
-repositories:
-  - url: https://github.com/test/repo1
-    branch: main
-  - url: https://github.com/test/repo2
-    branch: develop
+[testing]
+repositories = [
+    {url = "https://github.com/test/repo1", branch = "main"},
+    {url = "https://github.com/test/repo2", branch = "develop"}
+]
 
-scanner:
-  sync_interval: 60
-  storage_path: /tmp/test_repos
+[testing.scanner]
+sync_interval = 60
+root_paths = ["/tmp/test_repos"]
+exclude_patterns = ["__pycache__", "*.pyc", ".git"]
+max_file_size_mb = 10
+use_git = true
+git_branch = "main"
 
-embeddings:
-  model: text-embedding-ada-002
-  batch_size: 10
-  use_cache: true
-  cache_dir: /tmp/test_cache
+[testing.embeddings]
+model = "text-embedding-ada-002"
+batch_size = 10
+use_cache = true
+cache_dir = "/tmp/test_cache"
+max_tokens = 8000
+generate_interpreted = true
 
-database:
-  host: localhost
-  port: 5432
-  database: test_code_analysis
-  user: test_user
+[testing.database]
+host = "localhost"
+port = 5432
+database = "test_code_analysis"
+user = "test_user"
+password = "test_pass"
+pool_size = 10
+max_overflow = 20
+vector_dimension = 1536
+index_lists = 100
 
-logging:
-  level: DEBUG
-  format: json
-  file_enabled: false
-  console_enabled: true
+[testing.parser]
+languages = ["python"]
+chunk_size = 100
+max_depth = 10
+extract_docstrings = true
+extract_type_hints = true
+
+[testing.query]
+default_limit = 10
+max_limit = 100
+similarity_threshold = 0.7
+include_context = true
+context_lines = 3
+
+[testing.query.ranking_weights]
+semantic_similarity = 0.6
+keyword_match = 0.2
+recency = 0.1
+popularity = 0.1
+
+[testing.mcp]
+host = "0.0.0.0"
+port = 8080
+allow_origins = ["*"]
+rate_limit_enabled = false
+rate_limit_per_minute = 60
+request_timeout = 30
+
+[testing.indexing]
+update_interval = 300
+parallel_workers = 4
+max_memory_mb = 2048
+report_progress = true
+progress_interval = 100
+
+[testing.logging]
+level = "DEBUG"
+format = "json"
+file_enabled = false
+console_enabled = true
+file_path = "logs/test.log"
+file_rotation = "daily"
+file_retention_days = 7
+console_colorized = false
+
+[testing.monitoring]
+metrics_enabled = false
+metrics_port = 9090
+health_check_enabled = false
+health_check_path = "/health"
+profiling_enabled = false
+profiling_path = "profiles/"
 """,
         )
         temp_path = Path(f.name)
@@ -69,22 +127,21 @@ logging:
 
 
 @pytest.fixture
-def test_settings(test_config_file, monkeypatch) -> Settings:
+def test_settings(test_config_file, monkeypatch):
     """Create test settings."""
     # Set required environment variables
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test-key")
+    monkeypatch.setenv("ENV_FOR_DYNACONF", "testing")
     monkeypatch.setenv(
         "DATABASE_URL",
         "postgresql://test_user:test_pass@localhost:5432/test_code_analysis",
     )
-    monkeypatch.setenv("CONFIG_PATH", str(test_config_file))
+    monkeypatch.setenv("DYNACONF_SETTINGS_FILES", str(test_config_file))
 
-    # Clear singleton
-    from src.mcp_server import config
+    # Force reload settings
+    settings.reload()
 
-    config._settings = None
-
-    return Settings.from_yaml(test_config_file)
+    return settings
 
 
 @pytest.fixture

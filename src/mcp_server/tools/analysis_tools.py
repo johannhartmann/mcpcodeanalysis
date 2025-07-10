@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.pattern_analyzer import DomainPatternAnalyzer
-from src.utils.logger import get_logger
+from src.logger import get_logger
 
 logger = get_logger(__name__)
 

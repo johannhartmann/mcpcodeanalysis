@@ -9,9 +9,9 @@ from typing import Any
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
-from src.mcp_server.config import config
+from src.config import settings
+from src.logger import get_logger
 from src.utils.exceptions import ValidationError
-from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -27,7 +27,9 @@ class CodeFileHandler(FileSystemEventHandler):
     ) -> None:
         self.callback = callback
         self.extensions = extensions or {".py"}
-        self.exclude_patterns = exclude_patterns or set(config.scanner.exclude_patterns)
+        self.exclude_patterns = exclude_patterns or set(
+            settings.scanner.exclude_patterns
+        )
         self.pending_changes: dict[str, datetime] = {}
         self.debounce_seconds = 1.0
 

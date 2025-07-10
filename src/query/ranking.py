@@ -3,8 +3,8 @@
 from datetime import UTC, datetime
 from typing import Any
 
-from src.mcp_server.config import config
-from src.utils.logger import get_logger
+from src.config import settings
+from src.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -23,7 +23,7 @@ class ResultRanker:
     """Rank and score search results."""
 
     def __init__(self) -> None:
-        self.weights = config.query.ranking_weights
+        self.weights = settings.query.ranking_weights
 
     def rank_results(
         self,

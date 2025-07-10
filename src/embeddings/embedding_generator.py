@@ -4,9 +4,9 @@ from typing import Any
 
 from langchain_openai import OpenAIEmbeddings
 
-from src.mcp_server.config import get_settings
+from src.config import settings
+from src.logger import get_logger
 from src.parser.code_extractor import CodeExtractor
-from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -19,7 +19,7 @@ class EmbeddingGenerator:
 
     def __init__(self) -> None:
         """Initialize embedding generator."""
-        settings = get_settings()
+        # settings imported globally from src.config
         self.embeddings = OpenAIEmbeddings(
             openai_api_key=settings.openai_api_key.get_secret_value(),
             model=settings.embeddings.model,

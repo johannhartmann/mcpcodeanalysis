@@ -11,14 +11,14 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.config import settings
 from src.database.domain_models import (
     BoundedContext,
     BoundedContextMembership,
     DomainEntity,
     DomainRelationship,
 )
-from src.mcp_server.config import get_settings
-from src.utils.logger import get_logger
+from src.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -51,7 +51,7 @@ class SemanticGraphBuilder:
             db_session: Database session
         """
         self.db_session = db_session
-        settings = get_settings()
+        # settings imported globally from src.config
         self.embeddings = OpenAIEmbeddings(
             openai_api_key=settings.openai_api_key.get_secret_value(),
             model=settings.embeddings.model,

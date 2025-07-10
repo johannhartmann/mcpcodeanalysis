@@ -13,9 +13,8 @@ from tenacity import (
     wait_exponential,
 )
 
-from src.mcp_server.config import get_settings
+from src.logger import get_logger
 from src.utils.exceptions import GitHubError, RateLimitError
-from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -30,13 +29,13 @@ class GitHubClient:
 
     def __init__(self, access_token: str | None = None) -> None:
         self.access_token = access_token
-        self.settings = get_settings()
+        # Using global settings from src.config
         self.base_url = "https://api.github.com"
         self._client: httpx.AsyncClient | None = None
-        self._rate_limit_remaining = self.settings.github.api_rate_limit
+        self._rate_limit_remaining = 5000  # Default GitHub API rate limit
         self._rate_limit_reset: datetime | None = None
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "GitHubClient":
         """Async context manager entry."""
         self._client = httpx.AsyncClient(
             headers=self._get_headers(),
@@ -44,7 +43,7 @@ class GitHubClient:
         )
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Async context manager exit."""
         if self._client:
             await self._client.aclose()

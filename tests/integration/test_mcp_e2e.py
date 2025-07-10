@@ -151,7 +151,7 @@ def test_calculator_multiply():
         # Skip the MCP framework and test the core functionality directly
         from unittest.mock import AsyncMock, patch
 
-        from src.mcp_server.config import RepositoryConfig
+        from src.models import RepositoryConfig
         from src.scanner.repository_scanner import RepositoryScanner
 
         # Step 1: Add repository using scanner directly

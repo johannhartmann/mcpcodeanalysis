@@ -8,7 +8,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.models import Commit, File, Repository
-from src.mcp_server.config import RepositoryConfig
+from src.models import RepositoryConfig
 from src.scanner.repository_scanner import RepositoryScanner
 from src.utils.exceptions import RepositoryError
 

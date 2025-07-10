@@ -1,16 +1,18 @@
 """Repository scanner that integrates GitHub monitoring, Git sync, and database."""
 
+import os
 from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
+from src.config import settings
 from src.database.models import Commit, File, Repository
-from src.mcp_server.config import RepositoryConfig, get_settings
+from src.logger import get_logger
+from src.models import RepositoryConfig
 from src.scanner.code_processor import CodeProcessor
 from src.scanner.git_sync import GitSync
 from src.scanner.github_client import GitHubClient
-from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -23,7 +25,7 @@ class RepositoryScanner:
         db_session: AsyncSession,
     ) -> None:
         self.db_session = db_session
-        self.settings = get_settings()
+        # Using global settings from src.config
         self.git_sync = GitSync()
         self.code_processor = None  # Will be initialized per repository
         self._github_clients: dict[str, GitHubClient] = {}
@@ -135,9 +137,9 @@ class RepositoryScanner:
 
         # Process scanned files to extract code entities
         # Create processor with the repository path and domain analysis settings
-        enable_domain = (
-            repo_config.enable_domain_analysis or self.settings.domain_analysis.enabled
-        )
+        enable_domain = repo_config.enable_domain_analysis or getattr(
+            settings, "domain_analysis", {}
+        ).get("enabled", False)
         code_processor = CodeProcessor(
             self.db_session,
             repository_path=git_repo.working_dir,
@@ -410,7 +412,7 @@ class RepositoryScanner:
         logger.info("Starting scan of all repositories")
 
         results = []
-        for repo_config in self.settings.repositories:
+        for repo_config in settings.repositories:
             try:
                 result = await self.scan_repository(
                     repo_config, force_full_scan=force_full_scan
@@ -445,13 +447,13 @@ class RepositoryScanner:
 
     async def setup_webhooks(self) -> dict[str, any]:
         """Set up webhooks for all configured repositories."""
-        if not self.settings.github.use_webhooks:
+        if not getattr(settings, "github", {}).get("use_webhooks", False):
             return {"message": "Webhooks disabled in configuration"}
 
-        webhook_url = f"{self.settings.mcp.host}:{self.settings.mcp.port}{self.settings.github.webhook_endpoint}"
+        webhook_url = f"{settings.mcp.host}:{settings.mcp.port}{getattr(settings, 'github', {}).get('webhook_endpoint', '/webhook')}"
         results = []
 
-        for repo_config in self.settings.repositories:
+        for repo_config in settings.repositories:
             try:
                 owner, repo_name = self.git_sync.extract_owner_repo(repo_config.url)
                 access_token = (
@@ -468,8 +470,8 @@ class RepositoryScanner:
                         webhook_url,
                         ["push", "create", "delete"],
                         secret=(
-                            self.settings.scanner.webhook_secret.get_secret_value()
-                            if self.settings.scanner.webhook_secret
+                            os.getenv("GITHUB_WEBHOOK_SECRET", "")
+                            if os.getenv("GITHUB_WEBHOOK_SECRET")
                             else None
                         ),
                     )

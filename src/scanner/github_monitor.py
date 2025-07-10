@@ -5,9 +5,9 @@ from typing import Any
 
 import httpx
 
-from src.mcp_server.config import config
+from src.config import settings
+from src.logger import get_logger
 from src.utils.exceptions import GitHubError
-from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -24,8 +24,8 @@ class GitHubMonitor:
     """Monitor GitHub repositories for changes."""
 
     def __init__(self) -> None:
-        self.github_config = config.github
-        self.repositories = config.repositories
+        self.github_config = getattr(settings, "github", {})
+        self.repositories = settings.repositories
         self.client = httpx.AsyncClient(
             headers={
                 "Accept": "application/vnd.github.v3+json",
@@ -266,7 +266,7 @@ class GitHubMonitor:
             "config": {
                 "url": webhook_url,
                 "content_type": "json",
-                "secret": self.github_config.webhook_secret,
+                "secret": self.github_config.get("webhook_secret"),
             },
         }
 
@@ -289,7 +289,7 @@ class GitHubMonitor:
 
     async def verify_webhook_signature(self, payload: bytes, signature: str) -> bool:
         """Verify webhook signature."""
-        if not self.github_config.webhook_secret:
+        if not self.github_config.get("webhook_secret"):
             return True  # No secret configured
 
         import hashlib
@@ -298,7 +298,7 @@ class GitHubMonitor:
         expected_signature = (
             "sha256="
             + hmac.new(
-                self.github_config.webhook_secret.encode(),
+                self.github_config.get("webhook_secret").encode(),
                 payload,
                 hashlib.sha256,
             ).hexdigest()

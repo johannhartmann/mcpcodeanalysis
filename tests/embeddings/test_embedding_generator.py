@@ -21,7 +21,9 @@ def mock_embeddings():
 @pytest.fixture
 def embedding_generator(mock_embeddings):
     """Create embedding generator fixture."""
-    with patch("src.embeddings.embedding_generator.get_settings"):
+    with patch("src.embeddings.embedding_generator.settings") as mock_settings:
+        mock_settings.openai_api_key.get_secret_value.return_value = "test-key"
+        mock_settings.embeddings.model = "text-embedding-ada-002"
         return EmbeddingGenerator()
 
 

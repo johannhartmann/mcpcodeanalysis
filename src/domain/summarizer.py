@@ -9,15 +9,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from src.config import settings
 from src.database.domain_models import (
     BoundedContext,
     DomainEntity,
     DomainSummary,
 )
 from src.database.models import Class, Function, Module
-from src.mcp_server.config import get_settings
+from src.logger import get_logger
 from src.utils.exceptions import NotFoundError
-from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -35,7 +35,7 @@ class HierarchicalSummarizer:
             db_session: Database session
         """
         self.db_session = db_session
-        settings = get_settings()
+        # settings imported globally from src.config
         self.llm = ChatOpenAI(
             openai_api_key=settings.openai_api_key.get_secret_value(),
             model=settings.llm.model,

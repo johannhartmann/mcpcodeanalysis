@@ -6,7 +6,7 @@ from typing import Any
 import tree_sitter
 import tree_sitter_python as tspython
 
-from src.utils.logger import get_logger
+from src.logger import get_logger
 
 logger = get_logger(__name__)
 

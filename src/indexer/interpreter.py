@@ -7,8 +7,8 @@ from langchain_core.callbacks import get_openai_callback
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 
-from src.mcp_server.config import get_settings
-from src.utils.logger import get_logger
+from src.config import settings
+from src.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -17,7 +17,7 @@ class CodeInterpreter:
     """Generate natural language interpretations of code."""
 
     def __init__(self) -> None:
-        settings = get_settings()
+        # settings imported globally from src.config
         self.llm = ChatOpenAI(
             model=settings.llm.model,
             temperature=settings.llm.temperature,

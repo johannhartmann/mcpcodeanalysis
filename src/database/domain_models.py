@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 try:
     from pgvector.sqlalchemy import Vector
 except ImportError:
     # For SQLite tests, use JSON instead of Vector
-    def Vector(dim):  # noqa: ARG001, N802
+    def Vector(dim: int) -> type[JSON]:  # noqa: ARG001, N802
         return JSON
 
 
@@ -29,19 +31,20 @@ try:
     from sqlalchemy.dialects.postgresql import ARRAY
 except ImportError:
     # For SQLite, we'll use JSON instead
-    def ARRAY(item_type):  # noqa: ARG001, N802
+    def ARRAY(item_type: Any) -> Any:  # type: ignore[no-redef]  # noqa: ARG001, N802
         return JSON
 
 
 from sqlalchemy.orm import relationship
 
-from src.database.models import Base, Mapped
+from src.database.models import Base
 
 
 class DomainEntity(Base):
     """Domain entities extracted by LLM from code."""
 
     __tablename__ = "domain_entities"
+    __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False)
@@ -81,24 +84,22 @@ class DomainEntity(Base):
     extraction_metadata = Column(JSON, default={})  # LLM model, prompts used, etc.
 
     # Relationships
-    source_relationships: Mapped[list["DomainRelationship"]] = relationship(
+    source_relationships: Any = relationship(
         "DomainRelationship",
         foreign_keys="DomainRelationship.source_entity_id",
         back_populates="source_entity",
         cascade="all, delete-orphan",
     )
-    target_relationships: Mapped[list["DomainRelationship"]] = relationship(
+    target_relationships: Any = relationship(
         "DomainRelationship",
         foreign_keys="DomainRelationship.target_entity_id",
         back_populates="target_entity",
         cascade="all, delete-orphan",
     )
-    bounded_context_memberships: Mapped[list["BoundedContextMembership"]] = (
-        relationship(
-            "BoundedContextMembership",
-            back_populates="domain_entity",
-            cascade="all, delete-orphan",
-        )
+    bounded_context_memberships: Any = relationship(
+        "BoundedContextMembership",
+        back_populates="domain_entity",
+        cascade="all, delete-orphan",
     )
 
     __table_args__ = (
@@ -112,6 +113,7 @@ class DomainRelationship(Base):
     """Semantic relationships between domain entities."""
 
     __tablename__ = "domain_relationships"
+    __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
     source_entity_id = Column(Integer, ForeignKey("domain_entities.id"), nullable=False)
@@ -157,12 +159,12 @@ class DomainRelationship(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
-    source_entity: Mapped[DomainEntity] = relationship(
+    source_entity: Any = relationship(
         "DomainEntity",
         foreign_keys=[source_entity_id],
         back_populates="source_relationships",
     )
-    target_entity: Mapped[DomainEntity] = relationship(
+    target_entity: Any = relationship(
         "DomainEntity",
         foreign_keys=[target_entity_id],
         back_populates="target_relationships",
@@ -185,6 +187,7 @@ class BoundedContext(Base):
     """Bounded contexts discovered through semantic analysis."""
 
     __tablename__ = "bounded_contexts"
+    __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False, unique=True)
@@ -223,12 +226,12 @@ class BoundedContext(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
-    memberships: Mapped[list["BoundedContextMembership"]] = relationship(
+    memberships: Any = relationship(
         "BoundedContextMembership",
         back_populates="bounded_context",
         cascade="all, delete-orphan",
     )
-    context_relationships: Mapped[list["ContextRelationship"]] = relationship(
+    context_relationships: Any = relationship(
         "ContextRelationship",
         foreign_keys="ContextRelationship.source_context_id",
         back_populates="source_context",
@@ -245,6 +248,7 @@ class BoundedContextMembership(Base):
     """Many-to-many relationship between entities and contexts."""
 
     __tablename__ = "bounded_context_memberships"
+    __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
     domain_entity_id = Column(Integer, ForeignKey("domain_entities.id"), nullable=False)
@@ -261,11 +265,11 @@ class BoundedContextMembership(Base):
     created_at = Column(DateTime, default=func.now())
 
     # Relationships
-    domain_entity: Mapped[DomainEntity] = relationship(
+    domain_entity: Any = relationship(
         "DomainEntity",
         back_populates="bounded_context_memberships",
     )
-    bounded_context: Mapped[BoundedContext] = relationship(
+    bounded_context: Any = relationship(
         "BoundedContext", back_populates="memberships"
     )
 
@@ -284,6 +288,7 @@ class ContextRelationship(Base):
     """Relationships between bounded contexts."""
 
     __tablename__ = "context_relationships"
+    __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
     source_context_id = Column(
@@ -319,12 +324,12 @@ class ContextRelationship(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
-    source_context: Mapped[BoundedContext] = relationship(
+    source_context: Any = relationship(
         "BoundedContext",
         foreign_keys=[source_context_id],
         back_populates="context_relationships",
     )
-    target_context: Mapped[BoundedContext] = relationship(
+    target_context: Any = relationship(
         "BoundedContext",
         foreign_keys=[target_context_id],
     )
@@ -345,6 +350,7 @@ class DomainSummary(Base):
     """Hierarchical summaries of code at different levels."""
 
     __tablename__ = "domain_summaries"
+    __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
     level = Column(
@@ -368,7 +374,7 @@ class DomainSummary(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
-    parent_summary: Mapped[DomainSummary | None] = relationship(
+    parent_summary: Any = relationship(
         "DomainSummary", remote_side=[id]
     )
 

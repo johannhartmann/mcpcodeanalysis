@@ -11,8 +11,8 @@ from src.database.models import File, Module
 from src.domain.entity_extractor import DomainEntityExtractor
 from src.domain.graph_builder import SemanticGraphBuilder
 from src.domain.summarizer import HierarchicalSummarizer
+from src.logger import get_logger
 from src.utils.exceptions import NotFoundError
-from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

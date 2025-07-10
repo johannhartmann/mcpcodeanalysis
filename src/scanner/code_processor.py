@@ -11,9 +11,9 @@ from sqlalchemy.future import select
 
 from src.database.models import Class, File, Function, Import, Module
 from src.domain.indexer import DomainIndexer
+from src.logger import get_logger
 from src.parser.code_extractor import CodeExtractor
 from src.parser.parser_factory import ParserFactory
-from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

@@ -7,11 +7,12 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
+from src.config import settings
+
 # Import domain models to ensure they're registered with metadata
 from src.database import domain_models  # noqa: F401
 from src.database.models import Base
-from src.mcp_server.config import get_settings
-from src.utils.logger import get_logger
+from src.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -90,7 +91,7 @@ async def init_database(database_url: str | None = None) -> AsyncEngine:
         Configured database engine
     """
     if not database_url:
-        settings = get_settings()
+        # settings imported globally from src.config
         database_url = settings.database.url
 
     logger.info("Initializing database")

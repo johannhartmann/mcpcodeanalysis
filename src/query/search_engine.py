@@ -3,11 +3,11 @@
 import time
 from typing import Any
 
+from src.config import settings
 from src.database import get_repositories, get_session
 from src.database.models import Class, File, Function, Module
 from src.indexer.embeddings import EmbeddingGenerator
-from src.mcp_server.config import config
-from src.utils.logger import get_logger
+from src.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -17,7 +17,7 @@ class SearchEngine:
 
     def __init__(self) -> None:
         self.embedding_generator = EmbeddingGenerator()
-        self.query_config = config.query
+        self.query_config = settings.query
 
     async def search(
         self,

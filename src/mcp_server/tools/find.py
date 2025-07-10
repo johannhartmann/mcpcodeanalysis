@@ -2,9 +2,9 @@
 
 from typing import Any
 
-from src.database import get_repositories, get_session
+# Database session should be provided by the caller
 from src.database.models import File, Function, Module
-from src.utils.logger import get_logger
+from src.logger import get_logger
 
 logger = get_logger(__name__)
 

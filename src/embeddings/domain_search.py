@@ -11,14 +11,14 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from src.config import settings
 from src.database.domain_models import (
     BoundedContext,
     BoundedContextMembership,
     DomainEntity,
 )
 from src.database.models import Class, CodeEmbedding, File, Function, Module
-from src.mcp_server.config import get_settings
-from src.utils.logger import get_logger
+from src.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -50,7 +50,7 @@ class DomainAwareSearch:
             db_session: Database session
         """
         self.db_session = db_session
-        settings = get_settings()
+        # settings imported globally from src.config
         self.embeddings = OpenAIEmbeddings(
             openai_api_key=settings.openai_api_key.get_secret_value(),
             model=settings.embeddings.model,

@@ -3,8 +3,8 @@
 from pathlib import Path
 from typing import ClassVar
 
+from src.logger import get_logger
 from src.parser.python_parser import PythonCodeParser
-from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

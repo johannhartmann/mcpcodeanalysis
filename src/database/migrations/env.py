@@ -10,8 +10,8 @@ from sqlalchemy import engine_from_config, pool
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parents[3]))
 
+from src.config import settings
 from src.database.models import Base
-from src.mcp_server.config import get_settings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -29,7 +29,7 @@ target_metadata = Base.metadata
 
 def get_url() -> str:
     """Get database URL from settings."""
-    settings = get_settings()
+    # settings imported globally from src.config
     return settings.get_database_url()
 
 

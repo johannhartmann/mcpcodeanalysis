@@ -16,7 +16,7 @@ from src.database.domain_models import (
     DomainSummary,
 )
 from src.database.models import File
-from src.utils.logger import get_logger
+from src.logger import get_logger
 
 # Constants
 MAX_ENTITY_RESPONSIBILITIES = 5

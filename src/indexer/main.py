@@ -6,13 +6,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from src.config import settings
 from src.database import get_repositories, get_session, init_database
 from src.indexer.chunking import CodeChunker
 from src.indexer.embeddings import EmbeddingGenerator
 from src.indexer.interpreter import CodeInterpreter
-from src.mcp_server.config import config
+from src.logger import get_logger, setup_logging
 from src.parser.code_extractor import CodeExtractor
-from src.utils.logger import get_logger, setup_logging
 
 logger = get_logger(__name__)
 
@@ -66,7 +66,7 @@ class IndexerService:
                 await self.process_unindexed_entities()
 
                 # Wait before next iteration
-                await asyncio.sleep(config.indexing.update_interval)
+                await asyncio.sleep(settings.indexing.update_interval)
 
             except Exception:
                 logger.exception("Error in indexing loop: %s")

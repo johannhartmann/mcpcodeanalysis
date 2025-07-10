@@ -1,5 +1,9 @@
 """Database models and utilities."""
 
+from src.database.init_db import (
+    get_session_factory,
+    init_database,
+)
 from src.database.models import (
     Base,
     Class,
@@ -24,4 +28,6 @@ __all__ = [
     "Module",
     "Repository",
     "SearchHistory",
+    "get_session_factory",
+    "init_database",
 ]

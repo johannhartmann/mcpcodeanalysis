@@ -145,7 +145,9 @@
               echo "  ruff check .         - Run linter"
               echo "  mypy .               - Type checking"
               echo "  black .              - Format code"
+              echo "  pyupgrade --py311-plus <files> - Upgrade Python syntax"
               echo "  viberdash monitor --interval 300 - Monitor code quality metrics (5 min updates)"
+              echo "  vdash                - Start ViberDash monitor (alias)"
               echo ""
               echo "Server commands:"
               echo "  mcp-code-server      - Start MCP server"
@@ -157,6 +159,9 @@
               export PATH="${virtualenv}/bin:$PATH"
               export PYTHONPATH="$PWD/src:$PYTHONPATH"
               export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
+              
+              # Simple alias for viberdash
+              alias vdash='viberdash monitor --interval 300'
               
               # Check configuration files
               if [ ! -f .env ]; then
@@ -219,10 +224,15 @@
               echo "  uv run ruff check .  - Run linter"
               echo "  uv run mypy .        - Type checking"
               echo "  uv run black .       - Format code"
+              echo "  uv run pyupgrade --py311-plus <files> - Upgrade Python syntax"
               echo "  uv run viberdash monitor --interval 300 - Monitor code quality metrics (5 min updates)"
+              echo "  vdash                - Start ViberDash monitor (alias)"
               echo ""
               
               export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
+              
+              # Simple alias for viberdash
+              alias vdash='viberdash monitor --interval 300'
             '';
           };
         }

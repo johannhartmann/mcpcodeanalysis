@@ -1,6 +1,7 @@
 """Embedding generation using OpenAI API."""
 
 import hashlib
+import os
 from pathlib import Path
 
 import numpy as np
@@ -8,9 +9,9 @@ import openai
 import tiktoken
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from src.mcp_server.config import config, settings
+from src.config import settings
+from src.logger import get_logger
 from src.utils.exceptions import EmbeddingError
-from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -19,8 +20,8 @@ class EmbeddingGenerator:
     """Generate embeddings for code using OpenAI API."""
 
     def __init__(self) -> None:
-        self.config = config.embeddings
-        self.client = openai.AsyncOpenAI(api_key=settings.openai_api_key)
+        self.config = settings.embeddings
+        self.client = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.encoding = tiktoken.encoding_for_model(self.config.model)
         self.cache_dir = Path(self.config.cache_dir) if self.config.use_cache else None
 

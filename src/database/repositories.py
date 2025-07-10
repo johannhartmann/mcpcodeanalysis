@@ -19,7 +19,7 @@ from src.database.models import (
     Repository,
     SearchHistory,
 )
-from src.utils.logger import get_logger
+from src.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -203,16 +203,14 @@ class CodeEntityRepo:
         entity_type: str | None = None,
     ) -> list[dict[str, Any]]:
         """Find entities by name."""
-        results = []
+        results: list[dict[str, Any]] = []
 
         if entity_type in (None, "function"):
-            funcs = await self.session.execute(
-                select(Function)
-                .options(
-                    selectinload(Function.module), selectinload(Function.parent_class)
-                )
-                .where(Function.name == name),
+            stmt = select(Function).where(Function.name == name)
+            stmt = stmt.options(
+                selectinload(Function.module), selectinload(Function.parent_class)
             )
+            funcs = await self.session.execute(stmt)
             results.extend(
                 {
                     "type": "function",

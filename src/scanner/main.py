@@ -7,13 +7,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from src.database import get_repositories, get_session, init_database
-from src.mcp_server.config import config
+from src.config import settings
+from src.database import init_database
+from src.logger import get_logger, setup_logging
 from src.parser.code_extractor import CodeExtractor
 from src.scanner.file_watcher import FileWatcher
 from src.scanner.git_sync import GitSync
 from src.scanner.github_monitor import GitHubMonitor
-from src.utils.logger import get_logger, setup_logging
 
 logger = get_logger(__name__)
 
@@ -42,7 +42,7 @@ class ScannerService:
         self.file_watcher.start()
 
         # Schedule initial sync for all repositories
-        for repo_config in config.repositories:
+        for repo_config in settings.repositories:
             task = asyncio.create_task(self.sync_repository(repo_config))
             self.tasks.append(task)
 
@@ -86,115 +86,116 @@ class ScannerService:
                 repo_config.get("access_token"),
             )
 
-            async with get_session() as session, get_repositories(session) as repos:
-                # Create or update repository in database
-                db_repo = await repos["repository"].get_by_url(repo_url)
+            # TODO: Need to implement database session handling
+            # async with get_session() as session:
+            # Create or update repository in database
+            db_repo = await session.get_by_url(repo_url)
 
-                if not db_repo:
-                    db_repo = await repos["repository"].create(
-                        github_url=repo_url,
-                        owner=repo_info["owner"],
-                        name=repo_info["name"],
-                        default_branch=repo_config.get("branch")
-                        or repo_info["default_branch"],
-                        access_token_id=repo_config.get("access_token"),
-                    )
+            if not db_repo:
+                db_repo = await session.create(
+                    github_url=repo_url,
+                    owner=repo_info["owner"],
+                    name=repo_info["name"],
+                    default_branch=repo_config.get("branch")
+                    or repo_info["default_branch"],
+                    access_token_id=repo_config.get("access_token"),
+                )
 
-                # Clone or update repository
-                if not self.git_sync.get_repo_path(
+            # Clone or update repository
+            if not self.git_sync.get_repo_path(
+                repo_info["owner"],
+                repo_info["name"],
+            ).exists():
+                # Initial clone
+                git_repo = self.git_sync.clone_repository(
+                    repo_info["clone_url"],
                     repo_info["owner"],
                     repo_info["name"],
-                ).exists():
-                    # Initial clone
-                    git_repo = self.git_sync.clone_repository(
-                        repo_info["clone_url"],
+                    db_repo.default_branch,
+                    repo_config.get("access_token"),
+                )
+
+                # Process all files
+                await self.process_all_files(
+                    db_repo,
+                    repo_info["owner"],
+                    repo_info["name"],
+                )
+            else:
+                # Get commits since last sync
+                if db_repo.last_synced:
+                    commits = await self.github_monitor.get_commits_since(
                         repo_info["owner"],
                         repo_info["name"],
+                        db_repo.last_synced,
                         db_repo.default_branch,
                         repo_config.get("access_token"),
                     )
 
-                    # Process all files
+                    # Store commits
+                    await session.create_batch(
+                        [
+                            {
+                                "repository_id": db_repo.id,
+                                "sha": commit["sha"],
+                                "message": commit["message"],
+                                "author": commit["author"],
+                                "author_email": commit["author_email"],
+                                "timestamp": commit["timestamp"],
+                            }
+                            for commit in commits
+                        ],
+                    )
+
+                # Update repository
+                git_repo = self.git_sync.update_repository(
+                    repo_info["owner"],
+                    repo_info["name"],
+                    db_repo.default_branch,
+                    repo_config.get("access_token"),
+                )
+
+                # Process changed files
+                last_commit = await session.get_latest(db_repo.id)
+                if last_commit:
+                    changed_files = self.git_sync.get_changed_files(
+                        git_repo,
+                        last_commit.sha,
+                    )
+
+                    await self.process_changed_files(
+                        db_repo,
+                        repo_info["owner"],
+                        repo_info["name"],
+                        changed_files,
+                    )
+                else:
+                    # No previous commits, process all files
                     await self.process_all_files(
                         db_repo,
                         repo_info["owner"],
                         repo_info["name"],
                     )
-                else:
-                    # Get commits since last sync
-                    if db_repo.last_synced:
-                        commits = await self.github_monitor.get_commits_since(
-                            repo_info["owner"],
-                            repo_info["name"],
-                            db_repo.last_synced,
-                            db_repo.default_branch,
-                            repo_config.get("access_token"),
-                        )
 
-                        # Store commits
-                        await repos["commit"].create_batch(
-                            [
-                                {
-                                    "repository_id": db_repo.id,
-                                    "sha": commit["sha"],
-                                    "message": commit["message"],
-                                    "author": commit["author"],
-                                    "author_email": commit["author_email"],
-                                    "timestamp": commit["timestamp"],
-                                }
-                                for commit in commits
-                            ],
-                        )
+            # Update last synced time
+            await session.update_last_synced(db_repo.id)
 
-                    # Update repository
-                    git_repo = self.git_sync.update_repository(
-                        repo_info["owner"],
-                        repo_info["name"],
-                        db_repo.default_branch,
-                        repo_config.get("access_token"),
-                    )
+            # Add file watcher for this repository
+            repo_path = self.git_sync.get_repo_path(
+                repo_info["owner"],
+                repo_info["name"],
+            )
 
-                    # Process changed files
-                    last_commit = await repos["commit"].get_latest(db_repo.id)
-                    if last_commit:
-                        changed_files = self.git_sync.get_changed_files(
-                            git_repo,
-                            last_commit.sha,
-                        )
-
-                        await self.process_changed_files(
-                            db_repo,
-                            repo_info["owner"],
-                            repo_info["name"],
-                            changed_files,
-                        )
-                    else:
-                        # No previous commits, process all files
-                        await self.process_all_files(
-                            db_repo,
-                            repo_info["owner"],
-                            repo_info["name"],
-                        )
-
-                # Update last synced time
-                await repos["repository"].update_last_synced(db_repo.id)
-
-                # Add file watcher for this repository
-                repo_path = self.git_sync.get_repo_path(
-                    repo_info["owner"],
-                    repo_info["name"],
+            def file_changed(path: str, event_type: str) -> None:
+                asyncio.create_task(
+                    self.handle_file_change(db_repo.id, path, event_type),
                 )
 
-                def file_changed(path: str, event_type: str) -> None:
-                    asyncio.create_task(
-                        self.handle_file_change(db_repo.id, path, event_type),
-                    )
-
-                self.file_watcher.add_watch(
-                    repo_path,
-                    file_changed,
-                    extensions={".py"},  # TODO(@dev): Support more languages
-                )
+            self.file_watcher.add_watch(
+                repo_path,
+                file_changed,
+                extensions={".py"},  # TODO(@dev): Support more languages
+            )
 
             logger.info("Successfully synced repository: %s", repo_url)
 
@@ -208,9 +209,10 @@ class ScannerService:
         # List all Python files
         files = self.git_sync.list_files(owner, name, extensions=[".py"])
 
-        async with get_session() as session, get_repositories(session) as repos:
-            for file_path in files:
-                await self.process_file(repos, db_repo.id, owner, name, file_path)
+        # TODO: Need to implement database session handling
+            # async with get_session() as session:
+        for file_path in files:
+            await self.process_file(repos, db_repo.id, owner, name, file_path)
 
     async def process_changed_files(
         self,
@@ -229,18 +231,19 @@ class ScannerService:
 
         repo_path = self.git_sync.get_repo_path(owner, name)
 
-        async with get_session() as session, get_repositories(session) as repos:
-            for file_path in changed_files:
-                full_path = repo_path / file_path
+        # TODO: Need to implement database session handling
+            # async with get_session() as session:
+        for file_path in changed_files:
+            full_path = repo_path / file_path
 
-                if full_path.suffix == ".py" and full_path.exists():
-                    await self.process_file(
-                        repos,
-                        db_repo.id,
-                        owner,
-                        name,
-                        full_path,
-                    )
+            if full_path.suffix == ".py" and full_path.exists():
+                await self.process_file(
+                    repos,
+                    db_repo.id,
+                    owner,
+                    name,
+                    full_path,
+                )
 
     async def process_file(
         self,
@@ -261,7 +264,7 @@ class ScannerService:
             metadata = self.git_sync.get_file_metadata(git_repo, relative_path)
 
             # Create or update file in database
-            db_file, created = await repos["file"].update_or_create(
+            db_file, created = await session.update_or_create(
                 repo_id,
                 relative_path,
                 last_modified=metadata.get("last_modified", datetime.now(tz=UTC)),
@@ -272,7 +275,7 @@ class ScannerService:
 
             # Clear existing entities if updating
             if not created:
-                await repos["code_entity"].clear_file_entities(db_file.id)
+                await session.clear_file_entities(db_file.id)
 
             # Extract code entities
             entities = self.code_extractor.extract_from_file(file_path, db_file.id)
@@ -280,21 +283,21 @@ class ScannerService:
             if entities:
                 # Store entities in database
                 for module_data in entities["modules"]:
-                    await repos["code_entity"].create_module(**module_data)
+                    await session.create_module(**module_data)
 
                 for import_data in entities["imports"]:
-                    await repos["code_entity"].create_import(**import_data)
+                    await session.create_import(**import_data)
 
                 # Store classes and functions (need to map module/class IDs)
                 # This is simplified - in practice, we'd need to track IDs
                 for class_data in entities["classes"]:
-                    await repos["code_entity"].create_class(
+                    await session.create_class(
                         module_id=1,
                         **class_data,  # TODO(@dev): Get actual module ID
                     )
 
                 for func_data in entities["functions"]:
-                    await repos["code_entity"].create_function(
+                    await session.create_function(
                         module_id=1,
                         **func_data,  # TODO(@dev): Get actual module ID
                     )
@@ -312,23 +315,24 @@ class ScannerService:
     ) -> None:
         """Handle a file change event."""
         try:
-            async with get_session() as session, get_repositories(session) as repos:
-                if event_type == "deleted":
-                    # Remove file from database
-                    db_file = await repos["file"].get_by_path(repo_id, file_path)
-                    if db_file:
-                        await repos["file"].delete_by_id(db_file.id)
-                else:
-                    # Process the file
-                    db_repo = await repos["repository"].get_by_id(repo_id)
-                    if db_repo:
-                        await self.process_file(
-                            repos,
-                            repo_id,
-                            db_repo.owner,
-                            db_repo.name,
-                            Path(file_path),
-                        )
+            # TODO: Need to implement database session handling
+            # async with get_session() as session:
+            if event_type == "deleted":
+                # Remove file from database
+                db_file = await session.get_by_path(repo_id, file_path)
+                if db_file:
+                    await session.delete_by_id(db_file.id)
+            else:
+                # Process the file
+                db_repo = await session.get_by_id(repo_id)
+                if db_repo:
+                    await self.process_file(
+                        repos,
+                        repo_id,
+                        db_repo.owner,
+                        db_repo.name,
+                        Path(file_path),
+                    )
         except Exception:
             logger.exception("Error handling file change %s", file_path)
 
@@ -337,7 +341,7 @@ class ScannerService:
         while self.running:
             try:
                 # Wait for the configured interval
-                await asyncio.sleep(config.scanner.sync_interval)
+                await asyncio.sleep(settings.scanner.sync_interval)
 
                 if not self.running:
                     break
@@ -346,7 +350,7 @@ class ScannerService:
 
                 # Sync all repositories
                 tasks = []
-                for repo_config in config.repositories:
+                for repo_config in settings.repositories:
                     task = asyncio.create_task(self.sync_repository(repo_config))
                     tasks.append(task)
 

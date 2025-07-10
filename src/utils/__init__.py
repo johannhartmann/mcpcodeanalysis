@@ -1,5 +1,6 @@
 """Utility modules for MCP Code Analysis Server."""
 
+from src.logger import get_logger, setup_logging
 from src.utils.exceptions import (
     AuthenticationError,
     AuthorizationError,
@@ -19,7 +20,6 @@ from src.utils.exceptions import (
     VectorSearchError,
     WebhookError,
 )
-from src.utils.logger import get_logger, setup_logging
 
 __all__ = [
     "AuthenticationError",

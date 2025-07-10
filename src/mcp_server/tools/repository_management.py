@@ -10,9 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.database.models import Commit, File, Repository
 from src.embeddings.embedding_service import EmbeddingService
 from src.embeddings.vector_search import VectorSearch
-from src.mcp_server.config import RepositoryConfig
+from src.logger import get_logger
+from src.models import RepositoryConfig
 from src.scanner.repository_scanner import RepositoryScanner
-from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -88,7 +88,7 @@ class RepositoryManagementTools:
         self.mcp = mcp
         self.embedding_service = EmbeddingService(db_session)
 
-    async def register_tools(self):
+    async def register_tools(self) -> None:
         """Register all repository management tools."""
 
         @self.mcp.tool(

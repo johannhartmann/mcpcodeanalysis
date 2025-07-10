@@ -6,8 +6,8 @@ from typing import Any
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
-from src.mcp_server.config import get_settings
-from src.utils.logger import get_logger
+from src.config import settings
+from src.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -19,7 +19,7 @@ class DomainEntityExtractor:
 
     def __init__(self) -> None:
         """Initialize the entity extractor."""
-        settings = get_settings()
+        # settings imported globally from src.config
         self.llm = ChatOpenAI(
             openai_api_key=settings.openai_api_key.get_secret_value(),
             model=settings.llm.model,
