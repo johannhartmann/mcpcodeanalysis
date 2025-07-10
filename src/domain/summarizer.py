@@ -317,8 +317,8 @@ class HierarchicalSummarizer:
 
     async def _get_related_domain_entities(
         self,
-        entity_type: str,
-        entity_id: int,
+        _entity_type: str,
+        _entity_id: int,
     ) -> list[DomainEntity]:
         """Get domain entities related to a code entity."""
         # This is simplified - would need to map based on source_entities

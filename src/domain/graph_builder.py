@@ -474,8 +474,8 @@ Output as JSON:
 
     def _determine_context_relationship_type(
         self,
-        context1: dict[str, Any],
-        context2: dict[str, Any],
+        _context1: dict[str, Any],
+        _context2: dict[str, Any],
         edge_data: dict[str, Any],
     ) -> str:
         """Determine the type of relationship between contexts."""

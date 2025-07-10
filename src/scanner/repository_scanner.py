@@ -212,7 +212,7 @@ class RepositoryScanner:
         self,
         repo_record: Repository,
         git_repo,
-        github_client: GitHubClient,
+        _github_client: GitHubClient,
         since_commit: str | None = None,
     ) -> list[Commit]:
         """Process new commits from repository."""

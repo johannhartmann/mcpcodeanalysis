@@ -558,7 +558,7 @@ class AnalyzeTool:
 
     async def _get_package_structure(
         self,
-        repos: dict[str, Any],
+        _repos: dict[str, Any],
         package_path: str,
     ) -> dict[str, Any]:
         """Get structure of a package (directory)."""

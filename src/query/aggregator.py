@@ -212,7 +212,7 @@ class CodeAggregator:
         repos: dict[str, Any],
         module_id: int,
         *,
-        include_code: bool,
+        _include_code: bool,
     ) -> dict[str, Any]:
         """Explain a module with all its contents."""
         session = repos["repository"].session
@@ -295,10 +295,10 @@ class CodeAggregator:
 
     async def _explain_package(
         self,
-        repos: dict[str, Any],
+        _repos: dict[str, Any],
         package_path: str,
         *,
-        include_code: bool,
+        _include_code: bool,
     ) -> dict[str, Any]:
         """Explain a package (directory with multiple modules)."""
         # This would require more complex logic to identify all modules in a package
@@ -434,7 +434,7 @@ class CodeAggregator:
         module: Module,
         classes: list[Class],
         functions: list[Function],
-        imports: list[Any],
+        _imports: list[Any],
     ) -> str:
         """Generate natural language interpretation of a module."""
         parts = []

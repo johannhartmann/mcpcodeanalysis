@@ -325,7 +325,7 @@ class DomainPatternAnalyzer:
 
     async def detect_anti_patterns(
         self,
-        repository_id: int | None = None,
+        _repository_id: int | None = None,
     ) -> dict[str, list[dict[str, Any]]]:
         """Detect DDD anti-patterns in the codebase.
 
