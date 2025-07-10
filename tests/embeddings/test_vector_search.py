@@ -253,11 +253,13 @@ class TestVectorSearch:
         # Mock count queries
         # Create mock result object that behaves like SQLAlchemy result
         mock_type_result = MagicMock()
-        mock_type_result.__iter__ = lambda self: iter([
-            ("function", 50),
-            ("class", 10),
-            ("module", 5),
-        ])
+        mock_type_result.__iter__ = lambda self: iter(
+            [
+                ("function", 50),
+                ("class", 10),
+                ("module", 5),
+            ]
+        )
 
         mock_db_session.execute.side_effect = [
             # Count by type
