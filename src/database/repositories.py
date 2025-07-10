@@ -208,7 +208,9 @@ class CodeEntityRepo:
         if entity_type in (None, "function"):
             funcs = await self.session.execute(
                 select(Function)
-                .options(selectinload(Function.module), selectinload(Function.parent_class))
+                .options(
+                    selectinload(Function.module), selectinload(Function.parent_class)
+                )
                 .where(Function.name == name),
             )
             results.extend(

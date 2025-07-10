@@ -18,6 +18,7 @@ CRITICAL_ISSUE_COUNT_THRESHOLD = 5
 HIGH_COUPLING_PAIRS_THRESHOLD = 3
 MAX_ISSUES_TO_DISPLAY = 10
 
+
 # Pydantic models for tool parameters
 class AnalyzeCouplingRequest(BaseModel):
     """Request to analyze cross-context coupling."""
@@ -177,7 +178,10 @@ class AnalysisTools:
                 # Generate insights
                 insights = []
 
-                if coupling["metrics"]["average_coupling"] > MODERATE_COUPLING_THRESHOLD:
+                if (
+                    coupling["metrics"]["average_coupling"]
+                    > MODERATE_COUPLING_THRESHOLD
+                ):
                     insights.append(
                         {
                             "type": "high_coupling",

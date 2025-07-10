@@ -407,5 +407,6 @@ class DomainIndexer:
                 entity.concept_embedding = embedding
             except Exception:
                 logger.exception(
-                    "Error generating embedding for %s", entity.name,
+                    "Error generating embedding for %s",
+                    entity.name,
                 )

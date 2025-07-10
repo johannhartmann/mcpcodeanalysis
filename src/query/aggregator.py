@@ -32,13 +32,21 @@ class CodeAggregator:
         """Generate comprehensive explanation for a code entity."""
         async with get_session() as session, get_repositories(session) as repos:
             if entity_type == "function":
-                return await self._explain_function(repos, entity_id, include_code=include_code)
+                return await self._explain_function(
+                    repos, entity_id, include_code=include_code
+                )
             if entity_type == "class":
-                return await self._explain_class(repos, entity_id, include_code=include_code)
+                return await self._explain_class(
+                    repos, entity_id, include_code=include_code
+                )
             if entity_type == "module":
-                return await self._explain_module(repos, entity_id, include_code=include_code)
+                return await self._explain_module(
+                    repos, entity_id, include_code=include_code
+                )
             if entity_type == "package":
-                return await self._explain_package(repos, entity_id, include_code=include_code)
+                return await self._explain_package(
+                    repos, entity_id, include_code=include_code
+                )
             msg = f"Unknown entity type: {entity_type}"
             raise ValueError(msg)
 
@@ -141,7 +149,9 @@ class CodeAggregator:
 
         # Load all methods
         methods = await session.execute(
-            text("SELECT * FROM functions WHERE class_id = :class_id ORDER BY start_line"),
+            text(
+                "SELECT * FROM functions WHERE class_id = :class_id ORDER BY start_line"
+            ),
             {"class_id": class_id},
         )
         method_list = list(methods.scalars().all()) if methods else []
@@ -228,13 +238,17 @@ class CodeAggregator:
 
         # Load classes and functions
         classes = await session.execute(
-            text("SELECT * FROM classes WHERE module_id = :module_id ORDER BY start_line"),
+            text(
+                "SELECT * FROM classes WHERE module_id = :module_id ORDER BY start_line"
+            ),
             {"module_id": module_id},
         )
         class_list = list(classes.scalars().all()) if classes else []
 
         functions = await session.execute(
-            text("SELECT * FROM functions WHERE module_id = :module_id AND class_id IS NULL ORDER BY start_line"),
+            text(
+                "SELECT * FROM functions WHERE module_id = :module_id AND class_id IS NULL ORDER BY start_line"
+            ),
             {"module_id": module_id},
         )
         function_list = list(functions.scalars().all()) if functions else []

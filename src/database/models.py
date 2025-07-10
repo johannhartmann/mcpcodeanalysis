@@ -262,7 +262,9 @@ class Commit(Base):
     created_at = Column(DateTime, default=func.now())
 
     # Relationships
-    repository: Mapped[Repository] = relationship("Repository", back_populates="commits")
+    repository: Mapped[Repository] = relationship(
+        "Repository", back_populates="commits"
+    )
 
     __table_args__ = (
         Index("idx_commit_repository", "repository_id"),

@@ -155,7 +155,9 @@ class GitHubHealthCheck(HealthCheck):
                     "limit": rate_limit.get("limit", 0),
                     "remaining": rate_limit.get("remaining", 0),
                     "reset": (
-                        datetime.fromtimestamp(rate_limit.get("reset", 0), tz=UTC).isoformat()
+                        datetime.fromtimestamp(
+                            rate_limit.get("reset", 0), tz=UTC
+                        ).isoformat()
                         if rate_limit.get("reset")
                         else None
                     ),
@@ -231,7 +233,9 @@ class DiskSpaceHealthCheck(HealthCheck):
                 }
 
         # Check if any disk is critically low (< 10% free)
-        critical = any(disk["used_percent"] > DISK_CRITICAL_THRESHOLD for disk in results.values())
+        critical = any(
+            disk["used_percent"] > DISK_CRITICAL_THRESHOLD for disk in results.values()
+        )
 
         return {
             "paths": results,

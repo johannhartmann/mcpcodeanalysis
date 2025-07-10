@@ -29,63 +29,61 @@ class FindTool:
         """
         try:
             async with get_session() as session, get_repositories(session) as repos:
-                    # Search for entities by name
-                    entity_type = None if type == "any" else type
-                    results = await repos["code_entity"].find_by_name(name, entity_type)
+                # Search for entities by name
+                entity_type = None if type == "any" else type
+                results = await repos["code_entity"].find_by_name(name, entity_type)
 
-                    # Format results
-                    definitions = []
-                    for result in results:
-                        entity = result["entity"]
-                        module = result["module"]
+                # Format results
+                definitions = []
+                for result in results:
+                    entity = result["entity"]
+                    module = result["module"]
 
-                        # Get file and repository info
-                        file = (
-                            await repos["file"].get_by_id(module.file_id)
-                            if module
-                            else None
-                        )
-                        repo = (
-                            await repos["repository"].get_by_id(file.repository_id)
-                            if file
-                            else None
-                        )
+                    # Get file and repository info
+                    file = (
+                        await repos["file"].get_by_id(module.file_id)
+                        if module
+                        else None
+                    )
+                    repo = (
+                        await repos["repository"].get_by_id(file.repository_id)
+                        if file
+                        else None
+                    )
 
-                        definition = {
-                            "name": entity.name,
-                            "type": result["type"],
-                            "location": {
-                                "repository": repo.name if repo else None,
-                                "repository_url": repo.github_url if repo else None,
-                                "file": file.path if file else None,
-                                "line": (
-                                    entity.start_line
-                                    if hasattr(entity, "start_line")
-                                    else None
-                                ),
-                            },
-                            "docstring": (
-                                entity.docstring
-                                if hasattr(entity, "docstring")
+                    definition = {
+                        "name": entity.name,
+                        "type": result["type"],
+                        "location": {
+                            "repository": repo.name if repo else None,
+                            "repository_url": repo.github_url if repo else None,
+                            "file": file.path if file else None,
+                            "line": (
+                                entity.start_line
+                                if hasattr(entity, "start_line")
                                 else None
                             ),
-                        }
+                        },
+                        "docstring": (
+                            entity.docstring if hasattr(entity, "docstring") else None
+                        ),
+                    }
 
-                        # Add type-specific info
-                        if result["type"] == "function":
-                            definition["signature"] = self._build_function_signature(
-                                entity,
-                            )
-                            definition["is_method"] = bool(entity.class_id)
-                            if result.get("class"):
-                                definition["class_name"] = result["class"].name
-                        elif result["type"] == "class":
-                            definition["base_classes"] = entity.base_classes
-                            definition["is_abstract"] = entity.is_abstract
+                    # Add type-specific info
+                    if result["type"] == "function":
+                        definition["signature"] = self._build_function_signature(
+                            entity,
+                        )
+                        definition["is_method"] = bool(entity.class_id)
+                        if result.get("class"):
+                            definition["class_name"] = result["class"].name
+                    elif result["type"] == "class":
+                        definition["base_classes"] = entity.base_classes
+                        definition["is_abstract"] = entity.is_abstract
 
-                        definitions.append(definition)
+                    definitions.append(definition)
 
-                    return definitions
+                return definitions
 
         except Exception as e:
             logger.exception("Error in find_definition: %s")
@@ -108,52 +106,52 @@ class FindTool:
         """
         try:
             async with get_session() as session, get_repositories(session) as repos:
-                    # Find the entity definition first
-                    definitions = await repos["code_entity"].find_by_name(
+                # Find the entity definition first
+                definitions = await repos["code_entity"].find_by_name(
+                    function_or_class,
+                )
+
+                if not definitions:
+                    return [
+                        {
+                            "error": f"Entity '{function_or_class}' not found",
+                            "suggestions": [],
+                        },
+                    ]
+
+                usages = []
+
+                # For each definition, find usages
+                for definition in definitions:
+                    definition["entity"]
+
+                    # Search in imports
+                    import_usages = await self._find_import_usages(
+                        repos,
                         function_or_class,
+                        repository,
                     )
+                    usages.extend(import_usages)
 
-                    if not definitions:
-                        return [
-                            {
-                                "error": f"Entity '{function_or_class}' not found",
-                                "suggestions": [],
-                            },
-                        ]
+                    # Search in code (this would require more sophisticated AST analysis)
+                    # For now, we do a simple text search in embeddings
+                    code_usages = await self._find_code_usages(
+                        repos,
+                        function_or_class,
+                        repository,
+                    )
+                    usages.extend(code_usages)
 
-                    usages = []
+                # Deduplicate and sort
+                seen = set()
+                unique_usages = []
+                for usage in usages:
+                    key = (usage["location"]["file"], usage["location"]["line"])
+                    if key not in seen:
+                        seen.add(key)
+                        unique_usages.append(usage)
 
-                    # For each definition, find usages
-                    for definition in definitions:
-                        definition["entity"]
-
-                        # Search in imports
-                        import_usages = await self._find_import_usages(
-                            repos,
-                            function_or_class,
-                            repository,
-                        )
-                        usages.extend(import_usages)
-
-                        # Search in code (this would require more sophisticated AST analysis)
-                        # For now, we do a simple text search in embeddings
-                        code_usages = await self._find_code_usages(
-                            repos,
-                            function_or_class,
-                            repository,
-                        )
-                        usages.extend(code_usages)
-
-                    # Deduplicate and sort
-                    seen = set()
-                    unique_usages = []
-                    for usage in usages:
-                        key = (usage["location"]["file"], usage["location"]["line"])
-                        if key not in seen:
-                            seen.add(key)
-                            unique_usages.append(usage)
-
-                    return unique_usages
+                return unique_usages
 
         except Exception as e:
             logger.exception("Error in find_usage: %s")

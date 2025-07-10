@@ -166,7 +166,9 @@ class CodeExtractor:
                 parts.append(f"- {self._describe_function(method)}")
 
             if len(methods) > MAX_DISPLAY_METHODS:
-                parts.append(f"... and {len(methods) - MAX_DISPLAY_METHODS} more methods")
+                parts.append(
+                    f"... and {len(methods) - MAX_DISPLAY_METHODS} more methods"
+                )
 
         return "\n".join(parts)
 
@@ -186,7 +188,9 @@ class CodeExtractor:
                 parts.append(f"- {self._describe_class(cls)}")
 
             if len(classes) > MAX_DISPLAY_CLASSES:
-                parts.append(f"... and {len(classes) - MAX_DISPLAY_CLASSES} more classes")
+                parts.append(
+                    f"... and {len(classes) - MAX_DISPLAY_CLASSES} more classes"
+                )
 
         if functions:
             parts.append(f"\n\nFunctions ({len(functions)}):")
@@ -194,6 +198,8 @@ class CodeExtractor:
                 parts.append(f"- {self._describe_function(func)}")
 
             if len(functions) > MAX_DISPLAY_FUNCTIONS:
-                parts.append(f"... and {len(functions) - MAX_DISPLAY_FUNCTIONS} more functions")
+                parts.append(
+                    f"... and {len(functions) - MAX_DISPLAY_FUNCTIONS} more functions"
+                )
 
         return "\n".join(parts)

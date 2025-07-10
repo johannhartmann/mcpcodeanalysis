@@ -365,7 +365,8 @@ class DomainPatternAnalyzer:
 
         # 2. Detect god objects (entities with too many responsibilities)
         query = select(DomainEntity).where(
-            func.array_length(DomainEntity.responsibilities, 1) > GOD_OBJECT_RESPONSIBILITIES_THRESHOLD,
+            func.array_length(DomainEntity.responsibilities, 1)
+            > GOD_OBJECT_RESPONSIBILITIES_THRESHOLD,
         )
 
         result = await self.db_session.execute(query)

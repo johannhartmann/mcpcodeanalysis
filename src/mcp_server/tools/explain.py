@@ -93,8 +93,10 @@ class ExplainTool:
                     module = module_results[0]["entity"]
                     # Look for function in this module
                     funcs = await session.execute(
-                        text("SELECT * FROM functions WHERE module_id = :module_id "
-                             "AND name = :name AND class_id IS NULL LIMIT 1"),
+                        text(
+                            "SELECT * FROM functions WHERE module_id = :module_id "
+                            "AND name = :name AND class_id IS NULL LIMIT 1"
+                        ),
                         {"module_id": module.id, "name": parts[1]},
                     )
                     func = funcs.scalar_one_or_none() if funcs else None
@@ -110,8 +112,10 @@ class ExplainTool:
                     cls = class_results[0]["entity"]
                     # Look for method in this class
                     methods = await session.execute(
-                        text("SELECT * FROM functions WHERE class_id = :class_id "
-                             "AND name = :name LIMIT 1"),
+                        text(
+                            "SELECT * FROM functions WHERE class_id = :class_id "
+                            "AND name = :name LIMIT 1"
+                        ),
                         {"class_id": cls.id, "name": parts[1]},
                     )
                     method = methods.scalar_one_or_none() if methods else None
@@ -128,8 +132,10 @@ class ExplainTool:
                     module = module_results[0]["entity"]
                     # Look for class in module
                     classes = await session.execute(
-                        text("SELECT * FROM classes WHERE module_id = :module_id "
-                             "AND name = :name LIMIT 1"),
+                        text(
+                            "SELECT * FROM classes WHERE module_id = :module_id "
+                            "AND name = :name LIMIT 1"
+                        ),
                         {"module_id": module.id, "name": parts[1]},
                     )
                     cls = classes.scalar_one_or_none() if classes else None
@@ -137,8 +143,10 @@ class ExplainTool:
                         if len(parts) == MIN_MODULE_COMPONENTS:
                             # Look for method
                             methods = await session.execute(
-                                text("SELECT * FROM functions WHERE class_id = :class_id "
-                                     "AND name = :name LIMIT 1"),
+                                text(
+                                    "SELECT * FROM functions WHERE class_id = :class_id "
+                                    "AND name = :name LIMIT 1"
+                                ),
                                 {"class_id": cls.id, "name": parts[2]},
                             )
                             method = methods.scalar_one_or_none() if methods else None

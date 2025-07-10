@@ -77,10 +77,12 @@ class DomainEntity(Base):
         back_populates="target_entity",
         cascade="all, delete-orphan",
     )
-    bounded_context_memberships: Mapped[list["BoundedContextMembership"]] = relationship(
-        "BoundedContextMembership",
-        back_populates="domain_entity",
-        cascade="all, delete-orphan",
+    bounded_context_memberships: Mapped[list["BoundedContextMembership"]] = (
+        relationship(
+            "BoundedContextMembership",
+            back_populates="domain_entity",
+            cascade="all, delete-orphan",
+        )
     )
 
     __table_args__ = (
@@ -247,7 +249,9 @@ class BoundedContextMembership(Base):
         "DomainEntity",
         back_populates="bounded_context_memberships",
     )
-    bounded_context: Mapped[BoundedContext] = relationship("BoundedContext", back_populates="memberships")
+    bounded_context: Mapped[BoundedContext] = relationship(
+        "BoundedContext", back_populates="memberships"
+    )
 
     __table_args__ = (
         UniqueConstraint(
@@ -348,7 +352,9 @@ class DomainSummary(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
-    parent_summary: Mapped[DomainSummary | None] = relationship("DomainSummary", remote_side=[id])
+    parent_summary: Mapped[DomainSummary | None] = relationship(
+        "DomainSummary", remote_side=[id]
+    )
 
     __table_args__ = (
         Index("idx_summary_level", "level"),

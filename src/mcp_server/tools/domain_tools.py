@@ -547,7 +547,9 @@ class DomainTools:
                     "suggestion": "Move business logic into the entity to create a rich domain model",
                 }
                 for entity in entities
-                if entity.entity_type in ["entity", "aggregate_root"] and not entity.business_rules and not entity.invariants
+                if entity.entity_type in ["entity", "aggregate_root"]
+                and not entity.business_rules
+                and not entity.invariants
             )
 
             # Check for missing value objects

@@ -225,7 +225,11 @@ class DomainAwareSearch:
         except Exception:
             logger.exception("Error extracting concepts: %s")
             # Fallback to simple extraction
-            return [word.capitalize() for word in query.split() if len(word) > MIN_CONCEPT_WORD_LENGTH]
+            return [
+                word.capitalize()
+                for word in query.split()
+                if len(word) > MIN_CONCEPT_WORD_LENGTH
+            ]
 
     async def _find_relevant_entities(
         self,

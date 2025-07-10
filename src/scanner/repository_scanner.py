@@ -352,7 +352,9 @@ class RepositoryScanner:
                     "path": file_path,
                     "absolute_path": str(full_path),
                     "size": full_path.stat().st_size,
-                    "modified_time": datetime.fromtimestamp(full_path.stat().st_mtime, tz=UTC),
+                    "modified_time": datetime.fromtimestamp(
+                        full_path.stat().st_mtime, tz=UTC
+                    ),
                     "content_hash": self.git_sync.get_file_hash(full_path),
                     "git_hash": None,  # Will be set by _update_or_create_file
                     "language": "python",
@@ -416,7 +418,9 @@ class RepositoryScanner:
         results = []
         for repo_config in self.settings.repositories:
             try:
-                result = await self.scan_repository(repo_config, force_full_scan=force_full_scan)
+                result = await self.scan_repository(
+                    repo_config, force_full_scan=force_full_scan
+                )
                 results.append(
                     {
                         "url": repo_config.url,

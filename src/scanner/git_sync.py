@@ -310,7 +310,9 @@ class GitSync:
                             "path": str(relative_path),
                             "absolute_path": str(file_path),
                             "size": stat.st_size,
-                            "modified_time": datetime.fromtimestamp(stat.st_mtime, tz=UTC),
+                            "modified_time": datetime.fromtimestamp(
+                                stat.st_mtime, tz=UTC
+                            ),
                             "content_hash": self.get_file_hash(file_path),
                             "git_hash": git_hash,
                             "language": self._detect_language(file_path),
@@ -375,7 +377,9 @@ class GitSync:
                 commit_info["deletions"] = stats.total["deletions"]
             except Exception as stats_error:
                 logger.warning(
-                    "Could not get commit stats for %s: %s", commit_sha, stats_error,
+                    "Could not get commit stats for %s: %s",
+                    commit_sha,
+                    stats_error,
                 )
 
             return commit_info
