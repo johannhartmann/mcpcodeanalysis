@@ -15,7 +15,7 @@ class FindTool:
     async def find_definition(
         self,
         name: str,
-        type: str = "any",
+        type: str = "any",  # noqa: A002
     ) -> list[dict[str, Any]]:
         """
         Find where a function/class/module is defined.
@@ -125,7 +125,7 @@ class FindTool:
                 for definition in definitions:
                     definition["entity"]
 
-                    # Search in imports
+                    # Next: Search in imports for this entity
                     import_usages = await self._find_import_usages(
                         repos,
                         function_or_class,

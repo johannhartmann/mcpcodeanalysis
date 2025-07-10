@@ -11,7 +11,6 @@ from sqlalchemy.future import select
 
 from src.database.models import Class, File, Function, Import, Module
 from src.domain.indexer import DomainIndexer
-from src.embeddings.openai_client import OpenAIClient
 from src.parser.code_extractor import CodeExtractor
 from src.parser.parser_factory import ParserFactory
 from src.utils.logger import get_logger
@@ -28,7 +27,6 @@ class CodeProcessor:
         *,
         repository_path: Path | str | None = None,
         enable_domain_analysis: bool = False,
-        openai_client: OpenAIClient | None = None,
     ) -> None:
         self.db_session = db_session
         self.repository_path = Path(repository_path) if repository_path else None
@@ -37,8 +35,8 @@ class CodeProcessor:
         self.enable_domain_analysis = enable_domain_analysis
         self.domain_indexer = None
 
-        if enable_domain_analysis and openai_client:
-            self.domain_indexer = DomainIndexer(db_session, openai_client)
+        if enable_domain_analysis:
+            self.domain_indexer = DomainIndexer(db_session)
 
     async def process_file(self, file_record: File) -> dict[str, Any]:
         """Process a file to extract code entities."""

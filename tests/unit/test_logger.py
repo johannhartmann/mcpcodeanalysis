@@ -38,7 +38,7 @@ class TestJSONFormatter:
         formatter = JSONFormatter()
 
         try:
-            raise ValueError("Test error")
+            raise ValueError("Test error")  # noqa: TRY301
         except ValueError:
             import sys
 
@@ -149,7 +149,7 @@ class TestStructuredLogger:
         logger = StructuredLogger(base_logger)
 
         try:
-            raise ValueError("Test error")
+            raise ValueError("Test error")  # noqa: TRY301
         except ValueError:
             with caplog.at_level(logging.ERROR):
                 logger.exception("Error occurred", error_code="E001")

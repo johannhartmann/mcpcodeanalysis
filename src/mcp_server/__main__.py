@@ -44,7 +44,7 @@ def cli() -> None:
     default="info",
     help="Logging level",
 )
-def serve(host: str, port: int, reload: bool, log_level: str) -> None:
+def serve(host: str, port: int, reload: bool, log_level: str) -> None:  # noqa: ARG001
     """Start the MCP server."""
     # Setup logging
     setup_logging()
@@ -247,9 +247,15 @@ scanner:
 
 # Embeddings configuration
 embeddings:
-  model: text-embedding-ada-002
+  model: text-embedding-3-small
   batch_size: 100
   max_tokens: 8000
+
+# LLM configuration
+llm:
+  model: gpt-4o-mini
+  temperature: 0.2
+  max_tokens: 4096
 
 # Logging configuration
 logging:

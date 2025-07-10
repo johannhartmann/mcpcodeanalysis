@@ -15,7 +15,6 @@ from src.database.models import (
     Module,
 )
 from src.embeddings.embedding_generator import EmbeddingGenerator
-from src.embeddings.openai_client import OpenAIClient
 from src.utils.exceptions import EmbeddingError, NotFoundError
 from src.utils.logger import get_logger
 
@@ -28,17 +27,14 @@ class EmbeddingService:
     def __init__(
         self,
         db_session: AsyncSession,
-        openai_client: OpenAIClient | None = None,
     ) -> None:
         """Initialize embedding service.
 
         Args:
             db_session: Database session
-            openai_client: OpenAI client instance
         """
         self.db_session = db_session
-        self.openai_client = openai_client or OpenAIClient()
-        self.embedding_generator = EmbeddingGenerator(self.openai_client)
+        self.embedding_generator = EmbeddingGenerator()
 
     async def create_file_embeddings(self, file_id: int) -> dict[str, Any]:
         """Create embeddings for all entities in a file.

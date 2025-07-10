@@ -239,7 +239,7 @@ async def main() -> None:
     indexer = IndexerService()
 
     # Handle shutdown signals
-    def signal_handler(sig, frame) -> None:
+    def signal_handler(sig, frame) -> None:  # noqa: ARG001
         logger.info("Received signal %s", sig)
         asyncio.create_task(indexer.stop())
 

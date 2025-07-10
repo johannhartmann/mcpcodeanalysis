@@ -16,7 +16,6 @@ from src.database.domain_models import (
     DomainSummary,
 )
 from src.database.models import File
-from src.embeddings.openai_client import OpenAIClient
 from src.utils.logger import get_logger
 
 # Constants
@@ -81,18 +80,15 @@ class DomainTools:
     def __init__(
         self,
         db_session: AsyncSession,
-        openai_client: OpenAIClient | None,
         mcp: FastMCP,
     ) -> None:
         """Initialize domain tools.
 
         Args:
             db_session: Database session
-            openai_client: OpenAI client for LLM operations
             mcp: FastMCP instance
         """
         self.db_session = db_session
-        self.openai_client = openai_client
         self.mcp = mcp
 
     async def register_tools(self) -> None:
@@ -245,7 +241,7 @@ class DomainTools:
             # Extract new domain model
             from src.domain.indexer import DomainIndexer
 
-            indexer = DomainIndexer(self.db_session, self.openai_client)
+            indexer = DomainIndexer(self.db_session)
             result = await indexer.index_file(file.id)
 
             if result["status"] != "success":

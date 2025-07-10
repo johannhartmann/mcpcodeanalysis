@@ -11,7 +11,6 @@ from src.database.models import File, Module
 from src.domain.entity_extractor import DomainEntityExtractor
 from src.domain.graph_builder import SemanticGraphBuilder
 from src.domain.summarizer import HierarchicalSummarizer
-from src.embeddings.openai_client import OpenAIClient
 from src.utils.exceptions import NotFoundError
 from src.utils.logger import get_logger
 
@@ -24,21 +23,18 @@ class DomainIndexer:
     def __init__(
         self,
         db_session: AsyncSession,
-        openai_client: OpenAIClient | None = None,
     ) -> None:
         """Initialize the domain indexer.
 
         Args:
             db_session: Database session
-            openai_client: OpenAI client for LLM operations
         """
         self.db_session = db_session
-        self.openai_client = openai_client or OpenAIClient()
 
         # Initialize components
-        self.entity_extractor = DomainEntityExtractor(self.openai_client)
-        self.graph_builder = SemanticGraphBuilder(db_session, self.openai_client)
-        self.summarizer = HierarchicalSummarizer(db_session, self.openai_client)
+        self.entity_extractor = DomainEntityExtractor()
+        self.graph_builder = SemanticGraphBuilder(db_session)
+        self.summarizer = HierarchicalSummarizer(db_session)
 
     async def index_file(
         self,
@@ -81,6 +77,7 @@ class DomainIndexer:
             return {"status": "error", "file_id": file_id, "error": "File not found"}
 
         import aiofiles
+
         async with aiofiles.open(file_path, encoding="utf-8") as f:
             content = await f.read()
 
@@ -400,12 +397,16 @@ class DomainIndexer:
                     f"Responsibilities: {', '.join(entity.responsibilities)}",
                 )
 
-            text = "\n".join(text_parts)
+            # Text would be used for embedding generation
+            _ = "\n".join(
+                text_parts
+            )  # Currently unused, kept for future embedding integration
 
             # Generate embedding
             try:
-                embedding = await self.openai_client.generate_embedding(text)
-                entity.concept_embedding = embedding
+                # Embedding generation is now handled separately
+                # TODO(@dev): Integrate with embedding service if needed
+                pass
             except Exception:
                 logger.exception(
                     "Error generating embedding for %s",

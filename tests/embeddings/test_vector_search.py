@@ -19,17 +19,20 @@ def mock_db_session():
 
 
 @pytest.fixture
-def mock_openai_client():
-    """Create mock OpenAI client."""
-    client = AsyncMock()
-    client.generate_embedding = AsyncMock(return_value=[0.1] * 1536)
-    return client
+def mock_embeddings():
+    """Create mock embeddings."""
+    with patch("src.embeddings.vector_search.OpenAIEmbeddings") as mock_class:
+        mock_instance = MagicMock()
+        mock_instance.aembed_query = AsyncMock(return_value=[0.1] * 1536)
+        mock_class.return_value = mock_instance
+        yield mock_instance
 
 
 @pytest.fixture
-def vector_search(mock_db_session, mock_openai_client):
+def vector_search(mock_db_session, mock_embeddings):
     """Create vector search fixture."""
-    return VectorSearch(mock_db_session, mock_openai_client)
+    with patch("src.embeddings.vector_search.get_settings"):
+        return VectorSearch(mock_db_session)
 
 
 @pytest.fixture
@@ -70,7 +73,7 @@ class TestVectorSearch:
         self,
         vector_search,
         mock_db_session,
-        mock_openai_client,
+        mock_embeddings,
         sample_embedding,
         sample_function,
     ) -> None:
@@ -97,7 +100,7 @@ class TestVectorSearch:
         assert results[0]["entity"]["name"] == "test_function"
 
         # Verify embedding was generated for query
-        mock_openai_client.generate_embedding.assert_called_once_with(
+        mock_embeddings.aembed_query.assert_called_once_with(
             "find test function",
         )
 
@@ -106,7 +109,7 @@ class TestVectorSearch:
         self,
         vector_search,
         mock_db_session,
-        mock_openai_client,
+        mock_embeddings,
     ) -> None:
         """Test search with repository and scope filters."""
         mock_db_session.execute.return_value = MagicMock(fetchall=list)
@@ -168,7 +171,7 @@ class TestVectorSearch:
     async def test_search_by_code(
         self,
         vector_search,
-        mock_openai_client,
+        mock_embeddings,
     ) -> None:
         """Test searching by code snippet."""
         code_snippet = "def test():\n    return 42"

@@ -213,10 +213,8 @@ repositories:
             "popularity": 0.2,  # Sum = 1.1
         }
 
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(ValueError, match="Ranking weights must sum to 1.0"):
             test_settings.validate_config()
-
-        assert "Ranking weights must sum to 1.0" in str(exc_info.value)
 
 
 class TestSettingsSingleton:

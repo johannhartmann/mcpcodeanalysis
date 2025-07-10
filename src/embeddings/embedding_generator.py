@@ -2,7 +2,9 @@
 
 from typing import Any
 
-from src.embeddings.openai_client import OpenAIClient
+from langchain_openai import OpenAIEmbeddings
+
+from src.mcp_server.config import get_settings
 from src.parser.code_extractor import CodeExtractor
 from src.utils.logger import get_logger
 
@@ -15,13 +17,13 @@ MAX_DISPLAY_METHODS = 10
 class EmbeddingGenerator:
     """Generate embeddings for various code entities."""
 
-    def __init__(self, openai_client: OpenAIClient | None = None) -> None:
-        """Initialize embedding generator.
-
-        Args:
-            openai_client: OpenAI client instance. Creates new if not provided.
-        """
-        self.openai_client = openai_client or OpenAIClient()
+    def __init__(self) -> None:
+        """Initialize embedding generator."""
+        settings = get_settings()
+        self.embeddings = OpenAIEmbeddings(
+            openai_api_key=settings.openai_api_key.get_secret_value(),
+            model=settings.embeddings.model,
+        )
         self.code_extractor = CodeExtractor()
 
     def prepare_function_text(
@@ -253,7 +255,20 @@ class EmbeddingGenerator:
             )
 
         # Generate embeddings
-        return await self.openai_client.generate_embeddings_batch(texts, metadata)
+        embeddings = await self.embeddings.aembed_documents(texts)
+
+        # Combine with metadata
+        results = []
+        for i, (text, embedding) in enumerate(zip(texts, embeddings, strict=False)):
+            results.append(
+                {
+                    "text": text,
+                    "embedding": embedding,
+                    "metadata": metadata[i] if metadata else None,
+                }
+            )
+
+        return results
 
     async def generate_class_embeddings(
         self,
@@ -294,7 +309,20 @@ class EmbeddingGenerator:
             )
 
         # Generate embeddings
-        return await self.openai_client.generate_embeddings_batch(texts, metadata)
+        embeddings = await self.embeddings.aembed_documents(texts)
+
+        # Combine with metadata
+        results = []
+        for i, (text, embedding) in enumerate(zip(texts, embeddings, strict=False)):
+            results.append(
+                {
+                    "text": text,
+                    "embedding": embedding,
+                    "metadata": metadata[i] if metadata else None,
+                }
+            )
+
+        return results
 
     async def generate_module_embedding(
         self,
@@ -324,7 +352,7 @@ class EmbeddingGenerator:
             "end_line": module_data.get("end_line"),
         }
 
-        embedding = await self.openai_client.generate_embedding(text)
+        embedding = await self.embeddings.aembed_query(text)
 
         # Estimate tokens
         tokens = len(text.split()) * 1.3
@@ -389,7 +417,7 @@ class EmbeddingGenerator:
         if additional_metadata:
             metadata.update(additional_metadata)
 
-        embedding = await self.openai_client.generate_embedding(text)
+        embedding = await self.embeddings.aembed_query(text)
 
         # Estimate tokens
         tokens = len(text.split()) * 1.3

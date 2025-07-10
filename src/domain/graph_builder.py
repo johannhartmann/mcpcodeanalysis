@@ -6,6 +6,8 @@ from typing import Any
 import networkx as nx
 import networkx.algorithms.community as nx_comm
 import numpy as np
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +17,7 @@ from src.database.domain_models import (
     DomainEntity,
     DomainRelationship,
 )
-from src.embeddings.openai_client import OpenAIClient
+from src.mcp_server.config import get_settings
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -42,16 +44,23 @@ class SemanticGraphBuilder:
     def __init__(
         self,
         db_session: AsyncSession,
-        openai_client: OpenAIClient | None = None,
     ) -> None:
         """Initialize the graph builder.
 
         Args:
             db_session: Database session
-            openai_client: OpenAI client for embeddings
         """
         self.db_session = db_session
-        self.openai_client = openai_client or OpenAIClient()
+        settings = get_settings()
+        self.embeddings = OpenAIEmbeddings(
+            openai_api_key=settings.openai_api_key.get_secret_value(),
+            model=settings.embeddings.model,
+        )
+        self.llm = ChatOpenAI(
+            openai_api_key=settings.openai_api_key.get_secret_value(),
+            model=settings.llm.model,
+            temperature=settings.llm.temperature,
+        )
 
     async def build_graph(
         self,
@@ -340,22 +349,19 @@ Output as JSON:
 }}"""
 
         try:
-            response = await self.openai_client.chat_completion(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a Domain-Driven Design expert analyzing bounded contexts.",
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    },
-                ],
-                temperature=0.3,
-                response_format={"type": "json_object"},
+            messages = [
+                SystemMessage(
+                    content="You are a Domain-Driven Design expert analyzing bounded contexts."
+                ),
+                HumanMessage(content=prompt),
+            ]
+
+            response = await self.llm.ainvoke(
+                messages,
+                config={"configurable": {"response_format": {"type": "json_object"}}},
             )
 
-            return json.loads(response)
+            return json.loads(response.content)
 
         except Exception:
             logger.exception("Error generating context description: %s")

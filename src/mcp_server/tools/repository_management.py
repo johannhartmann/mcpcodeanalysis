@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.models import Commit, File, Repository
 from src.embeddings.embedding_service import EmbeddingService
-from src.embeddings.openai_client import OpenAIClient
 from src.embeddings.vector_search import VectorSearch
 from src.mcp_server.config import RepositoryConfig
 from src.scanner.repository_scanner import RepositoryScanner
@@ -77,22 +76,17 @@ class RepositoryManagementTools:
     def __init__(
         self,
         db_session: AsyncSession,
-        openai_client: OpenAIClient | None,
         mcp: FastMCP,
     ) -> None:
         """Initialize repository management tools.
 
         Args:
             db_session: Database session
-            openai_client: OpenAI client for embeddings
             mcp: FastMCP instance
         """
         self.db_session = db_session
-        self.openai_client = openai_client
         self.mcp = mcp
-        self.embedding_service = (
-            EmbeddingService(db_session, openai_client) if openai_client else None
-        )
+        self.embedding_service = EmbeddingService(db_session)
 
     async def register_tools(self):
         """Register all repository management tools."""
@@ -131,7 +125,7 @@ class RepositoryManagementTools:
                 # Start scanning if requested
                 scan_result = None
                 if request.scan_immediately:
-                    scanner = RepositoryScanner(self.db_session, self.openai_client)
+                    scanner = RepositoryScanner(self.db_session)
                     scan_result = await scanner.scan_repository(repo_config)
 
                     # Generate embeddings if requested
@@ -207,10 +201,7 @@ class RepositoryManagementTools:
 
                         # Get embedding count
                         if self.embedding_service:
-                            vector_search = VectorSearch(
-                                self.db_session,
-                                self.openai_client,
-                            )
+                            vector_search = VectorSearch(self.db_session)
                             stats = await vector_search.get_repository_stats(repo.id)
                             repo_info["stats"] = {
                                 "files": file_count.scalar() or 0,
@@ -276,7 +267,7 @@ class RepositoryManagementTools:
                 )
 
                 # Scan repository
-                scanner = RepositoryScanner(self.db_session, self.openai_client)
+                scanner = RepositoryScanner(self.db_session)
                 scan_result = await scanner.scan_repository(
                     repo_config,
                     force_full_scan=request.force_full_scan,
@@ -458,7 +449,7 @@ class RepositoryManagementTools:
 
                 # Get embedding statistics if available
                 if self.embedding_service:
-                    vector_search = VectorSearch(self.db_session, self.openai_client)
+                    vector_search = VectorSearch(self.db_session)
                     embedding_stats = await vector_search.get_repository_stats(
                         request.repository_id,
                     )

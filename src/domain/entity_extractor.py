@@ -3,7 +3,10 @@
 import json
 from typing import Any
 
-from src.embeddings.openai_client import OpenAIClient
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
+
+from src.mcp_server.config import get_settings
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -14,13 +17,14 @@ MIN_ENTITIES_FOR_RELATIONSHIPS = 2
 class DomainEntityExtractor:
     """Extract domain entities from code using LLM analysis."""
 
-    def __init__(self, openai_client: OpenAIClient | None = None) -> None:
-        """Initialize the entity extractor.
-
-        Args:
-            openai_client: OpenAI client instance
-        """
-        self.openai_client = openai_client or OpenAIClient()
+    def __init__(self) -> None:
+        """Initialize the entity extractor."""
+        settings = get_settings()
+        self.llm = ChatOpenAI(
+            openai_api_key=settings.openai_api_key.get_secret_value(),
+            model=settings.llm.model,
+            temperature=settings.llm.temperature,
+        )
 
     async def extract_entities(
         self,
@@ -39,22 +43,17 @@ class DomainEntityExtractor:
         prompt = self._build_entity_extraction_prompt(code_chunk, context)
 
         try:
-            response = await self.openai_client.chat_completion(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": self._get_system_prompt(),
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    },
-                ],
-                temperature=0.2,  # Lower temperature for more consistent extraction
-                response_format={"type": "json_object"},
+            messages = [
+                SystemMessage(content=self._get_system_prompt()),
+                HumanMessage(content=prompt),
+            ]
+
+            response = await self.llm.ainvoke(
+                messages,
+                config={"configurable": {"response_format": {"type": "json_object"}}},
             )
 
-            result = json.loads(response)
+            result = json.loads(response.content)
             return self._process_extraction_result(result, code_chunk)
 
         except Exception as e:
@@ -84,22 +83,17 @@ class DomainEntityExtractor:
         prompt = self._build_relationship_extraction_prompt(entities, code_chunks)
 
         try:
-            response = await self.openai_client.chat_completion(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": self._get_relationship_system_prompt(),
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    },
-                ],
-                temperature=0.2,
-                response_format={"type": "json_object"},
+            messages = [
+                SystemMessage(content=self._get_relationship_system_prompt()),
+                HumanMessage(content=prompt),
+            ]
+
+            response = await self.llm.ainvoke(
+                messages,
+                config={"configurable": {"response_format": {"type": "json_object"}}},
             )
 
-            result = json.loads(response)
+            result = json.loads(response.content)
             return self._process_relationship_result(result)
 
         except Exception:

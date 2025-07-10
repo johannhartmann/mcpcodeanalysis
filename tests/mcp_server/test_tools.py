@@ -6,7 +6,6 @@ import pytest
 from fastmcp import FastMCP
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.embeddings.openai_client import OpenAIClient
 from src.mcp_server.tools.code_analysis import CodeAnalysisTools
 from src.mcp_server.tools.code_search import CodeSearchTools
 from src.mcp_server.tools.repository_management import (
@@ -21,9 +20,13 @@ def mock_db_session():
 
 
 @pytest.fixture
-def mock_openai_client():
-    """Create mock OpenAI client."""
-    return MagicMock(spec=OpenAIClient)
+def mock_embeddings():
+    """Create mock embeddings."""
+    with patch("langchain_openai.OpenAIEmbeddings") as mock_class:
+        mock_instance = MagicMock()
+        mock_instance.aembed_query = AsyncMock(return_value=[0.1] * 1536)
+        mock_class.return_value = mock_instance
+        yield mock_instance
 
 
 @pytest.fixture
@@ -38,9 +41,9 @@ class TestCodeSearchTools:
     """Tests for CodeSearchTools."""
 
     @pytest.fixture
-    def search_tools(self, mock_db_session, mock_openai_client, mock_mcp):
+    def search_tools(self, mock_db_session, mock_mcp):
         """Create code search tools fixture."""
-        return CodeSearchTools(mock_db_session, mock_openai_client, mock_mcp)
+        return CodeSearchTools(mock_db_session, mock_mcp)
 
     @pytest.mark.asyncio
     async def test_register_tools(self, search_tools, mock_mcp) -> None:
@@ -153,9 +156,9 @@ class TestRepositoryManagementTools:
     """Tests for RepositoryManagementTools."""
 
     @pytest.fixture
-    def repo_tools(self, mock_db_session, mock_openai_client, mock_mcp):
+    def repo_tools(self, mock_db_session, mock_mcp):
         """Create repository management tools fixture."""
-        return RepositoryManagementTools(mock_db_session, mock_openai_client, mock_mcp)
+        return RepositoryManagementTools(mock_db_session, mock_mcp)
 
     @pytest.mark.asyncio
     async def test_register_tools(self, repo_tools, mock_mcp) -> None:

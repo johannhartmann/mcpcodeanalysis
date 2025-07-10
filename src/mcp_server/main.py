@@ -28,7 +28,7 @@ repository_tool = RepositoryTool()
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI):  # noqa: ARG001
     """Application lifespan manager."""
     # Startup
     logger.info("Starting MCP Code Analysis Server")
@@ -83,7 +83,9 @@ async def explain_code(path: str) -> str:
 
 
 @mcp.tool
-async def find_definition(name: str, type: str = "any") -> list[dict[str, Any]]:
+async def find_definition(
+    name: str, type: str = "any"  # noqa: A002
+) -> list[dict[str, Any]]:
     """
     Find where a function/class/module is defined.
     Type can be: 'function', 'class', 'module', or 'any'

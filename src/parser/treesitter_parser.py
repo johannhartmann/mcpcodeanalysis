@@ -100,7 +100,7 @@ class PythonParser(TreeSitterParser):
         self.language = tree_sitter.Language(tspython.language())
         super().__init__(self.language)
 
-    def extract_imports(
+    def extract_imports(  # noqa: PLR0912
         self,
         tree: tree_sitter.Tree,
         content: bytes,
@@ -145,14 +145,39 @@ class PythonParser(TreeSitterParser):
             }
 
             # Extract module name and imported names
+            found_from = False
+            found_import = False
+            has_relative = False
             for child in node.children:
-                if child.type == "dotted_name":
-                    import_data["imported_from"] = self.get_node_text(child, content)
+                if child.type == "from":
+                    found_from = True
+                elif child.type == "import":
+                    found_import = True
                 elif child.type == "relative_import":
                     import_data["is_relative"] = True
+                    has_relative = True
                     # Count dots for relative level
-                    dots = self.get_node_text(child, content)
-                    import_data["level"] = len(dots)
+                    # The relative_import node contains import_prefix child with dots
+                    for rel_child in child.children:
+                        if rel_child.type == "import_prefix":
+                            dots = self.get_node_text(rel_child, content)
+                            import_data["level"] = len(dots)
+                        elif rel_child.type == "dotted_name":
+                            # This is the module name after dots
+                            import_data["imported_from"] = self.get_node_text(
+                                rel_child, content
+                            )
+                elif child.type == "dotted_name":
+                    if found_from and not found_import and not has_relative:
+                        # First dotted_name after 'from' (and not after relative import) is the module
+                        import_data["imported_from"] = self.get_node_text(
+                            child, content
+                        )
+                    else:
+                        # After 'import' or if we have relative import, it's an imported item
+                        import_data["imported_names"].append(
+                            self.get_node_text(child, content),
+                        )
                 elif child.type in {"import_list", "identifier"}:
                     if child.type == "identifier":
                         import_data["imported_names"].append(
@@ -170,7 +195,7 @@ class PythonParser(TreeSitterParser):
 
         return imports
 
-    def extract_functions(
+    def extract_functions(  # noqa: PLR0912
         self,
         tree: tree_sitter.Tree,
         content: bytes,
@@ -243,8 +268,9 @@ class PythonParser(TreeSitterParser):
                 elif child.type == "block" and (
                     self.find_nodes_by_type(child, "yield_statement")
                     or self.find_nodes_by_type(child, "yield_expression")
+                    or self.find_nodes_by_type(child, "yield")
                 ):
-                    # Check if it's a generator
+                    # Check if it's a generator by looking for yield nodes
                     func_data["is_generator"] = True
 
             # Extract docstring
@@ -254,7 +280,7 @@ class PythonParser(TreeSitterParser):
 
         return functions
 
-    def extract_classes(
+    def extract_classes(  # noqa: PLR0912
         self,
         tree: tree_sitter.Tree,
         content: bytes,

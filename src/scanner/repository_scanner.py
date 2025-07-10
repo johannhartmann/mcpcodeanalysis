@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from src.database.models import Commit, File, Repository
-from src.embeddings.openai_client import OpenAIClient
 from src.mcp_server.config import RepositoryConfig, get_settings
 from src.scanner.code_processor import CodeProcessor
 from src.scanner.git_sync import GitSync
@@ -22,12 +21,10 @@ class RepositoryScanner:
     def __init__(
         self,
         db_session: AsyncSession,
-        openai_client: OpenAIClient | None = None,
     ) -> None:
         self.db_session = db_session
         self.settings = get_settings()
         self.git_sync = GitSync()
-        self.openai_client = openai_client
         self.code_processor = None  # Will be initialized per repository
         self._github_clients: dict[str, GitHubClient] = {}
 
@@ -143,25 +140,22 @@ class RepositoryScanner:
         )
         code_processor = CodeProcessor(
             self.db_session,
-            git_repo.working_dir,
+            repository_path=git_repo.working_dir,
             enable_domain_analysis=enable_domain,
-            openai_client=self.openai_client,
         )
         parse_results = await code_processor.process_files(scanned_files)
 
         # Update repository last sync time
-        repo_record.last_synced = datetime.now(
-            tz=datetime.UTC,
-        )  # PostgreSQL expects naive datetime
+        repo_record.last_synced = datetime.now(UTC)  # PostgreSQL expects naive datetime
         await self.db_session.commit()
 
         # Run bounded context detection if domain analysis is enabled
         context_detection_result = {}
-        if enable_domain and self.openai_client:
+        if enable_domain:
             try:
                 from src.domain.indexer import DomainIndexer
 
-                domain_indexer = DomainIndexer(self.db_session, self.openai_client)
+                domain_indexer = DomainIndexer(self.db_session)
                 context_ids = await domain_indexer.detect_and_save_contexts()
                 context_detection_result = {
                     "contexts_detected": len(context_ids),

@@ -31,8 +31,11 @@ class JSONFormatter(logging.Formatter):
             log_data["exception"] = self.formatException(record.exc_info)
 
         # Add extra fields
-        for key, value in record.__dict__.items():
-            if key not in [
+        extra_fields = {
+            key: value
+            for key, value in record.__dict__.items()
+            if key
+            not in [
                 "name",
                 "msg",
                 "args",
@@ -53,8 +56,9 @@ class JSONFormatter(logging.Formatter):
                 "exc_info",
                 "exc_text",
                 "stack_info",
-            ]:
-                log_data[key] = value
+            ]
+        }
+        log_data.update(extra_fields)
 
         return json.dumps(log_data)
 

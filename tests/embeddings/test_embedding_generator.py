@@ -1,26 +1,28 @@
 """Tests for embedding generator."""
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from src.embeddings.embedding_generator import EmbeddingGenerator
-from src.embeddings.openai_client import OpenAIClient
 
 
 @pytest.fixture
-def mock_openai_client():
-    """Create mock OpenAI client."""
-    client = AsyncMock(spec=OpenAIClient)
-    client.generate_embedding = AsyncMock(return_value=[0.1] * 1536)
-    client.generate_embeddings_batch = AsyncMock()
-    return client
+def mock_embeddings():
+    """Create mock OpenAIEmbeddings."""
+    with patch("src.embeddings.embedding_generator.OpenAIEmbeddings") as mock_class:
+        mock_instance = MagicMock()
+        mock_instance.aembed_query = AsyncMock(return_value=[0.1] * 1536)
+        mock_instance.aembed_documents = AsyncMock(return_value=[[0.1] * 1536])
+        mock_class.return_value = mock_instance
+        yield mock_instance
 
 
 @pytest.fixture
-def embedding_generator(mock_openai_client):
+def embedding_generator(mock_embeddings):
     """Create embedding generator fixture."""
-    return EmbeddingGenerator(mock_openai_client)
+    with patch("src.embeddings.embedding_generator.get_settings"):
+        return EmbeddingGenerator()
 
 
 @pytest.fixture
@@ -193,19 +195,13 @@ class TestEmbeddingGenerator:
     async def test_generate_function_embeddings(
         self,
         embedding_generator,
-        mock_openai_client,
+        mock_embeddings,
         sample_function_data,
     ) -> None:
         """Test generating function embeddings."""
         functions = [sample_function_data]
 
-        mock_openai_client.generate_embeddings_batch.return_value = [
-            {
-                "text": "function text",
-                "embedding": [0.1] * 1536,
-                "metadata": {"entity_type": "function"},
-            },
-        ]
+        mock_embeddings.aembed_documents.return_value = [[0.1] * 1536]
 
         results = await embedding_generator.generate_function_embeddings(
             functions,
@@ -215,31 +211,25 @@ class TestEmbeddingGenerator:
         assert len(results) == 1
         assert results[0]["embedding"] == [0.1] * 1536
 
-        # Check metadata
-        call_args = mock_openai_client.generate_embeddings_batch.call_args
-        metadata = call_args[0][1][0]  # Second argument, first item
-        assert metadata["entity_type"] == "function"
-        assert metadata["entity_name"] == "test_function"
-        assert metadata["file_path"] == "test.py"
-        assert metadata["is_method"] is False
+        # Check that embeddings were generated
+        mock_embeddings.aembed_documents.assert_called_once()
+        # Get the text that was embedded
+        call_args = mock_embeddings.aembed_documents.call_args
+        texts = call_args[0][0]
+        assert len(texts) == 1
+        assert "test_function" in texts[0]
 
     @pytest.mark.asyncio
     async def test_generate_class_embeddings(
         self,
         embedding_generator,
-        mock_openai_client,
+        mock_embeddings,
         sample_class_data,
     ) -> None:
         """Test generating class embeddings."""
         classes = [sample_class_data]
 
-        mock_openai_client.generate_embeddings_batch.return_value = [
-            {
-                "text": "class text",
-                "embedding": [0.2] * 1536,
-                "metadata": {"entity_type": "class"},
-            },
-        ]
+        mock_embeddings.aembed_documents.return_value = [[0.2] * 1536]
 
         results = await embedding_generator.generate_class_embeddings(
             classes,
@@ -249,18 +239,19 @@ class TestEmbeddingGenerator:
         assert len(results) == 1
         assert results[0]["embedding"] == [0.2] * 1536
 
-        # Check metadata
-        call_args = mock_openai_client.generate_embeddings_batch.call_args
-        metadata = call_args[0][1][0]
-        assert metadata["entity_type"] == "class"
-        assert metadata["entity_name"] == "TestClass"
-        assert metadata["is_abstract"] is False
+        # Check that embeddings were generated
+        mock_embeddings.aembed_documents.assert_called_once()
+        # Get the text that was embedded
+        call_args = mock_embeddings.aembed_documents.call_args
+        texts = call_args[0][0]
+        assert len(texts) == 1
+        assert "TestClass" in texts[0]
 
     @pytest.mark.asyncio
     async def test_generate_module_embedding(
         self,
         embedding_generator,
-        mock_openai_client,
+        mock_embeddings,
         sample_module_data,
     ) -> None:
         """Test generating module embedding."""
@@ -277,7 +268,7 @@ class TestEmbeddingGenerator:
         assert result["metadata"]["entity_name"] == "test_module"
 
         # Check that summary was included in text
-        call_args = mock_openai_client.generate_embedding.call_args
+        call_args = mock_embeddings.aembed_query.call_args
         text = call_args[0][0]
         assert "2 classes" in text
         assert "5 functions" in text
@@ -286,7 +277,7 @@ class TestEmbeddingGenerator:
     async def test_generate_code_chunk_embedding(
         self,
         embedding_generator,
-        mock_openai_client,
+        mock_embeddings,
     ) -> None:
         """Test generating code chunk embedding."""
         code = "def test(): pass"

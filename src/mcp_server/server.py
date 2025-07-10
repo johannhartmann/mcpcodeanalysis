@@ -8,7 +8,6 @@ from sqlalchemy import select
 
 from src.database.init_db import get_session_factory, init_database
 from src.database.models import Repository
-from src.embeddings.openai_client import OpenAIClient
 from src.mcp_server.config import get_settings
 from src.mcp_server.tools.code_analysis import CodeAnalysisTools
 from src.mcp_server.tools.code_search import CodeSearchTools
@@ -23,13 +22,12 @@ mcp = FastMCP("Code Analysis Server")
 # Global variables for shared resources
 _engine = None
 _session_factory = None
-_openai_client = None
 _settings = None
 
 
 async def initialize_server() -> None:
     """Initialize server resources."""
-    global _engine, _session_factory, _openai_client, _settings
+    global _engine, _session_factory, _settings
 
     if _engine is not None:
         return  # Already initialized
@@ -44,14 +42,7 @@ async def initialize_server() -> None:
     _engine = await init_database()
     _session_factory = get_session_factory(_engine)
 
-    # Initialize OpenAI client
-    logger.info("Initializing OpenAI client")
-    _openai_client = OpenAIClient()
-
-    # Test OpenAI connection
-    if not await _openai_client.test_connection():
-        logger.warning("OpenAI connection test failed - embeddings will be disabled")
-        _openai_client = None
+    # OpenAI initialization is now handled by individual components using LangChain
 
     logger.info("Server initialized successfully")
 
@@ -121,14 +112,14 @@ async def add_repository(
                     repository_id=repo.id,
                 )
 
-                scanner = RepositoryScanner(session, _openai_client)
+                scanner = RepositoryScanner(session)
                 scan_result = await scanner.scan_repository(repo_config)
 
                 # Generate embeddings if requested
-                if generate_embeddings and _openai_client:
+                if generate_embeddings:
                     from src.embeddings.embedding_service import EmbeddingService
 
-                    embedding_service = EmbeddingService(session, _openai_client)
+                    embedding_service = EmbeddingService(session)
                     embedding_result = (
                         await embedding_service.create_repository_embeddings(
                             scan_result["repository_id"],
@@ -236,7 +227,7 @@ async def scan_repository(
     await initialize_server()
 
     async for session in get_db_session():
-        repo_tools = RepositoryManagementTools(session, _openai_client, mcp)
+        repo_tools = RepositoryManagementTools(session, mcp)
         return await repo_tools.scan_repository(
             {
                 "repository_id": repository_id,
@@ -255,7 +246,7 @@ async def remove_repository(
     await initialize_server()
 
     async for session in get_db_session():
-        repo_tools = RepositoryManagementTools(session, _openai_client, mcp)
+        repo_tools = RepositoryManagementTools(session, mcp)
         return await repo_tools.remove_repository(repository_id=repository_id)
     return None
 
@@ -270,7 +261,7 @@ async def update_repository_settings(
     await initialize_server()
 
     async for session in get_db_session():
-        repo_tools = RepositoryManagementTools(session, _openai_client, mcp)
+        repo_tools = RepositoryManagementTools(session, mcp)
         return await repo_tools.update_repository_settings(
             {
                 "repository_id": repository_id,
@@ -295,7 +286,7 @@ async def semantic_search(
     await initialize_server()
 
     async for session in get_db_session():
-        search_tools = CodeSearchTools(session, _openai_client, mcp)
+        search_tools = CodeSearchTools(session, mcp)
         return await search_tools.semantic_search(
             {
                 "query": query,
@@ -323,7 +314,7 @@ async def keyword_search(
     await initialize_server()
 
     async for session in get_db_session():
-        search_tools = CodeSearchTools(session, _openai_client, mcp)
+        search_tools = CodeSearchTools(session, mcp)
         return await search_tools.keyword_search(
             {
                 "keywords": keywords,
@@ -349,7 +340,7 @@ async def find_similar_code(
     await initialize_server()
 
     async for session in get_db_session():
-        search_tools = CodeSearchTools(session, _openai_client, mcp)
+        search_tools = CodeSearchTools(session, mcp)
         return await search_tools.find_similar_code(
             {
                 "code_snippet": code_snippet,
@@ -473,7 +464,7 @@ def create_server():
         async def scan_repository(self, url, branch=None, generate_embeddings=True):
             await initialize_server()
             async for session in get_db_session():
-                repo_tools = RepositoryManagementTools(session, _openai_client, mcp)
+                repo_tools = RepositoryManagementTools(session, mcp)
                 return await repo_tools.add_repository(
                     {
                         "url": url,
@@ -487,7 +478,7 @@ def create_server():
         async def search(self, query, repository_id=None, limit=10):
             await initialize_server()
             async for session in get_db_session():
-                search_tools = CodeSearchTools(session, _openai_client, mcp)
+                search_tools = CodeSearchTools(session, mcp)
                 return await search_tools.semantic_search(
                     {
                         "query": query,

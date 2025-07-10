@@ -157,7 +157,7 @@ class NotFoundError(MCPError):
             self.details["resource_id"] = resource_id
 
 
-class TimeoutError(MCPError):
+class TimeoutError(MCPError):  # noqa: A001
     """Operation timeout errors."""
 
     def __init__(

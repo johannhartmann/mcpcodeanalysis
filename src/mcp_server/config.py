@@ -62,12 +62,21 @@ class ParserConfig(BaseModel):
 class EmbeddingsConfig(BaseModel):
     """Embeddings configuration."""
 
-    model: str = "text-embedding-ada-002"
+    model: str = "text-embedding-3-small"
     batch_size: int = Field(default=100, ge=1, le=500)
     use_cache: bool = True
     cache_dir: Path = Path(".embeddings_cache")
     max_tokens: int = Field(default=8000, ge=100, le=8191)
     generate_interpreted: bool = True
+
+
+class LLMConfig(BaseModel):
+    """LLM configuration for chat completions."""
+
+    model: str = "gpt-4o-mini"
+    temperature: float = Field(default=0.2, ge=0.0, le=2.0)
+    max_tokens: int | None = Field(default=None, ge=1, le=128000)
+    timeout: int = Field(default=60, ge=1, le=300)
 
 
 class DomainAnalysisConfig(BaseModel):
@@ -182,6 +191,7 @@ class Settings(BaseSettings):
     scanner: ScannerConfig = Field(default_factory=ScannerConfig)
     parser: ParserConfig = Field(default_factory=ParserConfig)
     embeddings: EmbeddingsConfig = Field(default_factory=EmbeddingsConfig)
+    llm: LLMConfig = Field(default_factory=LLMConfig)
     domain_analysis: DomainAnalysisConfig = Field(default_factory=DomainAnalysisConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     mcp: MCPConfig = Field(default_factory=MCPConfig)
@@ -269,9 +279,9 @@ class Settings(BaseSettings):
             self.logging.file_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Validate ranking weights sum to 1.0
-        WEIGHT_SUM_TOLERANCE = 0.001
+        weight_sum_tolerance = 0.001
         weight_sum = sum(self.query.ranking_weights.values())
-        if abs(weight_sum - 1.0) > WEIGHT_SUM_TOLERANCE:
+        if abs(weight_sum - 1.0) > weight_sum_tolerance:
             msg = f"Ranking weights must sum to 1.0, got {weight_sum}"
             raise ValueError(msg)
 
@@ -297,7 +307,9 @@ class SettingsManager:
         """Reload settings from configuration file."""
         if config_path is None:
             config_path = Path(os.getenv("CONFIG_PATH", "config.yaml"))
-        self._settings = Settings.from_yaml(config_path) if config_path.exists() else Settings()
+        self._settings = (
+            Settings.from_yaml(config_path) if config_path.exists() else Settings()
+        )
         self._settings.validate_config()
         return self._settings
 

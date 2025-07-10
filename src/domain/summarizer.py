@@ -3,6 +3,8 @@
 import json
 from typing import Any
 
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -13,7 +15,7 @@ from src.database.domain_models import (
     DomainSummary,
 )
 from src.database.models import Class, Function, Module
-from src.embeddings.openai_client import OpenAIClient
+from src.mcp_server.config import get_settings
 from src.utils.exceptions import NotFoundError
 from src.utils.logger import get_logger
 
@@ -26,16 +28,19 @@ class HierarchicalSummarizer:
     def __init__(
         self,
         db_session: AsyncSession,
-        openai_client: OpenAIClient | None = None,
     ) -> None:
         """Initialize the summarizer.
 
         Args:
             db_session: Database session
-            openai_client: OpenAI client for LLM operations
         """
         self.db_session = db_session
-        self.openai_client = openai_client or OpenAIClient()
+        settings = get_settings()
+        self.llm = ChatOpenAI(
+            openai_api_key=settings.openai_api_key.get_secret_value(),
+            model=settings.llm.model,
+            temperature=settings.llm.temperature,
+        )
 
     async def summarize_function(
         self,
@@ -371,22 +376,19 @@ Output as JSON:
 }}"""
 
         try:
-            response = await self.openai_client.chat_completion(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are analyzing code to extract business and technical summaries.",
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    },
-                ],
-                temperature=0.3,
-                response_format={"type": "json_object"},
+            messages = [
+                SystemMessage(
+                    content="You are analyzing code to extract business and technical summaries."
+                ),
+                HumanMessage(content=prompt),
+            ]
+
+            response = await self.llm.ainvoke(
+                messages,
+                config={"configurable": {"response_format": {"type": "json_object"}}},
             )
 
-            return json.loads(response)
+            return json.loads(response.content)
 
         except Exception:
             logger.exception("Error generating function summary: %s")
@@ -431,22 +433,18 @@ Output as JSON:
 }}"""
 
         try:
-            response = await self.openai_client.chat_completion(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are analyzing classes to understand their business and technical roles.",
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    },
-                ],
-                temperature=0.3,
-                response_format={"type": "json_object"},
+            messages = [
+                SystemMessage(
+                    content="You are analyzing classes to understand their business and technical roles."
+                ),
+                HumanMessage(content=prompt),
+            ]
+            response = await self.llm.ainvoke(
+                messages,
+                config={"configurable": {"response_format": {"type": "json_object"}}},
             )
 
-            result = json.loads(response)
+            result = json.loads(response.content)
             # Add method concepts
             result["domain_concepts"] = list(
                 set(result.get("domain_concepts", [])) | method_concepts,
@@ -494,22 +492,18 @@ Output as JSON:
 }}"""
 
         try:
-            response = await self.openai_client.chat_completion(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are analyzing modules to understand their role in the system.",
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    },
-                ],
-                temperature=0.3,
-                response_format={"type": "json_object"},
+            messages = [
+                SystemMessage(
+                    content="You are analyzing modules to understand their role in the system."
+                ),
+                HumanMessage(content=prompt),
+            ]
+            response = await self.llm.ainvoke(
+                messages,
+                config={"configurable": {"response_format": {"type": "json_object"}}},
             )
 
-            return json.loads(response)
+            return json.loads(response.content)
 
         except Exception:
             logger.exception("Error generating module summary: %s")
@@ -559,22 +553,18 @@ Output as JSON:
 }}"""
 
         try:
-            response = await self.openai_client.chat_completion(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are analyzing bounded contexts in a Domain-Driven Design system.",
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    },
-                ],
-                temperature=0.3,
-                response_format={"type": "json_object"},
+            messages = [
+                SystemMessage(
+                    content="You are analyzing bounded contexts in a Domain-Driven Design system."
+                ),
+                HumanMessage(content=prompt),
+            ]
+            response = await self.llm.ainvoke(
+                messages,
+                config={"configurable": {"response_format": {"type": "json_object"}}},
             )
 
-            return json.loads(response)
+            return json.loads(response.content)
 
         except Exception:
             logger.exception("Error generating context summary: %s")

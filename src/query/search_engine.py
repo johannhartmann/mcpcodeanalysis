@@ -174,7 +174,7 @@ class SearchEngine:
         results.sort(key=lambda x: x["score"], reverse=True)
         return results[:limit]
 
-    async def _load_entity_details(
+    async def _load_entity_details(  # noqa: PLR0911
         self,
         repos: dict[str, Any],
         entity_type: str,

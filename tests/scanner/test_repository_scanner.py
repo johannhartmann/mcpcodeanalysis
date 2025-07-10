@@ -77,7 +77,10 @@ def mock_repo_record():
 def mock_git_repo():
     """Create mock git repository."""
     repo = MagicMock(spec=git.Repo)
-    repo.working_dir = "/tmp/test-repo"
+    # working_dir needs to be a Path that supports division operator
+    from pathlib import Path
+
+    repo.working_dir = Path("/tmp/test-repo")
     repo.active_branch = MagicMock()
     repo.active_branch.name = "main"
     return repo
@@ -219,8 +222,26 @@ class TestRepositoryScanner:
     ) -> None:
         """Test processing commits with some already existing."""
         commits_data = [
-            {"sha": "abc123", "message": "Existing commit"},
-            {"sha": "def456", "message": "New commit"},
+            {
+                "sha": "abc123",
+                "message": "Existing commit",
+                "author": "Test Author",
+                "author_email": "test@example.com",
+                "timestamp": datetime.now(tz=UTC),
+                "files_changed": ["file1.py"],
+                "additions": 5,
+                "deletions": 2,
+            },
+            {
+                "sha": "def456",
+                "message": "New commit",
+                "author": "Test Author",
+                "author_email": "test@example.com",
+                "timestamp": datetime.now(tz=UTC),
+                "files_changed": ["file2.py"],
+                "additions": 10,
+                "deletions": 0,
+            },
         ]
 
         with patch.object(

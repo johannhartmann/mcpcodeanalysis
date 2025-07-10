@@ -310,7 +310,7 @@ _health_manager: HealthCheckManager | None = None
 
 def get_health_manager() -> HealthCheckManager:
     """Get health check manager singleton."""
-    global _health_manager
+    global _health_manager  # noqa: PLW0603
     if _health_manager is None:
         _health_manager = HealthCheckManager()
     return _health_manager

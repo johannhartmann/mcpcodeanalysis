@@ -5,6 +5,8 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -15,7 +17,7 @@ from src.database.domain_models import (
     DomainEntity,
 )
 from src.database.models import Class, CodeEmbedding, File, Function, Module
-from src.embeddings.openai_client import OpenAIClient
+from src.mcp_server.config import get_settings
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -41,16 +43,23 @@ class DomainAwareSearch:
     def __init__(
         self,
         db_session: AsyncSession,
-        openai_client: OpenAIClient | None = None,
     ) -> None:
         """Initialize domain-aware search.
 
         Args:
             db_session: Database session
-            openai_client: OpenAI client for query embeddings
         """
         self.db_session = db_session
-        self.openai_client = openai_client or OpenAIClient()
+        settings = get_settings()
+        self.embeddings = OpenAIEmbeddings(
+            openai_api_key=settings.openai_api_key.get_secret_value(),
+            model=settings.embeddings.model,
+        )
+        self.llm = ChatOpenAI(
+            openai_api_key=settings.openai_api_key.get_secret_value(),
+            model=settings.llm.model,
+            temperature=settings.llm.temperature,
+        )
 
     async def search_with_domain_context(
         self,
@@ -95,7 +104,7 @@ class DomainAwareSearch:
             query,
             relevant_entities,
         )
-        query_embedding = await self.openai_client.generate_embedding(enhanced_query)
+        query_embedding = await self.embeddings.aembed_query(enhanced_query)
 
         # Step 4: Search with domain-weighted scoring
         results = await self._domain_weighted_search(
@@ -204,22 +213,17 @@ class DomainAwareSearch:
         """
 
         try:
-            response = await self.openai_client.chat_completion(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "Extract domain concepts from queries.",
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    },
-                ],
-                temperature=0.3,
-                response_format={"type": "json_object"},
+            messages = [
+                SystemMessage(content="Extract domain concepts from queries."),
+                HumanMessage(content=prompt),
+            ]
+
+            response = await self.llm.ainvoke(
+                messages,
+                config={"configurable": {"response_format": {"type": "json_object"}}},
             )
 
-            result = json.loads(response)
+            result = json.loads(response.content)
             return result.get("concepts", [])
 
         except Exception:

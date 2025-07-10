@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.embeddings.domain_search import DomainAwareSearch, DomainSearchScope
-from src.embeddings.openai_client import OpenAIClient
 from src.embeddings.vector_search import SearchScope, VectorSearch
 from src.utils.logger import get_logger
 
@@ -88,25 +87,18 @@ class CodeSearchTools:
     def __init__(
         self,
         db_session: AsyncSession,
-        openai_client: OpenAIClient | None,
         mcp: FastMCP,
     ) -> None:
         """Initialize code search tools.
 
         Args:
             db_session: Database session
-            openai_client: OpenAI client for embeddings
             mcp: FastMCP instance
         """
         self.db_session = db_session
-        self.openai_client = openai_client
         self.mcp = mcp
-        self.vector_search = (
-            VectorSearch(db_session, openai_client) if openai_client else None
-        )
-        self.domain_search = (
-            DomainAwareSearch(db_session, openai_client) if openai_client else None
-        )
+        self.vector_search = VectorSearch(db_session)
+        self.domain_search = DomainAwareSearch(db_session)
 
     async def register_tools(self):
         """Register all code search tools."""

@@ -90,11 +90,13 @@ class TestGitHubClient:
         """Test successful API request."""
         mock_response.json.return_value = {"id": 123, "name": "test-repo"}
 
-        with patch.object(github_client, "_client") as mock_client:
-            mock_client.request = AsyncMock(return_value=mock_response)
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(return_value=mock_response)
+        mock_client.aclose = AsyncMock()
 
+        # Mock the httpx.AsyncClient creation
+        with patch("httpx.AsyncClient", return_value=mock_client):
             async with github_client:
-                github_client._client = mock_client
                 response = await github_client._request("GET", "/repos/test/repo")
 
                 assert response == mock_response
@@ -113,16 +115,17 @@ class TestGitHubClient:
             "X-RateLimit-Limit": "5000",
         }
 
-        with patch.object(github_client, "_client") as mock_client:
-            mock_client.request = AsyncMock(return_value=mock_response)
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(return_value=mock_response)
+        mock_client.aclose = AsyncMock()
 
+        # Mock the httpx.AsyncClient creation
+        with patch("httpx.AsyncClient", return_value=mock_client):
             async with github_client:
-                github_client._client = mock_client
-
                 with pytest.raises(RateLimitError) as exc_info:
                     await github_client._request("GET", "/test")
 
-                assert exc_info.value.retry_after == 60
+                assert exc_info.value.details.get("retry_after") == 60
 
     @pytest.mark.asyncio
     async def test_request_github_error(self, github_client) -> None:
@@ -131,12 +134,13 @@ class TestGitHubClient:
         mock_response.status_code = 404
         mock_response.json.return_value = {"message": "Not Found"}
 
-        with patch.object(github_client, "_client") as mock_client:
-            mock_client.request = AsyncMock(return_value=mock_response)
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(return_value=mock_response)
+        mock_client.aclose = AsyncMock()
 
+        # Mock the httpx.AsyncClient creation
+        with patch("httpx.AsyncClient", return_value=mock_client):
             async with github_client:
-                github_client._client = mock_client
-
                 with pytest.raises(GitHubError) as exc_info:
                     await github_client._request("GET", "/test")
 

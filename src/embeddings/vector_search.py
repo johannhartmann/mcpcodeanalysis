@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+from langchain_openai import OpenAIEmbeddings
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -15,7 +16,7 @@ from src.database.models import (
     Function,
     Module,
 )
-from src.embeddings.openai_client import OpenAIClient
+from src.mcp_server.config import get_settings
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -38,16 +39,18 @@ class VectorSearch:
     def __init__(
         self,
         db_session: AsyncSession,
-        openai_client: OpenAIClient | None = None,
     ) -> None:
         """Initialize vector search.
 
         Args:
             db_session: Database session
-            openai_client: OpenAI client for query embeddings
         """
         self.db_session = db_session
-        self.openai_client = openai_client or OpenAIClient()
+        settings = get_settings()
+        self.embeddings = OpenAIEmbeddings(
+            openai_api_key=settings.openai_api_key.get_secret_value(),
+            model=settings.embeddings.model,
+        )
 
     async def search(
         self,
@@ -80,7 +83,7 @@ class VectorSearch:
         )
 
         # Generate query embedding
-        query_embedding = await self.openai_client.generate_embedding(query)
+        query_embedding = await self.embeddings.aembed_query(query)
 
         # Build search query
         search_query = self._build_search_query(

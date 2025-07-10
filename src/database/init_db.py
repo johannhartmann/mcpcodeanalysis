@@ -7,6 +7,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
+# Import domain models to ensure they're registered with metadata
+from src.database import domain_models  # noqa: F401
 from src.database.models import Base
 from src.mcp_server.config import get_settings
 from src.utils.logger import get_logger
@@ -93,21 +95,34 @@ async def init_database(database_url: str | None = None) -> AsyncEngine:
 
     logger.info("Initializing database")
 
-    # Create database if needed
-    await create_database_if_not_exists(database_url)
+    # Check if using SQLite (for tests)
+    is_sqlite = database_url.startswith("sqlite")
+
+    if not is_sqlite:
+        # Create database if needed (PostgreSQL only)
+        await create_database_if_not_exists(database_url)
 
     # Create engine
-    engine = create_async_engine(
-        database_url,
-        echo=False,  # Set to True for SQL debugging
-        future=True,
-        pool_pre_ping=True,
-        pool_size=10,
-        max_overflow=20,
-    )
+    if is_sqlite:
+        # SQLite configuration
+        engine = create_async_engine(
+            database_url,
+            echo=False,
+            future=True,
+        )
+    else:
+        # PostgreSQL configuration
+        engine = create_async_engine(
+            database_url,
+            echo=False,  # Set to True for SQL debugging
+            future=True,
+            pool_pre_ping=True,
+            pool_size=10,
+            max_overflow=20,
+        )
 
-    # Initialize pgvector
-    await init_pgvector(engine)
+        # Initialize pgvector (PostgreSQL only)
+        await init_pgvector(engine)
 
     # Create tables
     await create_tables(engine)

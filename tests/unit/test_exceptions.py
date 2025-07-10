@@ -14,7 +14,7 @@ from src.utils.exceptions import (
     QueryError,
     RateLimitError,
     RepositoryError,
-    TimeoutError,
+    TimeoutError,  # noqa: A004
     ValidationError,
     VectorSearchError,
     WebhookError,

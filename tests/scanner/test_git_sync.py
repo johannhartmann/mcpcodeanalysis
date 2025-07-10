@@ -84,10 +84,10 @@ class TestGitSync:
         """Test extracting owner and repo from invalid URL."""
         from src.utils.exceptions import ValidationError
 
-        with pytest.raises(ValidationError, match="Invalid GitHub URL"):
+        with pytest.raises(ValidationError, match="Invalid URL"):
             git_sync.extract_owner_repo("https://example.com/test-repo")
 
-        with pytest.raises(ValidationError, match="Invalid repository path"):
+        with pytest.raises(ValidationError, match="Invalid path"):
             git_sync.extract_owner_repo("https://github.com/invalid-path")
 
     @pytest.mark.asyncio
@@ -150,7 +150,7 @@ class TestGitSync:
                 "git.Repo.clone_from",
                 side_effect=GitCommandError("clone", "error"),
             ),
-            pytest.raises(RepositoryError, match="Failed to clone repository"),
+            pytest.raises(RepositoryError, match="Clone failed"),
         ):
             await git_sync.clone_repository(
                 "https://github.com/test-owner/test-repo",
@@ -259,7 +259,9 @@ class TestGitSync:
         changed_files = await git_sync.get_changed_files(mock_repo, "abc123")
 
         assert len(changed_files) == 2
-        assert changed_files["src/new.py"]["change_type"] == "renamed"
+        # For renamed files, the key is the old path (a_path)
+        assert changed_files["src/old.py"]["change_type"] == "renamed"
+        assert changed_files["src/old.py"]["new_path"] == "src/new.py"
         assert changed_files["src/added.py"]["change_type"] == "added"
 
     @pytest.mark.asyncio

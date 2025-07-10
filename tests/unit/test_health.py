@@ -127,10 +127,8 @@ class TestDatabaseHealthCheck:
 
             check = DatabaseHealthCheck()
 
-            with pytest.raises(Exception) as exc_info:
+            with pytest.raises(Exception, match="Connection failed"):
                 await check._perform_check()
-
-            assert "Connection failed" in str(exc_info.value)
 
 
 class TestGitHubHealthCheck:

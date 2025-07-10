@@ -1,5 +1,6 @@
 """Tests for database models."""
 
+import contextlib
 from datetime import UTC, datetime
 
 import pytest
@@ -25,17 +26,15 @@ def db_session(sync_engine):
     connection = sync_engine.connect()
     transaction = connection.begin()
 
-    Session = sessionmaker(bind=connection)
+    Session = sessionmaker(bind=connection)  # noqa: N806
     session = Session()
 
     yield session
 
     session.close()
-    try:
-        transaction.rollback()
-    except Exception:
+    with contextlib.suppress(Exception):
         # Transaction might already be rolled back if test failed
-        pass
+        transaction.rollback()
     connection.close()
 
 

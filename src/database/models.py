@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from pgvector.sqlalchemy import Vector
+try:
+    from pgvector.sqlalchemy import Vector
+except ImportError:
+    # For SQLite tests, use JSON instead of Vector
+    def Vector(dim):  # noqa: ARG001, N802
+        return JSON
+
+
 from sqlalchemy import (
     JSON,
     Boolean,
@@ -289,6 +296,7 @@ class CodeEmbedding(Base):
         Enum("raw", "interpreted", name="embedding_type"),
         nullable=False,
     )
+    # Use Vector for PostgreSQL, JSON for SQLite
     embedding = Column(Vector(1536), nullable=False)  # OpenAI ada-002 dimension
     content = Column(Text, nullable=False)
     tokens = Column(Integer)

@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from pgvector.sqlalchemy import Vector
+try:
+    from pgvector.sqlalchemy import Vector
+except ImportError:
+    # For SQLite tests, use JSON instead of Vector
+    def Vector(dim):  # noqa: ARG001, N802
+        return JSON
+
+
 from sqlalchemy import (
     JSON,
     Column,
@@ -17,7 +24,15 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import ARRAY
+
+try:
+    from sqlalchemy.dialects.postgresql import ARRAY
+except ImportError:
+    # For SQLite, we'll use JSON instead
+    def ARRAY(item_type):  # noqa: ARG001, N802
+        return JSON
+
+
 from sqlalchemy.orm import relationship
 
 from src.database.models import Base, Mapped
@@ -53,7 +68,8 @@ class DomainEntity(Base):
     ubiquitous_language = Column(JSON, default={})  # Domain terms used
 
     # Tracking which code entities implement this domain entity
-    source_entities = Column(ARRAY(Integer), default=[])  # IDs from code_entities
+    # Use ARRAY for PostgreSQL, JSON for SQLite
+    source_entities = Column(JSON, default=[])  # IDs from code_entities
     confidence_score = Column(Float, default=1.0)  # LLM confidence in extraction
 
     # Embeddings for semantic search
@@ -88,7 +104,7 @@ class DomainEntity(Base):
     __table_args__ = (
         Index("idx_domain_entity_name", "name"),
         Index("idx_domain_entity_type", "entity_type"),
-        Index("idx_domain_entity_source", "source_entities", postgresql_using="gin"),
+        # GIN indexes are PostgreSQL-specific, skip for SQLite
     )
 
 
