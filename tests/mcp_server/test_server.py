@@ -171,9 +171,9 @@ class TestMCPServer:
 
 def test_create_server() -> None:
     """Test server creation."""
-    with patch("src.mcp_server.server.get_settings"):
-        server = create_server()
-        assert server is not None
-        assert hasattr(server, "initialize")
-        assert hasattr(server, "scan_repository")
-        assert hasattr(server, "search")
+    # No need to patch settings as create_server doesn't use it
+    server = create_server()
+    assert server is not None
+    assert hasattr(server, "initialize")
+    assert hasattr(server, "scan_repository")
+    assert hasattr(server, "search")

@@ -45,8 +45,8 @@ class TestGitSync:
 
     def test_init(self, tmp_path) -> None:
         """Test GitSync initialization."""
-        with patch("src.scanner.git_sync.get_settings") as mock_settings:
-            mock_settings.return_value.scanner.storage_path = tmp_path / "repos"
+        with patch("src.scanner.git_sync.settings") as mock_settings:
+            mock_settings.scanner.root_paths = [str(tmp_path / "repos")]
             sync = GitSync()
 
             assert sync.storage_path == tmp_path / "repos"

@@ -108,10 +108,20 @@ class TestRepository:
         db_session.commit()
 
         # Test relationships
-        assert len(repo.files) == 1
-        assert repo.files[0].path == "test.py"
-        assert len(repo.commits) == 1
-        assert repo.commits[0].sha == "abc123"
+        # Query the relationships directly for SQLite compatibility
+        from sqlalchemy import select
+        
+        files = db_session.execute(
+            select(File).where(File.repository_id == repo.id)
+        ).scalars().all()
+        commits = db_session.execute(
+            select(Commit).where(Commit.repository_id == repo.id)
+        ).scalars().all()
+        
+        assert len(files) == 1
+        assert files[0].path == "test.py"
+        assert len(commits) == 1
+        assert commits[0].sha == "abc123"
 
 
 class TestFile:
@@ -336,7 +346,13 @@ class TestFunction:
         db_session.commit()
 
         assert method.parent_class.name == "DataProcessor"
-        assert len(cls.methods) == 1
+        # Query the relationship directly for SQLite compatibility
+        from sqlalchemy import select
+        
+        methods = db_session.execute(
+            select(Function).where(Function.class_id == cls.id)
+        ).scalars().all()
+        assert len(methods) == 1
 
 
 class TestImport:

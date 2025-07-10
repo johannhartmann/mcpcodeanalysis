@@ -133,6 +133,7 @@ class TestGitHubClient:
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 404
         mock_response.json.return_value = {"message": "Not Found"}
+        mock_response.headers = {}
 
         mock_client = AsyncMock()
         mock_client.request = AsyncMock(return_value=mock_response)

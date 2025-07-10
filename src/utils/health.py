@@ -304,7 +304,7 @@ class HealthCheckManager:
             "checks": checks,
             "version": "0.1.0",  # TODO(@dev): Get from package
             "environment": {
-                "debug": settings.debug,
+                "debug": getattr(settings, "debug", False),
             },
         }
 

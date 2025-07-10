@@ -264,7 +264,7 @@ class GitSync:
             file_extensions = {".py"}  # Default to Python files
 
         repo_path = Path(repo.working_dir)
-        exclude_patterns = set(self.settings.scanner.exclude_patterns)
+        exclude_patterns = set(settings.scanner.exclude_patterns)
 
         files = []
 
