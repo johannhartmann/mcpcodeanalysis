@@ -253,8 +253,7 @@ class AnalyzeTool:
 
         results = await session.execute(query, {"pattern": f"%{module_name}%"})
 
-        for row in results:
-            importers.append(row.path)
+        importers = [row.path for row in results]
 
         return importers[:10]  # Limit to 10
 

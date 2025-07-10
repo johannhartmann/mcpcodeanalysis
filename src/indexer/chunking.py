@@ -95,6 +95,7 @@ class CodeChunker:
         entity_type: str,
         entity: dict[str, Any],
         lines: list[str],
+        *,
         include_context: bool = False,
         parent_class: str | None = None,
     ) -> dict[str, Any]:

@@ -348,18 +348,18 @@ class CodeSearchTools:
                     func_result = await self.db_session.execute(func_query)
                     functions = func_result.scalars().all()
 
-                    for func in functions:
-                        results.append(
-                            {
-                                "type": "function",
-                                "id": func.id,
-                                "name": func.name,
-                                "file_id": func.file_id,
-                                "start_line": func.start_line,
-                                "end_line": func.end_line,
-                                "docstring": func.docstring,
-                            },
-                        )
+                    results.extend(
+                        {
+                            "type": "function",
+                            "id": func.id,
+                            "name": func.name,
+                            "file_id": func.file_id,
+                            "start_line": func.start_line,
+                            "end_line": func.end_line,
+                            "docstring": func.docstring,
+                        }
+                        for func in functions
+                    )
 
                 # Search classes
                 if not entity_type or entity_type == "class":
@@ -378,18 +378,18 @@ class CodeSearchTools:
                     class_result = await self.db_session.execute(class_query)
                     classes = class_result.scalars().all()
 
-                    for cls in classes:
-                        results.append(
-                            {
-                                "type": "class",
-                                "id": cls.id,
-                                "name": cls.name,
-                                "file_id": cls.file_id,
-                                "start_line": cls.start_line,
-                                "end_line": cls.end_line,
-                                "docstring": cls.docstring,
-                            },
-                        )
+                    results.extend(
+                        {
+                            "type": "class",
+                            "id": cls.id,
+                            "name": cls.name,
+                            "file_id": cls.file_id,
+                            "start_line": cls.start_line,
+                            "end_line": cls.end_line,
+                            "docstring": cls.docstring,
+                        }
+                        for cls in classes
+                    )
 
                 # Search modules
                 if not entity_type or entity_type == "module":
@@ -408,18 +408,18 @@ class CodeSearchTools:
                     module_result = await self.db_session.execute(module_query)
                     modules = module_result.scalars().all()
 
-                    for module in modules:
-                        results.append(
-                            {
-                                "type": "module",
-                                "id": module.id,
-                                "name": module.name,
-                                "file_id": module.file_id,
-                                "start_line": module.start_line,
-                                "end_line": module.end_line,
-                                "docstring": module.docstring,
-                            },
-                        )
+                    results.extend(
+                        {
+                            "type": "module",
+                            "id": module.id,
+                            "name": module.name,
+                            "file_id": module.file_id,
+                            "start_line": module.start_line,
+                            "end_line": module.end_line,
+                            "docstring": module.docstring,
+                        }
+                        for module in modules
+                    )
 
                 # Sort by relevance (name matches first)
                 results.sort(

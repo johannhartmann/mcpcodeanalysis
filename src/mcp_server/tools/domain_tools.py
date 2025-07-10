@@ -225,15 +225,15 @@ class DomainTools:
                         ),
                     )
 
-                    for rel in result.scalars().all():
-                        relationships.append(
-                            {
-                                "source": rel.source_entity.name,
-                                "target": rel.target_entity.name,
-                                "type": rel.relationship_type,
-                                "description": rel.description,
-                            },
-                        )
+                    relationships.extend(
+                        {
+                            "source": rel.source_entity.name,
+                            "target": rel.target_entity.name,
+                            "type": rel.relationship_type,
+                            "description": rel.description,
+                        }
+                        for rel in result.scalars().all()
+                    )
 
                 return {
                     "file": code_path,
@@ -287,15 +287,15 @@ class DomainTools:
                     ),
                 )
 
-                for rel in result.scalars().all():
-                    relationship_data.append(
-                        {
-                            "source": rel.source_entity.name,
-                            "target": rel.target_entity.name,
-                            "type": rel.relationship_type,
-                            "description": rel.description,
-                        },
-                    )
+                relationship_data.extend(
+                    {
+                        "source": rel.source_entity.name,
+                        "target": rel.target_entity.name,
+                        "type": rel.relationship_type,
+                        "description": rel.description,
+                    }
+                    for rel in result.scalars().all()
+                )
 
             return {
                 "file": code_path,
@@ -540,15 +540,15 @@ class DomainTools:
             # Check for anemic domain models
             for entity in entities:
                 if entity.entity_type in ["entity", "aggregate_root"] and not entity.business_rules and not entity.invariants:
-                        suggestions.append(
-                            {
-                                "type": "anemic_domain_model",
-                                "severity": "medium",
-                                "entity": entity.name,
-                                "message": f"Entity '{entity.name}' has no business rules or invariants",
-                                "suggestion": "Move business logic into the entity to create a rich domain model",
-                            },
-                        )
+                    suggestions.append(
+                        {
+                            "type": "anemic_domain_model",
+                            "severity": "medium",
+                            "entity": entity.name,
+                            "message": f"Entity '{entity.name}' has no business rules or invariants",
+                            "suggestion": "Move business logic into the entity to create a rich domain model",
+                        },
+                    )
 
             # Check for missing value objects
             # Simple heuristic: entities with few responsibilities might be value objects

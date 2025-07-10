@@ -449,14 +449,14 @@ class DomainAwareSearch:
             .limit(10),
         )
 
-        for cls in class_result.scalars().all():
-            entities.append(
-                {
-                    "type": "class",
-                    "name": cls.name,
-                    "line": cls.start_line,
-                },
-            )
+        entities.extend(
+            {
+                "type": "class",
+                "name": cls.name,
+                "line": cls.start_line,
+            }
+            for cls in class_result.scalars().all()
+        )
 
         # Get functions
         func_result = await self.db_session.execute(
@@ -466,13 +466,13 @@ class DomainAwareSearch:
             .limit(10),
         )
 
-        for func in func_result.scalars().all():
-            entities.append(
-                {
-                    "type": "function",
-                    "name": func.name,
-                    "line": func.start_line,
-                },
-            )
+        entities.extend(
+            {
+                "type": "function",
+                "name": func.name,
+                "line": func.start_line,
+            }
+            for func in func_result.scalars().all()
+        )
 
         return entities

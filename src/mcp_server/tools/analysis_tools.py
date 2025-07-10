@@ -267,15 +267,15 @@ class AnalysisTools:
         issues = []
 
         # Add high coupling pairs
-        for pair in coupling["high_coupling_pairs"][:3]:
-            issues.append(
-                {
-                    "type": "high_coupling",
-                    "severity": "high",
-                    "description": f"{pair['source']} -> {pair['target']} ({pair['relationship_count']} relationships)",
-                    "recommendation": pair["recommendation"],
-                },
-            )
+        issues.extend(
+            {
+                "type": "high_coupling",
+                "severity": "high",
+                "description": f"{pair['source']} -> {pair['target']} ({pair['relationship_count']} relationships)",
+                "recommendation": pair["recommendation"],
+            }
+            for pair in coupling["high_coupling_pairs"][:3]
+        )
 
         # Add critical anti-patterns
         for pattern_type, pattern_issues in anti_patterns.items():
