@@ -102,7 +102,7 @@ class GitHubClient:
         self._update_rate_limit(response)
 
         if response.status_code == HTTP_TOO_MANY_REQUESTS:
-            retry_after = int(response.headers.get("Retry-After", 60))
+            _retry_after = int(response.headers.get("Retry-After", 60))
             msg = "Rate limit hit"
             raise RateLimitError(msg)
 

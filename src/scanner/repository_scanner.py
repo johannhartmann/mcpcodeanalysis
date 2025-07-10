@@ -167,7 +167,7 @@ class RepositoryScanner:
                     "contexts_detected": len(context_ids),
                     "context_ids": context_ids,
                 }
-            except Exception as e:
+            except (ValueError, RuntimeError, AttributeError) as e:
                 logger.warning("Context detection failed: %s", e)
 
         return {

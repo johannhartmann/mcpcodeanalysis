@@ -278,10 +278,10 @@ class Settings(BaseSettings):
 
 class SettingsManager:
     """Manages the singleton settings instance."""
-    
+
     def __init__(self):
         self._settings: Settings | None = None
-    
+
     def get(self) -> Settings:
         """Get application settings singleton."""
         if self._settings is None:
@@ -292,7 +292,7 @@ class SettingsManager:
                 self._settings = Settings()
             self._settings.validate_config()
         return self._settings
-    
+
     def reload(self, config_path: Path | None = None) -> Settings:
         """Reload settings from configuration file."""
         if config_path is None:
