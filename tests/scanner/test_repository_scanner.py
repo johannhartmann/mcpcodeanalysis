@@ -51,10 +51,7 @@ def mock_settings():
 @pytest.fixture
 def repository_scanner(mock_db_session, mock_settings):
     """Create RepositoryScanner fixture."""
-    with patch(
-        "src.scanner.repository_scanner.get_settings",
-        return_value=mock_settings,
-    ):
+    with patch("src.scanner.repository_scanner.settings", mock_settings):
         scanner = RepositoryScanner(mock_db_session)
         yield scanner
 

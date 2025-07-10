@@ -447,7 +447,7 @@ class RepositoryScanner:
 
     async def setup_webhooks(self) -> dict[str, any]:
         """Set up webhooks for all configured repositories."""
-        if not getattr(settings, "github", {}).get("use_webhooks", False):
+        if not hasattr(settings, "github") or not settings.github.use_webhooks:
             return {"message": "Webhooks disabled in configuration"}
 
         webhook_url = f"{settings.mcp.host}:{settings.mcp.port}{getattr(settings, 'github', {}).get('webhook_endpoint', '/webhook')}"

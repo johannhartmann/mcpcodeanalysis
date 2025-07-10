@@ -41,9 +41,12 @@ class TestCodeSearchTools:
     """Tests for CodeSearchTools."""
 
     @pytest.fixture
-    def search_tools(self, mock_db_session, mock_mcp):
+    def search_tools(self, mock_db_session, mock_mcp, mock_embeddings):
         """Create code search tools fixture."""
-        return CodeSearchTools(mock_db_session, mock_mcp)
+        with patch("src.embeddings.vector_search.settings") as mock_settings:
+            mock_settings.openai_api_key.get_secret_value.return_value = "test-key"
+            mock_settings.embeddings.model = "text-embedding-ada-002"
+            return CodeSearchTools(mock_db_session, mock_mcp)
 
     @pytest.mark.asyncio
     async def test_register_tools(self, search_tools, mock_mcp) -> None:
@@ -156,9 +159,12 @@ class TestRepositoryManagementTools:
     """Tests for RepositoryManagementTools."""
 
     @pytest.fixture
-    def repo_tools(self, mock_db_session, mock_mcp):
+    def repo_tools(self, mock_db_session, mock_mcp, mock_embeddings):
         """Create repository management tools fixture."""
-        return RepositoryManagementTools(mock_db_session, mock_mcp)
+        with patch("src.embeddings.embedding_generator.settings") as mock_settings:
+            mock_settings.openai_api_key.get_secret_value.return_value = "test-key"
+            mock_settings.embeddings.model = "text-embedding-ada-002"
+            return RepositoryManagementTools(mock_db_session, mock_mcp)
 
     @pytest.mark.asyncio
     async def test_register_tools(self, repo_tools, mock_mcp) -> None:

@@ -15,9 +15,9 @@ from src.utils.exceptions import RepositoryError
 @pytest.fixture
 def git_sync(tmp_path):
     """Create GitSync fixture with temporary storage."""
-    with patch("src.scanner.git_sync.get_settings") as mock_settings:
-        mock_settings.return_value.scanner.storage_path = tmp_path / "repos"
-        mock_settings.return_value.scanner.exclude_patterns = [
+    with patch("src.scanner.git_sync.settings") as mock_settings:
+        mock_settings.scanner.root_paths = [str(tmp_path / "repos")]
+        mock_settings.scanner.exclude_patterns = [
             "__pycache__",
             "*.pyc",
             ".git",
