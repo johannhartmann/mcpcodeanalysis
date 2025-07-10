@@ -28,8 +28,7 @@ class FindTool:
             List of locations where the entity is defined
         """
         try:
-            async with get_session() as session:
-                async with get_repositories(session) as repos:
+            async with get_session() as session, get_repositories(session) as repos:
                     # Search for entities by name
                     entity_type = None if type == "any" else type
                     results = await repos["code_entity"].find_by_name(name, entity_type)
@@ -108,8 +107,7 @@ class FindTool:
             List of locations where the entity is used
         """
         try:
-            async with get_session() as session:
-                async with get_repositories(session) as repos:
+            async with get_session() as session, get_repositories(session) as repos:
                     # Find the entity definition first
                     definitions = await repos["code_entity"].find_by_name(
                         function_or_class,

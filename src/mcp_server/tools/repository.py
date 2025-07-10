@@ -32,8 +32,7 @@ class RepositoryTool:
             List of repositories with their current status
         """
         try:
-            async with get_session() as session:
-                async with get_repositories(session) as repos:
+            async with get_session() as session, get_repositories(session) as repos:
                     repo_list = await repos["repository"].list_all()
 
                     repositories = []
@@ -117,8 +116,7 @@ class RepositoryTool:
             Sync status and results
         """
         try:
-            async with get_session() as session:
-                async with get_repositories(session) as repos:
+            async with get_session() as session, get_repositories(session) as repos:
                     # Find repository
                     repo = await repos["repository"].get_by_url(repository_url)
 
@@ -148,7 +146,7 @@ class RepositoryTool:
                                 },
                                 "message": "Repository added and sync initiated",
                             }
-                        except Exception as e:
+                        except (ValueError, ConnectionError, OSError) as e:
                             return {
                                 "status": "error",
                                 "error": f"Failed to add repository: {e!s}",

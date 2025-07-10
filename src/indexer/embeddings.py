@@ -43,7 +43,7 @@ class EmbeddingGenerator:
             embedding = response.data[0].embedding
             return np.array(embedding, dtype=np.float32)
 
-        except Exception as e:
+        except (openai.APIError, ValueError, TypeError) as e:
             logger.exception("Error generating embedding: %s")
             msg = f"Failed to generate embedding: {e}"
             raise EmbeddingError(msg) from e
@@ -97,14 +97,14 @@ class EmbeddingGenerator:
                 batch_embeddings.sort(key=lambda x: x[0])
                 embeddings.extend([emb for _, emb in batch_embeddings])
 
-            except Exception:
+            except (openai.APIError, ValueError, TypeError):
                 logger.exception("Error generating batch embeddings: %s")
                 # Generate individually for failed batch
                 for text in batch:
                     try:
                         embedding = await self.generate_embedding(text)
                         embeddings.append(embedding)
-                    except Exception:
+                    except (EmbeddingError, openai.APIError, ValueError, TypeError):
                         # Use zero embedding as fallback
                         embeddings.append(np.zeros(1536, dtype=np.float32))
 
@@ -166,7 +166,7 @@ class EmbeddingGenerator:
         if cache_file.exists():
             try:
                 return np.load(cache_file)
-            except Exception as e:
+            except (OSError, ValueError, TypeError) as e:
                 logger.warning("Failed to load cached embedding: %s", e)
                 return None
 
@@ -182,5 +182,5 @@ class EmbeddingGenerator:
 
         try:
             np.save(cache_file, embedding)
-        except Exception as e:
+        except (OSError, ValueError, TypeError) as e:
             logger.warning("Failed to cache embedding: %s", e)

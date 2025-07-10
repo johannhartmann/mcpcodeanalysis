@@ -20,7 +20,7 @@ class PythonCodeParser:
         """Parse a Python file and extract all code entities."""
         try:
             # Read file content
-            with open(file_path, "rb") as f:
+            with file_path.open("rb") as f:
                 content = f.read()
 
             # Parse with TreeSitter
@@ -134,7 +134,7 @@ class PythonCodeParser:
 
     def _count_lines(self, file_path: Path) -> int:
         """Count lines in a file."""
-        with open(file_path, encoding="utf-8", errors="ignore") as f:
+        with file_path.open(encoding="utf-8", errors="ignore") as f:
             return sum(1 for _ in f)
 
     def get_code_chunk(
@@ -146,7 +146,7 @@ class PythonCodeParser:
     ) -> str:
         """Get a chunk of code from a file with optional context."""
         try:
-            with open(file_path, encoding="utf-8", errors="ignore") as f:
+            with file_path.open(encoding="utf-8", errors="ignore") as f:
                 lines = f.readlines()
 
             # Adjust for context

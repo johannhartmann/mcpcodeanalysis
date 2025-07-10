@@ -24,7 +24,7 @@ class TreeSitterParser:
     def parse_file(self, file_path: Path) -> tree_sitter.Tree | None:
         """Parse a file and return the syntax tree."""
         try:
-            with open(file_path, "rb") as f:
+            with file_path.open("rb") as f:
                 content = f.read()
             return self.parse_content(content)
         except Exception:

@@ -196,7 +196,7 @@ class Settings(BaseSettings):
             msg = f"Configuration file not found: {config_path}"
             raise FileNotFoundError(msg)
 
-        with open(config_path) as f:
+        with config_path.open() as f:
             config_data = yaml.safe_load(f)
 
         # Expand environment variables in configuration

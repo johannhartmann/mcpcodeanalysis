@@ -198,7 +198,7 @@ def init_db() -> None:
 
             await engine.dispose()
 
-        except Exception as e:
+        except (ImportError, ConnectionError, OSError, ValueError) as e:
             click.echo(f"❌ Database initialization failed: {e}")
             sys.exit(1)
 
