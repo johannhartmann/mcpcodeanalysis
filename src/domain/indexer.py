@@ -6,7 +6,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.database.domain_models import DomainEntity, DomainRelationship
+from src.database.domain_models import BoundedContext, DomainEntity, DomainRelationship
 from src.database.models import File, Module
 from src.domain.entity_extractor import DomainEntityExtractor
 from src.domain.graph_builder import SemanticGraphBuilder
@@ -259,8 +259,6 @@ class DomainIndexer:
 
         elif entity_type == "context":
             # Get contexts to summarize
-            from src.database.domain_models import BoundedContext
-
             query = select(BoundedContext)
             if entity_ids:
                 query = query.where(BoundedContext.id.in_(entity_ids))

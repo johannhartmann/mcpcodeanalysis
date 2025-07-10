@@ -1,5 +1,6 @@
 """Domain-aware semantic search using knowledge graph."""
 
+import json
 from enum import Enum
 from typing import Any
 
@@ -217,8 +218,6 @@ class DomainAwareSearch:
                 temperature=0.3,
                 response_format={"type": "json_object"},
             )
-
-            import json
 
             result = json.loads(response)
             return result.get("concepts", [])

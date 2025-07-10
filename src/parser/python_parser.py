@@ -37,8 +37,6 @@ class PythonCodeParser:
             module_info["file_name"] = file_path.name
             module_info["module_name"] = file_path.stem
 
-            return module_info
-
         except Exception as e:
             logger.exception("Error parsing Python file %s", file_path)
             msg = f"Failed to parse Python file: {file_path}"
@@ -46,6 +44,8 @@ class PythonCodeParser:
                 msg,
                 str(file_path),
             ) from e
+        else:
+            return module_info
 
     def extract_entities(self, file_path: Path, file_id: int) -> dict[str, list[Any]]:
         """Extract all entities from a Python file for database storage."""

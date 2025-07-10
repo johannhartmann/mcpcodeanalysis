@@ -69,8 +69,6 @@ class OpenAIClient:
                 len(embedding),
             )
 
-            return embedding
-
         except openai.APIError as e:
             logger.exception("OpenAI API error: %s")
             msg = "API error"
@@ -78,6 +76,8 @@ class OpenAIClient:
         except Exception as e:
             logger.exception("Unexpected error generating embedding: %s")
             raise EmbeddingError("Error") from e
+        else:
+            return embedding
 
     async def generate_embeddings_batch(
         self,
@@ -211,10 +211,11 @@ class OpenAIClient:
             # Try to generate a simple embedding
             await self.generate_embedding("test")
             logger.info("OpenAI API connection successful")
-            return True
         except Exception:
             logger.exception("OpenAI API connection failed: %s")
             return False
+        else:
+            return True
 
     async def estimate_cost(self, num_texts: int) -> dict[str, float]:
         """Estimate cost for generating embeddings.
