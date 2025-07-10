@@ -248,12 +248,13 @@ unfixable = []
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "D104"]
 "tests/**/*.py" = ["S101", "ARG", "FBT", "PLR2004", "PLR0913", "TRY003", "SIM117"]
-"src/mcp_server/tools/*.py" = ["ANN201"]  # dynamic return types for MCP tools
+"src/mcp_server/tools/*.py" = ["ANN201", "PLR0911", "PLR0912", "PLR0915"]  # MCP tools complexity
 "src/mcp_server/server.py" = ["PLW0603"]  # global statements for shared resources
 "src/mcp_server/config.py" = ["PLW0603"]  # global statements for singleton config
 "src/mcp_server/tools/explain.py" = ["PERF401"]  # false positive on list append
 "src/parser/code_extractor.py" = ["PERF401"]  # false positive on list append
 "src/scanner/github_monitor.py" = ["PERF401"]  # false positive on list append
+"src/embeddings/embedding_generator.py" = ["PLR0912"]  # complex chunking logic
 
 [tool.ruff.lint.isort]
 known-third-party = ["fastapi", "pydantic", "sqlalchemy", "langchain", "langgraph", "fastmcp"]
