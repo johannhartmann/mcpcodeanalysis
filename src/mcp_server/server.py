@@ -12,6 +12,7 @@ from src.database.models import Repository
 from src.logger import get_logger
 from src.mcp_server.tools.code_analysis import CodeAnalysisTools
 from src.mcp_server.tools.code_search import CodeSearchTools
+from src.mcp_server.tools.domain_tools import DomainTools
 from src.mcp_server.tools.package_analysis import (
     AnalyzePackagesRequest,
     FindCircularDependenciesRequest,
@@ -603,6 +604,116 @@ async def get_package_coupling_metrics_tool(
             GetPackageCouplingRequest(repository_id=repository_id), session
         )
     return None
+
+
+# Register domain-driven design analysis tools
+@mcp.tool(
+    name="extract_domain_model",
+    description="Extract domain entities and relationships from code using LLM analysis",
+)
+async def extract_domain_model(
+    code_path: str = Field(description="Path to file or module to analyze"),
+    include_relationships: bool = Field(
+        default=True,
+        description="Whether to extract relationships",
+    ),
+) -> dict[str, Any]:
+    """Extract domain model from code."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        domain_tools = DomainTools(session, mcp)
+        return await domain_tools.extract_domain_model(code_path, include_relationships)
+    return None
+
+
+@mcp.tool(
+    name="find_aggregate_roots",
+    description="Find aggregate roots in the codebase using domain analysis",
+)
+async def find_aggregate_roots(
+    context_name: str = Field(
+        default=None,
+        description="Optional bounded context to search within",
+    ),
+) -> list[dict[str, Any]]:
+    """Find aggregate roots."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        domain_tools = DomainTools(session, mcp)
+        return await domain_tools.find_aggregate_roots(context_name)
+    return []
+
+
+@mcp.tool(
+    name="analyze_bounded_context",
+    description="Analyze a bounded context and its relationships",
+)
+async def analyze_bounded_context(
+    context_name: str = Field(description="Name of the bounded context"),
+) -> dict[str, Any]:
+    """Analyze bounded context."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        domain_tools = DomainTools(session, mcp)
+        return await domain_tools.analyze_bounded_context(context_name)
+    return {}
+
+
+@mcp.tool(
+    name="suggest_ddd_refactoring",
+    description="Suggest Domain-Driven Design refactoring improvements",
+)
+async def suggest_ddd_refactoring(
+    code_path: str = Field(description="Path to analyze"),
+) -> list[dict[str, Any]]:
+    """Suggest DDD refactoring."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        domain_tools = DomainTools(session, mcp)
+        return await domain_tools.suggest_ddd_refactoring(code_path)
+    return []
+
+
+@mcp.tool(
+    name="find_bounded_contexts",
+    description="Find all bounded contexts in the codebase",
+)
+async def find_bounded_contexts(
+    min_entities: int = Field(
+        default=3,
+        description="Minimum number of entities for a context",
+    ),
+) -> list[dict[str, Any]]:
+    """Find bounded contexts."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        domain_tools = DomainTools(session, mcp)
+        return await domain_tools.find_bounded_contexts(min_entities)
+    return []
+
+
+@mcp.tool(
+    name="generate_context_map",
+    description="Generate a context map showing relationships between bounded contexts",
+)
+async def generate_context_map(
+    output_format: str = Field(
+        default="json",
+        description="Output format: json, mermaid, or plantuml",
+    ),
+) -> dict[str, Any]:
+    """Generate context map."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        domain_tools = DomainTools(session, mcp)
+        return await domain_tools.generate_context_map(output_format)
+    return {}
 
 
 @mcp.tool(name="health_check", description="Check server health status")
