@@ -3,7 +3,7 @@
 import asyncio
 import signal
 import sys
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -18,7 +18,6 @@ from src.database.repositories import CommitRepo, FileRepo, RepositoryRepo
 from src.database.session_manager import ParallelSessionManager
 from src.logger import get_logger, setup_logging
 from src.scanner.code_processor import CodeProcessor
-from src.scanner.file_watcher import FileWatcher
 from src.scanner.git_sync import GitSync
 from src.scanner.github_monitor import GitHubMonitor
 
@@ -31,7 +30,6 @@ class ScannerService:
     def __init__(self) -> None:
         self.github_monitor = GitHubMonitor()
         self.git_sync = GitSync()
-        self.file_watcher = FileWatcher()
         self.running = False
         self.tasks: list[asyncio.Task] = []
         self.engine: AsyncEngine | None = None
@@ -49,9 +47,6 @@ class ScannerService:
 
         self.running = True
 
-        # Start file watcher
-        self.file_watcher.start()
-
         # Schedule initial sync for all repositories
         for repo_config in settings.repositories:
             task = asyncio.create_task(self.sync_repository(repo_config))
@@ -68,9 +63,6 @@ class ScannerService:
         logger.info("Stopping scanner service")
 
         self.running = False
-
-        # Stop file watcher
-        self.file_watcher.stop()
 
         # Cancel all tasks
         for task in self.tasks:
@@ -209,28 +201,6 @@ class ScannerService:
                 repo_repo = RepositoryRepo(session)
                 await repo_repo.update_last_synced(db_repo.id)
 
-            # Add file watcher for this repository
-            repo_path = self.git_sync._get_repo_path(
-                repo_info["owner"],
-                repo_info["name"],
-            )
-
-            def file_changed(path: str, event_type: str) -> None:
-                asyncio.create_task(
-                    self.handle_file_change(db_repo.id, path, event_type),
-                )
-
-            # Get supported extensions from language configuration
-            from src.parser.language_loader import get_configured_extensions
-
-            supported_extensions = get_configured_extensions()
-
-            self.file_watcher.add_watch(
-                repo_path,
-                file_changed,
-                extensions=supported_extensions,
-            )
-
             logger.info("Successfully synced repository: %s", repo_url)
 
         except Exception:
@@ -341,7 +311,7 @@ class ScannerService:
             else:
                 # Fallback if git repo not available
                 metadata = {
-                    "last_modified": datetime.now(tz=UTC),
+                    "last_modified": datetime.utcnow(),
                     "git_hash": None,
                     "size": file_path.stat().st_size,
                 }
@@ -357,9 +327,9 @@ class ScannerService:
 
                 if db_file:
                     # Update existing file
-                    db_file.last_modified = metadata.get(
-                        "last_modified"
-                    ) or datetime.now(tz=UTC)
+                    db_file.last_modified = (
+                        metadata.get("last_modified") or datetime.utcnow()
+                    )
                     git_hash = metadata.get("git_hash")
                     if git_hash:
                         db_file.git_hash = git_hash
@@ -369,9 +339,7 @@ class ScannerService:
                     db_file = await file_repo.create(
                         repository_id=repo_id,
                         path=relative_path,
-                        last_modified=metadata.get(
-                            "last_modified", datetime.now(tz=UTC)
-                        ),
+                        last_modified=metadata.get("last_modified", datetime.utcnow()),
                         git_hash=metadata.get("git_hash"),
                         size=metadata.get("size", file_path.stat().st_size),
                         language="python",
@@ -381,8 +349,8 @@ class ScannerService:
                 code_processor = CodeProcessor(
                     db_session=session,
                     repository_path=repo_path,
-                    parser_factory=None,  # Will use default
-                    domain_indexer=None,  # Skip domain indexing for now
+                    enable_domain_analysis=False,
+                    enable_parallel=False,
                 )
 
                 # Process the file to extract and store entities
@@ -433,7 +401,7 @@ class ScannerService:
             else:
                 # Fallback if git repo not available
                 metadata = {
-                    "last_modified": datetime.now(tz=UTC),
+                    "last_modified": datetime.utcnow(),
                     "git_hash": None,
                     "size": file_path.stat().st_size,
                 }
@@ -446,8 +414,8 @@ class ScannerService:
 
             if db_file:
                 # Update existing file
-                db_file.last_modified = metadata.get("last_modified") or datetime.now(
-                    tz=UTC
+                db_file.last_modified = (
+                    metadata.get("last_modified") or datetime.utcnow()
                 )
                 git_hash = metadata.get("git_hash")
                 if git_hash:
@@ -458,7 +426,7 @@ class ScannerService:
                 db_file = await file_repo.create(
                     repository_id=repo_id,
                     path=relative_path,
-                    last_modified=metadata.get("last_modified", datetime.now(tz=UTC)),
+                    last_modified=metadata.get("last_modified", datetime.utcnow()),
                     git_hash=metadata.get("git_hash"),
                     size=metadata.get("size", file_path.stat().st_size),
                     language="python",
@@ -470,8 +438,8 @@ class ScannerService:
                 code_processor = CodeProcessor(
                     db_session=session,
                     repository_path=repo_path,
-                    parser_factory=None,  # Will use default
-                    domain_indexer=None,  # Skip domain indexing for now
+                    enable_domain_analysis=False,
+                    enable_parallel=False,
                 )
 
                 # Process the file to extract and store entities
@@ -500,43 +468,15 @@ class ScannerService:
         except Exception:
             logger.exception("Error processing file %s", file_path)
 
-    async def handle_file_change(
-        self,
-        repo_id: int,
-        file_path: str,
-        event_type: str,
-    ) -> None:
-        """Handle a file change event."""
-        try:
-            if self.session_factory is None:
-                raise RuntimeError("Session factory not initialized")
-            async with self.session_factory() as session:
-                if event_type == "deleted":
-                    # Remove file from database
-                    file_repo = FileRepo(session)
-                    db_file = await file_repo.get_by_path(repo_id, file_path)
-                    if db_file:
-                        await file_repo.delete_by_id(db_file.id)
-                else:
-                    # Process the file
-                    repo_repo = RepositoryRepo(session)
-                    db_repo = await repo_repo.get_by_id(repo_id)
-                    if db_repo:
-                        await self.process_file(
-                            repo_id,
-                            db_repo.owner,
-                            db_repo.name,
-                            Path(file_path),
-                        )
-        except Exception:
-            logger.exception("Error handling file change %s", file_path)
-
     async def periodic_sync(self) -> None:
         """Periodically sync all repositories."""
         while self.running:
             try:
                 # Wait for the configured interval
-                await asyncio.sleep(settings.scanner.sync_interval)
+                sync_interval = getattr(
+                    settings.scanner, "sync_interval", 300
+                )  # Default 5 minutes
+                await asyncio.sleep(sync_interval)
 
                 if not self.running:
                     break

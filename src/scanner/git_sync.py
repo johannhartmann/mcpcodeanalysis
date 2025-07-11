@@ -6,7 +6,7 @@ import contextlib
 import hashlib
 import os
 import shutil
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -28,9 +28,17 @@ class GitSync:
 
     def __init__(self) -> None:
         # Using global settings from src.config
-        self.storage_path = Path(
-            settings.scanner.root_paths[0] if settings.scanner.root_paths else "."
+        # Ensure we use absolute path for repositories
+        root_path = (
+            settings.scanner.root_paths[0]
+            if settings.scanner.root_paths
+            else "repositories"
         )
+        if not Path(root_path).is_absolute():
+            # Make it absolute relative to /app
+            self.storage_path = Path("/app") / root_path
+        else:
+            self.storage_path = Path(root_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
 
     def _get_repo_path(self, owner: str, name: str) -> Path:
@@ -313,9 +321,7 @@ class GitSync:
                             "path": str(relative_path),
                             "absolute_path": str(file_path),
                             "size": stat.st_size,
-                            "modified_time": datetime.fromtimestamp(
-                                stat.st_mtime, tz=UTC
-                            ),
+                            "modified_time": datetime.utcfromtimestamp(stat.st_mtime),
                             "content_hash": self.get_file_hash(file_path),
                             "git_hash": git_hash,
                             "language": self._detect_language(file_path),
@@ -366,7 +372,7 @@ class GitSync:
                 "message": commit.message.strip(),
                 "author": commit.author.name,
                 "author_email": commit.author.email,
-                "timestamp": datetime.fromtimestamp(commit.committed_date, tz=UTC),
+                "timestamp": datetime.utcfromtimestamp(commit.committed_date),
                 "files_changed": [],
                 "additions": 0,
                 "deletions": 0,
@@ -418,7 +424,7 @@ class GitSync:
 
             # Filter by date if needed
             for commit in commit_iter:
-                commit_date = datetime.fromtimestamp(commit.committed_date, tz=UTC)
+                commit_date = datetime.utcfromtimestamp(commit.committed_date)
                 if since and commit_date < since:
                     break
 
@@ -481,7 +487,7 @@ class GitSync:
 
             metadata = {
                 "git_hash": git_hash,
-                "last_modified": datetime.fromtimestamp(stat.st_mtime, tz=UTC),
+                "last_modified": datetime.utcfromtimestamp(stat.st_mtime),
                 "size": stat.st_size,
             }
 
@@ -489,8 +495,8 @@ class GitSync:
                 metadata.update(
                     {
                         "last_commit_sha": last_commit.hexsha,
-                        "last_commit_date": datetime.fromtimestamp(
-                            last_commit.committed_date, tz=UTC
+                        "last_commit_date": datetime.utcfromtimestamp(
+                            last_commit.committed_date
                         ),
                         "last_commit_author": last_commit.author.name,
                         "last_commit_message": last_commit.message.strip(),
@@ -504,6 +510,6 @@ class GitSync:
             # Return basic metadata on error
             return {
                 "git_hash": None,
-                "last_modified": datetime.now(tz=UTC),
+                "last_modified": datetime.utcnow(),
                 "size": 0,
             }
