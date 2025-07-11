@@ -186,7 +186,11 @@ def get_build_info() -> dict[str, str]:
 
         # Get git commit hash
         result = subprocess.run(  # nosec B603, B607
-            ["git", "rev-parse", "HEAD"], check=False, capture_output=True, text=True, timeout=5
+            ["git", "rev-parse", "HEAD"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.returncode == 0:
             build_info["git_commit"] = result.stdout.strip()[:8]  # Short hash
@@ -194,7 +198,8 @@ def get_build_info() -> dict[str, str]:
         # Get git branch
         result = subprocess.run(  # nosec B603, B607
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            check=False, capture_output=True,
+            check=False,
+            capture_output=True,
             text=True,
             timeout=5,
         )
@@ -203,7 +208,11 @@ def get_build_info() -> dict[str, str]:
 
         # Get git status (dirty/clean)
         result = subprocess.run(  # nosec B603, B607
-            ["git", "status", "--porcelain"], check=False, capture_output=True, text=True, timeout=5
+            ["git", "status", "--porcelain"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.returncode == 0:
             build_info["git_dirty"] = "true" if result.stdout.strip() else "false"
