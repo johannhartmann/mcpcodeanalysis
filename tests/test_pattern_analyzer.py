@@ -174,7 +174,7 @@ async def sample_domain_data(async_session: AsyncSession):
     )
 
     async_session.add_all([rel1, rel2])
-    
+
     # Multiple relationships for high coupling (skip depends_on as rel2 already has it)
     relationship_types = ["uses", "references", "queries", "modifies", "validates"]
     for i, rel_type in enumerate(relationship_types):
@@ -303,7 +303,9 @@ async def test_suggest_context_splits(
 
 
 @pytest.mark.asyncio
-async def test_analyze_evolution(async_session: AsyncSession, sample_domain_data) -> None:
+async def test_analyze_evolution(
+    async_session: AsyncSession, sample_domain_data
+) -> None:
     """Test domain evolution analysis."""
     analyzer = DomainPatternAnalyzer(async_session)
 

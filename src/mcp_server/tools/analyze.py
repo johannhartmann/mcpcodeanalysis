@@ -446,11 +446,7 @@ class AnalyzeTool:
             if func:
                 module = await session.get(Module, func.module_id)
                 file = await session.get(File, module.file_id) if module else None
-                repo = (
-                    await session.get_by_id(file.repository_id)
-                    if file
-                    else None
-                )
+                repo = await session.get_by_id(file.repository_id) if file else None
 
                 return {
                     "type": "function",

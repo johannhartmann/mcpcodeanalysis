@@ -240,8 +240,7 @@ class DomainPatternAnalyzer:
         """
         # Find large contexts with low cohesion
         result = await self.db_session.execute(
-            select(BoundedContext)
-            .where(
+            select(BoundedContext).where(
                 BoundedContext.cohesion_score <= max_cohesion_threshold,
             ),
         )
@@ -250,11 +249,12 @@ class DomainPatternAnalyzer:
         for context in result.scalars().all():
             # Count memberships
             membership_count_result = await self.db_session.execute(
-                select(func.count(BoundedContextMembership.id))
-                .where(BoundedContextMembership.bounded_context_id == context.id)
+                select(func.count(BoundedContextMembership.id)).where(
+                    BoundedContextMembership.bounded_context_id == context.id
+                )
             )
             membership_count = membership_count_result.scalar() or 0
-            
+
             if membership_count >= min_entities:
                 candidates.append(context)
 
@@ -475,7 +475,7 @@ class DomainPatternAnalyzer:
             select(File.id).where(File.repository_id == repository_id)
         )
         file_ids = [row[0] for row in file_ids_result]
-        
+
         # Then get entities that reference these files and were created recently
         new_entities_result = await self.db_session.execute(
             select(DomainEntity).where(
@@ -500,11 +500,12 @@ class DomainPatternAnalyzer:
         for context in new_contexts_result.scalars().all():
             # Count memberships for this context
             membership_count_result = await self.db_session.execute(
-                select(func.count(BoundedContextMembership.id))
-                .where(BoundedContextMembership.bounded_context_id == context.id)
+                select(func.count(BoundedContextMembership.id)).where(
+                    BoundedContextMembership.bounded_context_id == context.id
+                )
             )
             membership_count = membership_count_result.scalar() or 0
-            
+
             evolution["context_changes"]["added"].append(
                 {
                     "name": context.name,

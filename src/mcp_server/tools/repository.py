@@ -39,17 +39,13 @@ class RepositoryTool:
             for repo in repo_list:
                 # Get file and commit counts
                 file_count = await session.execute(
-                    text(
-                        "SELECT COUNT(*) FROM files WHERE repository_id = :repo_id"
-                    ),
+                    text("SELECT COUNT(*) FROM files WHERE repository_id = :repo_id"),
                     {"repo_id": repo.id},
                 )
                 file_count = file_count.scalar() or 0
 
                 commit_count = await session.execute(
-                    text(
-                        "SELECT COUNT(*) FROM commits WHERE repository_id = :repo_id"
-                    ),
+                    text("SELECT COUNT(*) FROM commits WHERE repository_id = :repo_id"),
                     {"repo_id": repo.id},
                 )
                 commit_count = commit_count.scalar() or 0
@@ -69,9 +65,7 @@ class RepositoryTool:
                         "url": repo.github_url,
                         "branch": repo.default_branch,
                         "last_synced": (
-                            repo.last_synced.isoformat()
-                            if repo.last_synced
-                            else None
+                            repo.last_synced.isoformat() if repo.last_synced else None
                         ),
                         "status": {
                             "is_cloned": is_cloned,

@@ -12,7 +12,6 @@ except ImportError:
         return JSON
 
 
-
 from sqlalchemy import (
     JSON,
     Boolean,
@@ -55,9 +54,7 @@ class Repository(Base):
     access_token_id = Column(String(255), nullable=True)
     last_synced = Column(DateTime, default=func.now())
     created_at = Column(DateTime, default=func.now())
-    updated_at = Column(
-        DateTime, default=func.now(), onupdate=func.now()
-    )
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     is_active = Column(Boolean, default=True)
     webhook_id = Column(String(255), nullable=True)
     repo_metadata = Column(JSON, default=dict)
@@ -84,9 +81,7 @@ class File(Base):
     __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
-    repository_id = Column(
-        Integer, ForeignKey("repositories.id"), nullable=False
-    )
+    repository_id = Column(Integer, ForeignKey("repositories.id"), nullable=False)
     path = Column(String(1000), nullable=False)
     content_hash = Column(String(64))  # SHA-256 hash
     git_hash = Column(String(40))  # Git blob hash
@@ -95,9 +90,7 @@ class File(Base):
     language = Column(String(50))
     last_modified = Column(DateTime, default=func.now())
     created_at = Column(DateTime, default=func.now())
-    updated_at = Column(
-        DateTime, default=func.now(), onupdate=func.now()
-    )
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     is_deleted = Column(Boolean, default=False)
 
     # Relationships
@@ -133,17 +126,13 @@ class Module(Base):
     __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
-    file_id = Column(
-        Integer, ForeignKey("files.id"), nullable=False
-    )
+    file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
     name = Column(String(255), nullable=False)
     docstring = Column(Text)
     start_line = Column(Integer)
     end_line = Column(Integer)
     created_at = Column(DateTime, default=func.now())
-    updated_at = Column(
-        DateTime, default=func.now(), onupdate=func.now()
-    )
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
     file: Any = relationship("File", back_populates="modules")
@@ -172,22 +161,16 @@ class Class(Base):
     __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
-    module_id = Column(
-        Integer, ForeignKey("modules.id"), nullable=False
-    )
+    module_id = Column(Integer, ForeignKey("modules.id"), nullable=False)
     name = Column(String(255), nullable=False)
     docstring = Column(Text)
-    base_classes = Column(JSON, default=[]
-    )  # List of base class names
-    decorators = Column(JSON, default=[]
-    )  # List of decorator names
+    base_classes = Column(JSON, default=[])  # List of base class names
+    decorators = Column(JSON, default=[])  # List of decorator names
     start_line = Column(Integer)
     end_line = Column(Integer)
     is_abstract = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
-    updated_at = Column(
-        DateTime, default=func.now(), onupdate=func.now()
-    )
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
     module: Any = relationship("Module", back_populates="classes")
@@ -211,19 +194,13 @@ class Function(Base):
     __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
-    module_id = Column(
-        Integer, ForeignKey("modules.id"), nullable=False
-    )
-    class_id = Column(
-        Integer, ForeignKey("classes.id"), nullable=True
-    )
+    module_id = Column(Integer, ForeignKey("modules.id"), nullable=False)
+    class_id = Column(Integer, ForeignKey("classes.id"), nullable=True)
     name = Column(String(255), nullable=False)
     docstring = Column(Text)
-    parameters = Column(JSON, default=[]
-    )  # List of parameter info
+    parameters = Column(JSON, default=[])  # List of parameter info
     return_type = Column(String(255))
-    decorators = Column(JSON, default=[]
-    )  # List of decorator names
+    decorators = Column(JSON, default=[])  # List of decorator names
     start_line = Column(Integer)
     end_line = Column(Integer)
     is_async = Column(Boolean, default=False)
@@ -233,9 +210,7 @@ class Function(Base):
     is_classmethod = Column(Boolean, default=False)
     complexity = Column(Integer)  # Cyclomatic complexity
     created_at = Column(DateTime, default=func.now())
-    updated_at = Column(
-        DateTime, default=func.now(), onupdate=func.now()
-    )
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
     module: Any = relationship(
@@ -263,17 +238,12 @@ class Import(Base):
     __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
-    file_id = Column(
-        Integer, ForeignKey("files.id"), nullable=False
-    )
+    file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
     import_statement = Column(String(500), nullable=False)
     module_name = Column(String(255))
-    imported_names = Column(JSON, default=[]
-    )  # List of imported names
+    imported_names = Column(JSON, default=[])  # List of imported names
     is_relative = Column(Boolean, default=False)
-    level = Column(
-        Integer, default=0
-    )  # Relative import level
+    level = Column(Integer, default=0)  # Relative import level
     line_number = Column(Integer)
     created_at = Column(DateTime, default=func.now())
 
@@ -293,25 +263,20 @@ class Commit(Base):
     __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
-    repository_id = Column(
-        Integer, ForeignKey("repositories.id"), nullable=False
-    )
+    repository_id = Column(Integer, ForeignKey("repositories.id"), nullable=False)
     sha = Column(String(40), unique=True, nullable=False)
     message = Column(Text)
     author = Column(String(255))
     author_email = Column(String(255))
     timestamp = Column(DateTime, nullable=False)
-    files_changed = Column(JSON, default=[]
-    )  # List of file paths
+    files_changed = Column(JSON, default=[])  # List of file paths
     additions = Column(Integer, default=0)
     deletions = Column(Integer, default=0)
     processed = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
 
     # Relationships
-    repository: Any = relationship(
-        "Repository", back_populates="commits"
-    )
+    repository: Any = relationship("Repository", back_populates="commits")
 
     __table_args__ = (
         Index("idx_commit_repository", "repository_id"),
@@ -332,24 +297,18 @@ class CodeEmbedding(Base):
         nullable=False,
     )
     entity_id = Column(Integer, nullable=False)
-    file_id = Column(
-        Integer, ForeignKey("files.id"), nullable=False
-    )
+    file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
     embedding_type = Column(
         Enum("raw", "interpreted", name="embedding_type"),
         nullable=False,
     )
     # Use Vector for PostgreSQL, JSON for SQLite
-    embedding = Column(
-        Vector(1536), nullable=False
-    )  # OpenAI ada-002 dimension
+    embedding = Column(Vector(1536), nullable=False)  # OpenAI ada-002 dimension
     content = Column(Text, nullable=False)
     tokens = Column(Integer)
     repo_metadata = Column(JSON, default={})
     created_at = Column(DateTime, default=func.now())
-    updated_at = Column(
-        DateTime, default=func.now(), onupdate=func.now()
-    )
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
     file: Any = relationship("File", back_populates="embeddings")
@@ -370,9 +329,7 @@ class SearchHistory(Base):
 
     id = Column(Integer, primary_key=True)
     query = Column(Text, nullable=False)
-    query_type = Column(
-        String(50)
-    )  # search_code, find_definition, etc.
+    query_type = Column(String(50))  # search_code, find_definition, etc.
     results_count = Column(Integer, default=0)
     response_time_ms = Column(Float)
     user_id = Column(String(255))  # Optional user tracking

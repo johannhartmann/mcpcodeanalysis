@@ -178,7 +178,7 @@ repositories:
         """Test ranking weights validation."""
         # Invalid weights that don't sum to 1.0
         from src.models import RankingWeights
-        
+
         with pytest.raises(ValueError, match="Ranking weights must sum to 1.0"):
             RankingWeights(
                 semantic_similarity=0.5,

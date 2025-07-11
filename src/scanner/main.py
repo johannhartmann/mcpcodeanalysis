@@ -210,7 +210,7 @@ class ScannerService:
         files = self.git_sync.list_files(owner, name, extensions=[".py"])
 
         # TODO: Need to implement database session handling
-            # async with get_session() as session:
+        # async with get_session() as session:
         for file_path in files:
             await self.process_file(repos, db_repo.id, owner, name, file_path)
 
@@ -232,7 +232,7 @@ class ScannerService:
         repo_path = self.git_sync.get_repo_path(owner, name)
 
         # TODO: Need to implement database session handling
-            # async with get_session() as session:
+        # async with get_session() as session:
         for file_path in changed_files:
             full_path = repo_path / file_path
 

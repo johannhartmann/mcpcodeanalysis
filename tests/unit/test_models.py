@@ -110,14 +110,18 @@ class TestRepository:
         # Test relationships
         # Query the relationships directly for SQLite compatibility
         from sqlalchemy import select
-        
-        files = db_session.execute(
-            select(File).where(File.repository_id == repo.id)
-        ).scalars().all()
-        commits = db_session.execute(
-            select(Commit).where(Commit.repository_id == repo.id)
-        ).scalars().all()
-        
+
+        files = (
+            db_session.execute(select(File).where(File.repository_id == repo.id))
+            .scalars()
+            .all()
+        )
+        commits = (
+            db_session.execute(select(Commit).where(Commit.repository_id == repo.id))
+            .scalars()
+            .all()
+        )
+
         assert len(files) == 1
         assert files[0].path == "test.py"
         assert len(commits) == 1
@@ -348,10 +352,12 @@ class TestFunction:
         assert method.parent_class.name == "DataProcessor"
         # Query the relationship directly for SQLite compatibility
         from sqlalchemy import select
-        
-        methods = db_session.execute(
-            select(Function).where(Function.class_id == cls.id)
-        ).scalars().all()
+
+        methods = (
+            db_session.execute(select(Function).where(Function.class_id == cls.id))
+            .scalars()
+            .all()
+        )
         assert len(methods) == 1
 
 

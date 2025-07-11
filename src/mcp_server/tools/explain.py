@@ -57,7 +57,7 @@ class ExplainTool:
     async def _parse_code_path(self, path: str) -> dict[str, Any] | None:
         """Parse a code path to find the entity."""
         # TODO: Need to implement database session handling
-            # async with get_session() as session:
+        # async with get_session() as session:
         # Check if it's a file path
         if "/" in path or path.endswith(".py"):
             # File path - look for module

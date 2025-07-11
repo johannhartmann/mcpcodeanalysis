@@ -269,9 +269,7 @@ class BoundedContextMembership(Base):
         "DomainEntity",
         back_populates="bounded_context_memberships",
     )
-    bounded_context: Any = relationship(
-        "BoundedContext", back_populates="memberships"
-    )
+    bounded_context: Any = relationship("BoundedContext", back_populates="memberships")
 
     __table_args__ = (
         UniqueConstraint(
@@ -374,9 +372,7 @@ class DomainSummary(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
-    parent_summary: Any = relationship(
-        "DomainSummary", remote_side=[id]
-    )
+    parent_summary: Any = relationship("DomainSummary", remote_side=[id])
 
     __table_args__ = (
         Index("idx_summary_level", "level"),

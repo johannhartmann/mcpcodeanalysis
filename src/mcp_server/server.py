@@ -461,7 +461,9 @@ def create_server() -> "MockServer":
             if _engine:
                 await _engine.dispose()
 
-        async def scan_repository(self, url: str, branch: str | None = None, generate_embeddings: bool = True) -> dict[str, Any] | None:
+        async def scan_repository(
+            self, url: str, branch: str | None = None, generate_embeddings: bool = True
+        ) -> dict[str, Any] | None:
             await initialize_server()
             async for session in get_db_session():
                 repo_tools = RepositoryManagementTools(session, mcp)
@@ -475,7 +477,9 @@ def create_server() -> "MockServer":
                 )
             return None
 
-        async def search(self, query: str, repository_id: int | None = None, limit: int = 10) -> dict[str, Any] | None:
+        async def search(
+            self, query: str, repository_id: int | None = None, limit: int = 10
+        ) -> dict[str, Any] | None:
             await initialize_server()
             async for session in get_db_session():
                 search_tools = CodeSearchTools(session, mcp)
