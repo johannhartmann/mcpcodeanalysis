@@ -3,9 +3,15 @@
 import re
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import and_, select, text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.models import Class, File, Function, Module
+from src.database.repositories import (
+    CodeEntityRepo,
+    EmbeddingRepo,
+    FileRepo,
+)
 from src.indexer.embeddings import EmbeddingGenerator
 from src.logger import get_logger
 
@@ -22,8 +28,12 @@ HIGH_COMPLEXITY_THRESHOLD = 20
 class AnalyzeTool:
     """MCP tools for code analysis."""
 
-    def __init__(self) -> None:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
         self.embedding_generator = EmbeddingGenerator()
+        self.file_repo = FileRepo(session)
+        self.entity_repo = CodeEntityRepo(session)
+        self.embedding_repo = EmbeddingRepo(session)
 
     async def analyze_dependencies(self, module_path: str) -> dict[str, Any]:
         """
@@ -36,16 +46,16 @@ class AnalyzeTool:
             Dictionary containing dependency analysis
         """
         try:
-            # TODO: Need to implement database session handling
-            # async with get_session() as session:
             # Find the file
-            file = None
-            all_files = await session.execute(
-                "SELECT * FROM files WHERE path LIKE :pattern",
-                {"pattern": f"%{module_path}"},
-            )
+            from src.database.models import File
 
-            for f in all_files:
+            result = await self.session.execute(
+                select(File).where(File.path.like(f"%{module_path}")),
+            )
+            files = result.scalars().all()
+
+            file = None
+            for f in files:
                 if f.path.endswith(module_path):
                     file = f
                     break
@@ -54,14 +64,15 @@ class AnalyzeTool:
                 return {"error": f"Module not found: {module_path}"}
 
             # Get imports
-            imports = await session.execute(
-                text("SELECT * FROM imports WHERE file_id = :file_id"),
-                {"file_id": file.id},
+            from src.database.models import Import
+
+            result = await self.session.execute(
+                select(Import).where(Import.file_id == file.id),
             )
-            import_list = list(imports.scalars().all()) if imports else []
+            import_list = list(result.scalars().all())
 
             # Analyze dependencies
-            analysis = {
+            analysis: dict[str, Any] = {
                 "module": module_path,
                 "direct_dependencies": [],
                 "external_dependencies": [],
@@ -105,7 +116,7 @@ class AnalyzeTool:
             analysis["dependency_graph"] = {
                 "module": module_path,
                 "imports": len(import_list),
-                "imported_by": await self._find_importers(repos, module_path),
+                "imported_by": await self._find_importers(module_path),
             }
 
             # Check for circular dependencies (simplified)
@@ -131,11 +142,8 @@ class AnalyzeTool:
         try:
             suggestions = []
 
-            # TODO: Need to implement database session handling
-            # async with get_session() as session:
             # Parse the code path to find entity
-            repos = {}  # Placeholder for now
-            entity_info = await self._find_entity_by_path(repos, code_path)
+            entity_info = await self._find_entity_by_path(code_path)
 
             if not entity_info:
                 return [
@@ -152,9 +160,9 @@ class AnalyzeTool:
             if entity_type == "function":
                 suggestions.extend(await self._analyze_function(entity))
             elif entity_type == "class":
-                suggestions.extend(await self._analyze_class(repos, entity))
+                suggestions.extend(await self._analyze_class(entity))
             elif entity_type == "module":
-                suggestions.extend(await self._analyze_module(repos, entity))
+                suggestions.extend(await self._analyze_module(entity))
 
             return suggestions
 
@@ -178,10 +186,8 @@ class AnalyzeTool:
                 code_snippet,
             )
 
-            # TODO: Need to implement database session handling
-            # async with get_session() as session:
             # Search for similar embeddings
-            similar = await session.search_similar(
+            similar = await self.embedding_repo.search_similar(
                 snippet_embedding,
                 limit=20,
                 threshold=0.8,
@@ -192,7 +198,6 @@ class AnalyzeTool:
             for embedding, similarity in similar:
                 # Get entity details
                 entity_data = await self._get_entity_details(
-                    repos,
                     embedding.entity_type,
                     embedding.entity_id,
                 )
@@ -223,14 +228,12 @@ class AnalyzeTool:
             Hierarchical structure information
         """
         try:
-            # TODO: Need to implement database session handling
-            # async with get_session() as session:
             # Check if it's a file or directory
             if path.endswith(".py"):
                 # Single module
-                return await self._get_module_structure(repos, path)
+                return await self._get_module_structure(path)
             # Package/directory
-            return await self._get_package_structure(repos, path)
+            return await self._get_package_structure(path)
 
         except Exception as e:
             logger.exception("Error in get_code_structure: %s")
@@ -238,32 +241,35 @@ class AnalyzeTool:
 
     async def _find_importers(
         self,
-        repos: dict[str, Any],
         module_path: str,
     ) -> list[str]:
         """Find modules that import this module."""
-        session = session.session
+        # Use the instance session
         importers = []
 
         # Extract module name from path
         module_name = module_path.replace("/", ".").replace(".py", "")
 
         # Find imports
-        query = (
-            "SELECT DISTINCT f.path FROM imports i "
-            "JOIN files f ON i.file_id = f.id "
-            "WHERE i.imported_from LIKE :pattern"
+
+        from src.database.models import File, Import
+
+        # Using raw SQL for complex join
+        query = text(
+            """
+            SELECT DISTINCT f.path
+            FROM files f
+            JOIN imports i ON i.file_id = f.id
+            WHERE i.imported_from LIKE :pattern
+        """
         )
-
-        results = await session.execute(query, {"pattern": f"%{module_name}%"})
-
-        importers = [row.path for row in results]
+        result = await self.session.execute(query, {"pattern": f"%{module_name}%"})
+        importers = [row[0] for row in result.all()]
 
         return importers[:10]  # Limit to 10
 
     async def _find_entity_by_path(
         self,
-        repos: dict[str, Any],
         path: str,
     ) -> dict[str, Any] | None:
         """Find entity by path."""
@@ -272,7 +278,10 @@ class AnalyzeTool:
 
         if len(parts) == 1:
             # Could be function, class, or module
-            results = await session.find_by_name(parts[0])
+            results = await self.entity_repo.find_by_name(parts[0])
+            if results:
+                return {"entity": results[0]["entity"], "type": results[0]["type"]}
+            return None
             if results:
                 return {"entity": results[0]["entity"], "type": results[0]["type"]}
 
@@ -331,19 +340,17 @@ class AnalyzeTool:
 
     async def _analyze_class(
         self,
-        repos: dict[str, Any],
         cls: Class,
     ) -> list[dict[str, Any]]:
         """Analyze a class for refactoring suggestions."""
         suggestions = []
-        session = session.session
+        # Use the instance session
 
         # Get methods
-        methods = await session.execute(
-            text("SELECT * FROM functions WHERE class_id = :class_id"),
-            {"class_id": cls.id},
+        result = await self.session.execute(
+            select(Function).where(Function.class_id == cls.id),
         )
-        method_list = list(methods.scalars().all()) if methods else []
+        method_list = list(result.scalars().all())
 
         # Check class size
         if cls.end_line - cls.start_line > MAX_FILE_LENGTH:
@@ -393,31 +400,32 @@ class AnalyzeTool:
 
     async def _analyze_module(
         self,
-        repos: dict[str, Any],
         module: Module,
     ) -> list[dict[str, Any]]:
         """Analyze a module for refactoring suggestions."""
         suggestions = []
-        session = session.session
+        # Use the instance session
 
         # Get imports
-        file = await session.get_by_id(module.file_id)
+        file = await self.session.get(File, module.file_id)
+        import_count = 0
         if file:
-            imports = await session.execute(
-                text("SELECT * FROM imports WHERE file_id = :file_id"),
-                {"file_id": file.id},
-            )
-            import_count = len(list(imports.scalars().all())) if imports else 0
+            from src.database.models import Import
 
-            if import_count > MAX_CLASS_METHODS:
-                suggestions.append(
-                    {
-                        "type": "complexity",
-                        "severity": "medium",
-                        "message": f"Module '{module.name}' has too many imports ({import_count})",
-                        "suggestion": "Consider splitting the module or reducing dependencies",
-                    },
-                )
+            result = await self.session.execute(
+                select(Import).where(Import.file_id == file.id),
+            )
+            import_count = len(list(result.scalars().all()))
+
+        if import_count > MAX_CLASS_METHODS:
+            suggestions.append(
+                {
+                    "type": "complexity",
+                    "severity": "medium",
+                    "message": f"Module '{module.name}' has too many imports ({import_count})",
+                    "suggestion": "Consider splitting the module or reducing dependencies",
+                },
+            )
 
         # Check for missing docstring
         if not module.docstring:
@@ -434,19 +442,22 @@ class AnalyzeTool:
 
     async def _get_entity_details(
         self,
-        repos: dict[str, Any],
         entity_type: str,
         entity_id: int,
     ) -> dict[str, Any] | None:
         """Get entity details for similarity results."""
-        session = session.session
+        # Use the instance session
 
         if entity_type == "function":
-            func = await session.get(Function, entity_id)
+            func = await self.session.get(Function, entity_id)
             if func:
-                module = await session.get(Module, func.module_id)
-                file = await session.get(File, module.file_id) if module else None
-                repo = await session.get_by_id(file.repository_id) if file else None
+                module = await self.session.get(Module, func.module_id)
+                file = await self.session.get(File, module.file_id) if module else None
+                # Need to get repository - implement using proper repository pattern
+                from src.database.repositories import RepositoryRepo
+
+                repo_repo = RepositoryRepo(self.session)
+                repo = await repo_repo.get_by_id(file.repository_id) if file else None
 
                 return {
                     "type": "function",
@@ -458,25 +469,63 @@ class AnalyzeTool:
                     },
                 }
 
-        # Similar for class and module...
+        elif entity_type == "class":
+            cls = await self.session.get(Class, entity_id)
+            if cls:
+                module = await self.session.get(Module, cls.module_id)
+                file = await self.session.get(File, module.file_id) if module else None
+                from src.database.repositories import RepositoryRepo
+
+                repo_repo = RepositoryRepo(self.session)
+                repo = await repo_repo.get_by_id(file.repository_id) if file else None
+
+                return {
+                    "type": "class",
+                    "name": cls.name,
+                    "location": {
+                        "repository": repo.name if repo else None,
+                        "file": file.path if file else None,
+                        "line": cls.start_line,
+                    },
+                }
+        elif entity_type == "module":
+            module = await self.session.get(Module, entity_id)
+            if module:
+                file = await self.session.get(File, module.file_id)
+                from src.database.repositories import RepositoryRepo
+
+                repo_repo = RepositoryRepo(self.session)
+                repo = await repo_repo.get_by_id(file.repository_id) if file else None
+
+                return {
+                    "type": "module",
+                    "name": module.name,
+                    "location": {
+                        "repository": repo.name if repo else None,
+                        "file": file.path if file else None,
+                        "line": 1,
+                    },
+                }
+
         return None
 
     async def _get_module_structure(
         self,
-        repos: dict[str, Any],
         module_path: str,
     ) -> dict[str, Any]:
         """Get structure of a single module."""
-        session = session.session
+        # Use the instance session
 
         # Find the file
-        file = None
-        all_files = await session.execute(
-            "SELECT * FROM files WHERE path LIKE :pattern",
-            {"pattern": f"%{module_path}"},
-        )
+        from src.database.models import File
 
-        for f in all_files:
+        result = await self.session.execute(
+            select(File).where(File.path.like(f"%{module_path}")),
+        )
+        files = result.scalars().all()
+
+        file = None
+        for f in files:
             if f.path.endswith(module_path):
                 file = f
                 break
@@ -485,11 +534,12 @@ class AnalyzeTool:
             return {"error": f"Module not found: {module_path}"}
 
         # Get module
-        modules = await session.execute(
-            text("SELECT * FROM modules WHERE file_id = :file_id"),
-            {"file_id": file.id},
+        from src.database.models import Module
+
+        result = await self.session.execute(
+            select(Module).where(Module.file_id == file.id),
         )
-        module = modules.scalar_one_or_none() if modules else None
+        module = result.scalar_one_or_none()
 
         if not module:
             return {"error": f"Module data not found: {module_path}"}
@@ -506,11 +556,14 @@ class AnalyzeTool:
         }
 
         # Get imports
-        imports = await session.execute(
-            text("SELECT * FROM imports WHERE file_id = :file_id ORDER BY line_number"),
-            {"file_id": file.id},
+        from src.database.models import Import
+
+        result = await self.session.execute(
+            select(Import)
+            .where(Import.file_id == file.id)
+            .order_by(Import.line_number),
         )
-        for imp in imports.scalars().all() if imports else []:
+        for imp in result.scalars().all():
             structure["imports"].append(
                 {
                     "statement": imp.import_statement,
@@ -519,21 +572,27 @@ class AnalyzeTool:
             )
 
         # Get classes
-        classes = await session.execute(
-            text(
-                "SELECT * FROM classes WHERE module_id = :module_id ORDER BY start_line"
-            ),
-            {"module_id": module.id},
+        from src.database.models import Class
+
+        result = await self.session.execute(
+            select(Class)
+            .where(Class.module_id == module.id)
+            .order_by(Class.start_line),
         )
-        for cls in classes.scalars().all() if classes else []:
+        for cls in result.scalars().all():
             # Get methods
-            methods = await session.execute(
-                text(
-                    "SELECT name FROM functions WHERE class_id = :class_id ORDER BY start_line"
-                ),
-                {"class_id": cls.id},
+            from sqlalchemy.orm import aliased
+
+            from src.database.models import Function
+
+            func_alias = aliased(Function)
+            method_stmt = (
+                select(func_alias.name)
+                .where(func_alias.class_id == cls.id)
+                .order_by(func_alias.start_line)
             )
-            method_names = [m.name for m in methods.scalars().all()] if methods else []
+            method_result = await self.session.execute(method_stmt)
+            method_names = [name for (name,) in method_result.all()]
 
             structure["classes"].append(
                 {
@@ -545,13 +604,14 @@ class AnalyzeTool:
             )
 
         # Get functions
-        functions = await session.execute(
-            text(
-                "SELECT * FROM functions WHERE module_id = :module_id AND class_id IS NULL ORDER BY start_line"
-            ),
-            {"module_id": module.id},
+        from src.database.models import Function
+
+        func_result = await self.session.execute(
+            select(Function)
+            .where(and_(Function.module_id == module.id, Function.class_id.is_(None)))
+            .order_by(Function.start_line),
         )
-        for func in functions.scalars().all() if functions else []:
+        for func in func_result.scalars().all():
             structure["functions"].append(
                 {
                     "name": func.name,
@@ -564,7 +624,6 @@ class AnalyzeTool:
 
     async def _get_package_structure(
         self,
-        _repos: dict[str, Any],
         package_path: str,
     ) -> dict[str, Any]:
         """Get structure of a package (directory)."""
