@@ -1,0 +1,35 @@
+# This file is for reference only - the actual pre-commit hooks are defined in flake.nix
+# To use the Nix-based pre-commit hooks:
+#
+# 1. Enter the nix development shell:
+#    nix develop
+#
+# 2. The pre-commit hooks will be automatically available
+#
+# 3. Run hooks manually:
+#    pre-commit run              # Run on staged files
+#    pre-commit run --all-files  # Run on all files
+#
+# 4. Install git hooks:
+#    pre-commit install
+#
+# The hooks configured in flake.nix include:
+# - black (code formatting)
+# - isort (import sorting)
+# - ruff (linting)
+# - mypy (type checking)
+# - bandit (security scanning)
+# - pycln (remove unused imports)
+# - pyupgrade (upgrade Python syntax)
+# - trailing-whitespace
+# - end-of-file-fixer
+# - check-yaml
+# - check-added-large-files
+# - check-case-conflict
+# - check-merge-conflict
+# - detect-private-key
+# - check-docstring-first
+# - debug-statements
+# - python-tests-naming
+#
+# All tools use the Nix-provided versions, ensuring compatibility with NixOS.
