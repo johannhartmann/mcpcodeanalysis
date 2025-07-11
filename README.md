@@ -6,7 +6,7 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 
-An intelligent MCP (Model Context Protocol) server that provides advanced code analysis and search capabilities for large codebases. It uses TreeSitter for parsing, PostgreSQL with pgvector for storage, and OpenAI embeddings for semantic search.
+An intelligent MCP (Model Context Protocol) server that provides advanced code analysis and search capabilities for large codebases. Built with pure FastMCP implementation, it uses TreeSitter for parsing, PostgreSQL with pgvector for vector storage, and OpenAI embeddings for semantic search.
 
 ## Features
 
@@ -23,52 +23,31 @@ An intelligent MCP (Model Context Protocol) server that provides advanced code a
 
 ## MCP Tools Available
 
-### Code Search Tools
-- `semantic_search` - Search for code using natural language queries (with optional domain enhancement)
-- `find_similar_code` - Find code similar to a given entity
-- `search_by_code_snippet` - Search for code similar to a snippet
-- `search_by_business_capability` - Find code implementing business capabilities
-- `keyword_search` - Search for code using keywords
+### Core Search Tools
+- `search_code` - Search for code using natural language queries with semantic understanding
+- `find_definition` - Find where symbols (functions, classes, modules) are defined
+- `find_similar_code` - Find code patterns similar to a given snippet using vector similarity
+- `get_code_structure` - Get the hierarchical structure of a code file
 
 ### Code Analysis Tools
-- `get_code` - Get code content for a specific entity
-- `analyze_file` - Analyze file structure and metrics
-- `get_dependencies` - Get dependencies for a code entity
-- `find_usages` - Find where a function or class is used
-
-### Domain-Driven Design Tools
-- `extract_domain_model` - Extract domain entities and relationships using LLM
-- `find_aggregate_roots` - Find aggregate roots in the codebase
-- `analyze_bounded_context` - Analyze bounded contexts and their relationships
-- `suggest_ddd_refactoring` - Get DDD-based refactoring suggestions
-- `find_bounded_contexts` - Discover all bounded contexts
-- `generate_context_map` - Generate context maps (JSON, Mermaid, PlantUML)
-
-### Advanced Analysis Tools
-- `analyze_coupling` - Analyze coupling between bounded contexts with metrics
-- `detect_anti_patterns` - Detect DDD anti-patterns (anemic models, god objects, etc.)
-- `suggest_context_splits` - Suggest how to split large bounded contexts
-- `analyze_domain_evolution` - Track domain model changes over time
-- `get_domain_metrics` - Get comprehensive domain health metrics
+- `explain_code` - Get hierarchical explanations of code elements (modules, classes, functions)
+- `suggest_refactoring` - Get AI-powered refactoring suggestions for code improvements
+- `analyze_dependencies` - Analyze dependencies and relationships between code entities
 
 ### Repository Management Tools
-- `add_repository` - Add a new GitHub repository to track
-- `list_repositories` - List all tracked repositories
-- `scan_repository` - Scan or rescan a repository
-- `update_embeddings` - Update embeddings for a repository
-- `get_repository_stats` - Get detailed statistics
-- `delete_repository` - Delete a repository and its data
+- `sync_repository` - Manually trigger synchronization for a specific repository
 
 ## Quick Start
 
 ### Prerequisites
 
 - Docker and Docker Compose
-- OpenAI API key
+- OpenAI API key (for semantic search capabilities)
+- Nix with flakes (recommended for development)
 
-### Recommended: Docker with MCP over HTTP
+### Docker Deployment (Recommended)
 
-The preferred way to use this tool is via Docker with MCP over HTTP, which provides a fully isolated and reproducible environment.
+The easiest way to get started is using Docker Compose, which provides a complete isolated environment with PostgreSQL and pgvector.
 
 1. Clone the repository:
 ```bash
@@ -96,7 +75,7 @@ repositories:
 # Scanner configuration
 scanner:
   storage_path: ./repositories
-  exclude_patterns: 
+  exclude_patterns:
     - "__pycache__"
     - "*.pyc"
     - ".git"
@@ -104,83 +83,57 @@ scanner:
     - "node_modules"
 ```
 
-4. Start the server with Docker Compose:
+4. Start the services with Docker Compose:
 ```bash
-docker-compose up
+docker-compose up -d
 ```
 
-This will automatically:
-- Start PostgreSQL with pgvector
-- Initialize the database
-- Start the MCP server on port 8080
-- Scan configured repositories on startup
+This will:
+- Start PostgreSQL with pgvector extension
+- Build and start the MCP Code Analysis Server
+- Initialize the database with required schemas
+- Begin scanning configured repositories automatically
 
-The server will be available at `http://localhost:8080` and can be used with any MCP client that supports HTTP.
+The server runs as a pure MCP implementation and can be accessed via any MCP-compatible client.
 
-#### Managing Multiple Repositories
+### Development Environment (Local)
 
-After initial setup, you can dynamically add more repositories using the MCP tools:
+For development work, use the Nix development environment which provides all necessary tools and dependencies:
 
-```python
-# Add a new repository
-await mcp.call_tool("add_repository", {
-    "url": "https://github.com/owner/new-repo",
-    "scan_immediately": True,
-    "generate_embeddings": True
-})
-
-# List all tracked repositories
-await mcp.call_tool("list_repositories", {})
-
-# Update a repository
-await mcp.call_tool("scan_repository", {
-    "repository_id": 1,
-    "full_scan": False  # Incremental scan
-})
-```
-
-### Alternative: Local Development
-
-If you need to run locally for development:
-
-1. Prerequisites:
-   - Nix with flakes enabled (recommended) OR Python 3.11+
-   - Docker for PostgreSQL
-
-2. Enter the development environment:
 ```bash
-nix develop  # Recommended
-# OR
-python -m venv venv && source venv/bin/activate
-```
+# Enter the Nix development environment
+nix develop
 
-3. Install dependencies:
-```bash
-uv sync  # If using nix
-# OR
-pip install -e ".[dev]"  # If using regular Python
-```
+# Install Python dependencies
+uv sync
 
-4. Create configuration file:
-```bash
-python -m src.mcp_server create-config
-# Edit config.yaml with your settings
-```
-
-5. Start PostgreSQL:
-```bash
+# Start PostgreSQL (if not using Docker Compose)
 docker-compose up -d postgres
+
+# Run the scanner to populate the database
+python -m src.scanner
+
+# Start the MCP server
+python -m src.mcp_server
+
+# Or run tests
+pytest
+
+# Check code quality
+ruff check .
+black --check .
+mypy .
+vulture src vulture_whitelist.py
 ```
 
-6. Initialize the database:
-```bash
-python -m src.mcp_server init-db
-```
-
-7. Start the MCP server:
-```bash
-python -m src.mcp_server serve --port 8080
-```
+The Nix environment includes:
+- Python 3.11 with all dependencies
+- Code formatting tools (black, isort)
+- Linters (ruff, pylint, bandit)
+- Type checker (mypy)
+- Dead code detection (vulture)
+- Test runner (pytest)
+- Pre-commit hooks
 
 ## Configuration
 
@@ -200,19 +153,19 @@ repositories:
 # Scanner configuration
 scanner:
   storage_path: ./repositories
-  exclude_patterns: 
+  exclude_patterns:
     - "__pycache__"
     - "*.pyc"
     - ".git"
     - "venv"
     - "node_modules"
-    
+
 # Embeddings configuration
 embeddings:
   model: "text-embedding-ada-002"
   batch_size: 100
   max_tokens: 8000
-  
+
 # MCP server configuration
 mcp:
   host: "0.0.0.0"
@@ -229,71 +182,73 @@ database:
 
 ## Usage Examples
 
-### Command Line
-
-```bash
-# Add and scan a repository
-python -m src.mcp_server scan https://github.com/owner/repo
-
-# Search for code
-python -m src.mcp_server search "authentication handler"
-
-# Start the server
-python -m src.mcp_server serve
-```
-
 ### Using the MCP Tools
 
 Once the server is running, you can use the tools via any MCP client:
 
 ```python
-# Semantic search
-await mcp.call_tool("semantic_search", {
+# Search for code using natural language
+await mcp.call_tool("search_code", {
     "query": "functions that handle user authentication",
-    "scope": "functions",
     "limit": 10
 })
 
-# Get code content
-await mcp.call_tool("get_code", {
-    "entity_type": "function",
-    "entity_id": 123,
-    "include_context": True
+# Find where a symbol is defined
+await mcp.call_tool("find_definition", {
+    "name": "UserService",
+    "entity_type": "class"
 })
 
-# Add a repository
-await mcp.call_tool("add_repository", {
-    "url": "https://github.com/owner/repo",
-    "scan_immediately": True,
-    "generate_embeddings": True
+# Get hierarchical code explanation
+await mcp.call_tool("explain_code", {
+    "path": "src.auth.user_service.UserService"
+})
+
+# Find similar code patterns
+await mcp.call_tool("find_similar_code", {
+    "code_snippet": "def authenticate_user(username, password):",
+    "limit": 5,
+    "threshold": 0.7
+})
+
+# Get code structure
+await mcp.call_tool("get_code_structure", {
+    "file_path": "src/auth/user_service.py"
+})
+
+# Get refactoring suggestions
+await mcp.call_tool("suggest_refactoring", {
+    "file_path": "src/auth/user_service.py",
+    "focus_area": "performance"
 })
 ```
 
-### With Claude Desktop (HTTP)
+### With Claude Desktop
 
-For Claude Desktop or other MCP clients that support HTTP, configure the server URL:
+Configure the MCP server in your Claude Desktop settings:
 
-```json
-{
-  "mcpServers": {
-    "code-analysis": {
-      "url": "http://localhost:8080"
-    }
-  }
-}
-```
-
-### With Claude Desktop (Stdio)
-
-If you need to use stdio mode:
-
+For stdio mode (when running locally):
 ```json
 {
   "mcpServers": {
     "code-analysis": {
       "command": "python",
-      "args": ["-m", "src.mcp_server", "serve"],
-      "cwd": "/path/to/mcp-code-analysis-server"
+      "args": ["-m", "src.mcp_server"],
+      "cwd": "/path/to/mcp-code-analysis-server",
+      "env": {
+        "OPENAI_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+For HTTP mode (when using Docker):
+```json
+{
+  "mcpServers": {
+    "code-analysis": {
+      "url": "http://localhost:8000"
     }
   }
 }
@@ -310,43 +265,68 @@ Then in Claude Desktop:
 ### Running Tests
 
 ```bash
-make test-all  # Run all tests with coverage
-make test-unit  # Run unit tests only
-make test-integration  # Run integration tests
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=src --cov-report=html
+
+# Run specific test types
+pytest tests/unit/
+pytest tests/integration/
 ```
 
 ### Code Quality
 
+The project uses comprehensive code quality tools integrated into the Nix development environment:
+
 ```bash
-make qa  # Run all quality checks
-make format  # Format code
-make lint  # Run linters
-make type-check  # Type checking
+# Run all linters
+ruff check .
+
+# Format code
+black .
+isort .
+
+# Type checking
+mypy .
+
+# Find dead code
+vulture src vulture_whitelist.py
+
+# Run pre-commit hooks
+nix-pre-commit
 ```
 
-### Building Documentation
+### Pre-commit Hooks
+
+Install the pre-commit hooks for automatic code quality checks:
 
 ```bash
-make docs  # Build docs
-make docs-serve  # Serve docs locally
+echo '#!/bin/sh' > .git/hooks/pre-commit
+echo 'nix-pre-commit' >> .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
 ```
 
 ## Architecture
 
 The server consists of several key components:
 
-- **Scanner Module**: Monitors filesystem changes using Git
-- **Parser Module**: Extracts code structure using TreeSitter
-- **Embeddings Module**: Generates semantic embeddings via OpenAI
-- **Query Module**: Processes natural language queries
-- **MCP Server**: Exposes tools via FastMCP
+- **Scanner Module**: Monitors and synchronizes Git repositories with incremental updates
+- **Parser Module**: Extracts code structure using TreeSitter for accurate AST parsing
+- **Embeddings Module**: Generates semantic embeddings via OpenAI for vector search
+- **Database Module**: PostgreSQL with pgvector extension for efficient vector storage
+- **Query Module**: Processes natural language queries and symbol lookup
+- **MCP Server**: Pure FastMCP implementation exposing code analysis tools
+- **Domain Module**: Extracts domain entities and relationships for DDD analysis
 
 ## Performance
 
-- Initial indexing: <1000 files/minute
-- Incremental updates: <10 seconds for 100 changed files
-- Query response time: <2 seconds
-- Supports codebases up to 10M lines of code
+- **Initial indexing**: ~1000 files/minute with parallel processing
+- **Incremental updates**: <10 seconds for 100 changed files using Git tracking
+- **Query response**: <2 seconds for semantic search with pgvector
+- **Scalability**: Supports codebases up to 10M+ lines of code
+- **Memory efficiency**: Optimized database sessions and batch processing
 
 ## Contributing
 
@@ -358,13 +338,16 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Author
 
-**Johann-Peter Hartmann**  
-Email: johann-peter.hartmann@mayflower.de  
+**Johann-Peter Hartmann**
+Email: johann-peter.hartmann@mayflower.de
 GitHub: [@johannhartmann](https://github.com/johannhartmann)
 
-## Acknowledgments
+## Key Technologies
 
-- Built with [FastMCP](https://github.com/fastmcp/fastmcp) for MCP protocol support
-- Uses [TreeSitter](https://tree-sitter.github.io/tree-sitter/) for code parsing
-- Powered by [LangChain](https://www.langchain.com/) and [LangGraph](https://github.com/langchain-ai/langgraph)
-- Vector search via [pgvector](https://github.com/pgvector/pgvector)
+- **[FastMCP](https://github.com/fastmcp/fastmcp)**: Pure MCP protocol implementation
+- **[TreeSitter](https://tree-sitter.github.io/tree-sitter/)**: Robust code parsing and AST generation
+- **[pgvector](https://github.com/pgvector/pgvector)**: High-performance vector similarity search
+- **[OpenAI Embeddings](https://openai.com/api/)**: Semantic understanding of code
+- **[PostgreSQL](https://postgresql.org/)**: Reliable data persistence and complex queries
+- **[Nix](https://nixos.org/)**: Reproducible development environment
+- **[Docker](https://docker.com/)**: Containerized deployment and isolation
