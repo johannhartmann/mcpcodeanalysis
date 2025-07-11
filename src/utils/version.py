@@ -105,11 +105,6 @@ def compare_versions(version1: str, version2: str) -> int:
          0 if version1 == version2
          1 if version1 > version2
     """
-    v1_info = get_version_info()
-    v1_info = VersionInfo(version=version1, major=0, minor=0, patch=0)
-
-    v2_info = VersionInfo(version=version2, major=0, minor=0, patch=0)
-
     # Parse versions
     try:
         v1_parts = version1.split(".")

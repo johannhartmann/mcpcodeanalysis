@@ -127,7 +127,7 @@ class DomainEntityExtractor:
     def _get_system_prompt(self) -> str:
         """Get the system prompt for entity extraction."""
         return """You are an expert in Domain-Driven Design (DDD) and software architecture.
-Your task is to analyze code and extract domain entities, not technical implementation details.
+Your task is to analyze code and extract domain entities, not technical details.
 
 Focus on identifying:
 1. Business entities and concepts (not technical classes)
@@ -162,10 +162,10 @@ Output JSON with this structure:
       "name": "Order",
       "type": "aggregate_root",
       "description": "Customer purchase order",
-      "business_rules": ["Order must have at least one item", "Total cannot be negative"],
+      "business_rules": ["Order must have at least one item", "Total >= 0"],
       "invariants": ["Order status progression must be valid"],
       "responsibilities": ["Track order lifecycle", "Calculate totals"],
-      "ubiquitous_language": {"fulfill": "Process and ship the order", "cancel": "Stop order processing"}
+      "ubiquitous_language": {"fulfill": "Process and ship", "cancel": "Stop processing"}
     }
   ],
   "confidence": 0.85,
@@ -174,7 +174,7 @@ Output JSON with this structure:
 
     def _get_relationship_system_prompt(self) -> str:
         """Get the system prompt for relationship extraction."""
-        return """You are an expert in Domain-Driven Design analyzing relationships between domain entities.
+        return """You are an expert in Domain-Driven Design analyzing entity relationships.
 
 Identify semantic relationships between entities, focusing on:
 1. How entities collaborate to fulfill business processes
@@ -210,7 +210,7 @@ Output JSON with this structure:
       "description": "Order initiates and tracks payment processing",
       "strength": 0.9,
       "evidence": ["processPayment method in Order class", "PaymentStatus field"],
-      "interaction_patterns": ["Order.processPayment() creates Payment", "Order listens to PaymentCompleted event"],
+      "interaction_patterns": ["Order.processPayment() creates Payment", "Order listens to events"],
       "data_flow": {"order_total": "Passed to Payment for processing"}
     }
   ],

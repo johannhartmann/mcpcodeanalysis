@@ -8,8 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engin
 from sqlalchemy.orm import sessionmaker
 
 # Import domain models to ensure they're registered with metadata
-from src.database import domain_models  # noqa: F401
-from src.database import package_models  # noqa: F401
+from src.database import (
+    domain_models,  # noqa: F401
+    package_models,  # noqa: F401
+)
 from src.database.models import Base
 from src.logger import get_logger
 

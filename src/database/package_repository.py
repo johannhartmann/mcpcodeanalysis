@@ -1,5 +1,6 @@
 """Repository for package-related database operations."""
 
+from collections import defaultdict
 from typing import Any
 
 from sqlalchemy import select
@@ -44,9 +45,6 @@ class PackageRepository:
     async def get_package_tree(self, repository_id: int) -> dict[str, Any]:
         """Get the complete package tree for a repository."""
         packages = await self.get_repository_packages(repository_id)
-
-        # Build package lookup
-        package_map = {p.id: p for p in packages}
 
         # Build tree
         def build_tree_node(package: Package) -> dict[str, Any]:
@@ -264,4 +262,3 @@ class PackageRepository:
         return metrics
 
 
-from collections import defaultdict
