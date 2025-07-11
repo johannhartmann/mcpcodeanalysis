@@ -5,8 +5,8 @@ from typing import Any
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.database import get_session_factory, init_database
 from src.database.models import Class, File, Function, Module
-from src.database.repositories import CodeEntityRepo, FileRepo
 from src.logger import get_logger
 from src.query.aggregator import CodeAggregator
 
@@ -21,11 +21,16 @@ MAX_FUNCTION_LIST = 10
 class ExplainTool:
     """MCP tool for explaining code entities."""
 
-    def __init__(self, session: AsyncSession) -> None:
-        self.session = session
-        self.aggregator = CodeAggregator()
-        self.file_repo = FileRepo(session)
-        self.entity_repo = CodeEntityRepo(session)
+    def __init__(self) -> None:
+        self._engine = None
+        self._session_factory = None
+
+    async def _get_session_factory(self):
+        """Get database session factory, initializing if needed."""
+        if self._session_factory is None:
+            self._engine = await init_database()
+            self._session_factory = get_session_factory(self._engine)
+        return self._session_factory
 
     async def explain_code(self, path: str) -> str:
         """
@@ -40,34 +45,39 @@ class ExplainTool:
             Detailed explanation of the code element
         """
         try:
-            # Parse the path to determine entity type and location
-            entity_info = await self._parse_code_path(path)
+            session_factory = await self._get_session_factory()
+            async with session_factory() as session:
+                # Parse the path to determine entity type and location
+                entity_info = await self._parse_code_path(path, session)
 
-            if not entity_info:
-                return f"Could not find code element at path: {path}"
+                if not entity_info:
+                    return f"Could not find code element at path: {path}"
 
-            # Get explanation
-            explanation = await self.aggregator.explain_entity(
-                entity_type=entity_info["type"],
-                entity_id=entity_info["id"],
-                include_code=False,
-            )
+                # Get explanation
+                aggregator = CodeAggregator(session)
+                explanation = await aggregator.explain_entity(
+                    entity_type=entity_info["type"],
+                    entity_id=entity_info["id"],
+                    include_code=False,
+                )
 
-            # Format explanation as text
-            return self._format_explanation(explanation)
+                # Format explanation as text
+                return self._format_explanation(explanation)
 
         except Exception as e:
             logger.exception("Error in explain_code: %s")
             return f"Error explaining code: {e!s}"
 
-    async def _parse_code_path(self, path: str) -> dict[str, Any] | None:
+    async def _parse_code_path(
+        self, path: str, session: AsyncSession
+    ) -> dict[str, Any] | None:
         """Parse a code path to find the entity."""
         # Check if it's a file path
         if "/" in path or path.endswith(".py"):
             # File path - look for module
             # Extract just the filename from the full path for searching
             file_name = path.split("/")[-1] if "/" in path else path
-            result = await self.session.execute(
+            result = await session.execute(
                 select(File).where(File.path.like(f"%{file_name}")),
             )
             files = result.scalars().all()

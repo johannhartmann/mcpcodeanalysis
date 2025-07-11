@@ -3,8 +3,10 @@
 import time
 from typing import Any
 
+from sqlalchemy import func, select, text
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.config import settings
-from src.database import get_repositories, get_session
 from src.database.models import Class, File, Function, Module
 from src.indexer.embeddings import EmbeddingGenerator
 from src.logger import get_logger
@@ -15,7 +17,8 @@ logger = get_logger(__name__)
 class SearchEngine:
     """Search engine for code entities using embeddings."""
 
-    def __init__(self) -> None:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
         self.embedding_generator = EmbeddingGenerator()
         self.query_config = settings.query
 
@@ -34,257 +37,430 @@ class SearchEngine:
             limit = self.query_config.default_limit
         limit = min(limit, self.query_config.max_limit)
 
-        # Generate query embedding
-        query_embedding = await self.embedding_generator.generate_embedding(query)
-
-        async with get_session() as session, get_repositories(session) as repos:
-            # Search both raw and interpreted embeddings
-            raw_results = await repos["embedding"].search_similar(
-                query_embedding,
-                limit=limit * 2,  # Get more results for merging
-                threshold=self.query_config.similarity_threshold,
-                embedding_type="raw",
-                entity_types=entity_types,
+        try:
+            # For now, implement keyword-based search until embedding search is fully implemented
+            results = await self._keyword_search(
+                query, limit, entity_types, repository_filter
             )
 
-            interpreted_results = await repos["embedding"].search_similar(
-                query_embedding,
-                limit=limit * 2,
-                threshold=self.query_config.similarity_threshold,
-                embedding_type="interpreted",
-                entity_types=entity_types,
-            )
-
-            # Merge and rank results
-            results = await self._merge_and_rank_results(
-                raw_results,
-                interpreted_results,
-                query,
-                repos,
-                limit,
-                repository_filter,
-            )
-
-            # Log query for analytics
+            # Log search statistics
             execution_time = (time.time() - start_time) * 1000
-            await repos["search_query"].log_query(
-                query=query,
-                tool_name="search_code",
-                results_count=len(results),
-                execution_time_ms=execution_time,
-                metadata={
-                    "entity_types": entity_types,
-                    "repository_filter": repository_filter,
-                },
+            logger.info(
+                "Search completed: query='%s', results=%d, time=%.2fms",
+                query,
+                len(results),
+                execution_time,
             )
 
             return results
 
-    async def _merge_and_rank_results(
+        except Exception as e:
+            logger.exception("Search failed: %s", e)
+            return []
+
+    async def _keyword_search(
         self,
-        raw_results: list[tuple[Any, float]],
-        interpreted_results: list[tuple[Any, float]],
         query: str,
-        repos: dict[str, Any],
         limit: int,
+        entity_types: list[str] | None = None,
         repository_filter: str | None = None,
     ) -> list[dict[str, Any]]:
-        """Merge and rank search results."""
-        # Create a map of entity results
-        entity_scores: dict[tuple[str, int], dict[str, Any]] = {}
-
-        # Process raw results
-        for embedding, similarity in raw_results:
-            key = (embedding.entity_type, embedding.entity_id)
-            if key not in entity_scores:
-                entity_scores[key] = {
-                    "entity_type": embedding.entity_type,
-                    "entity_id": embedding.entity_id,
-                    "raw_similarity": similarity,
-                    "interpreted_similarity": 0.0,
-                    "raw_content": embedding.content,
-                    "metadata": embedding.metadata,
-                }
-            else:
-                entity_scores[key]["raw_similarity"] = max(
-                    entity_scores[key]["raw_similarity"],
-                    similarity,
-                )
-
-        # Process interpreted results
-        for embedding, similarity in interpreted_results:
-            key = (embedding.entity_type, embedding.entity_id)
-            if key not in entity_scores:
-                entity_scores[key] = {
-                    "entity_type": embedding.entity_type,
-                    "entity_id": embedding.entity_id,
-                    "raw_similarity": 0.0,
-                    "interpreted_similarity": similarity,
-                    "interpreted_content": embedding.content,
-                    "metadata": embedding.metadata,
-                }
-            else:
-                entity_scores[key]["interpreted_similarity"] = similarity
-                entity_scores[key]["interpreted_content"] = embedding.content
-
-        # Load entity details and calculate final scores
+        """Perform keyword-based search as fallback."""
         results = []
+        query_lower = query.lower()
 
-        for (entity_type, entity_id), scores in entity_scores.items():
-            # Load entity details
-            entity_data = await self._load_entity_details(repos, entity_type, entity_id)
-
-            if not entity_data:
-                continue
-
-            # Apply repository filter if specified
-            if (
-                repository_filter
-                and entity_data.get("repository_name") != repository_filter
-            ):
-                continue
-
-            # Calculate composite score
-            weights = self.query_config.ranking_weights
-            final_score = weights["semantic_similarity"] * max(
-                scores["raw_similarity"],
-                scores["interpreted_similarity"],
-            ) + weights["keyword_match"] * self._calculate_keyword_match(
-                query,
-                entity_data.get("name", ""),
-                entity_data.get("docstring", ""),
+        # Search functions
+        if not entity_types or "function" in entity_types:
+            stmt = select(Function, File, Module).select_from(
+                Function.__table__.join(
+                    Module.__table__, Function.module_id == Module.id
+                ).join(File.__table__, Module.file_id == File.id)
             )
+            if repository_filter:
+                stmt = stmt.where(File.path.like(f"%{repository_filter}%"))
 
-            # Build result
-            result = {
-                "score": final_score,
-                "entity_type": entity_type,
-                "entity_data": entity_data,
-                "similarity": {
-                    "raw": scores["raw_similarity"],
-                    "interpreted": scores["interpreted_similarity"],
-                },
-                "matched_content": scores.get("interpreted_content")
-                or scores.get("raw_content"),
-            }
+            result = await self.session.execute(stmt.limit(limit))
+            functions = result.all()
 
-            results.append(result)
+            for func, file, module in functions:
+                if query_lower in func.name.lower() or (
+                    func.docstring and query_lower in func.docstring.lower()
+                ):
+                    results.append(
+                        {
+                            "entity_type": "function",
+                            "entity_id": func.id,
+                            "name": func.name,
+                            "file_path": file.path,
+                            "module_name": module.name,
+                            "docstring": func.docstring,
+                            "start_line": func.start_line,
+                            "end_line": func.end_line,
+                            "similarity": 0.8,  # Placeholder similarity score
+                        }
+                    )
 
-        # Sort by score and limit
-        results.sort(key=lambda x: x["score"], reverse=True)
+        # Search classes
+        if not entity_types or "class" in entity_types:
+            stmt = select(Class, File, Module).select_from(
+                Class.__table__.join(
+                    Module.__table__, Class.module_id == Module.id
+                ).join(File.__table__, Module.file_id == File.id)
+            )
+            if repository_filter:
+                stmt = stmt.where(File.path.like(f"%{repository_filter}%"))
+
+            result = await self.session.execute(stmt.limit(limit))
+            classes = result.all()
+
+            for cls, file, module in classes:
+                if query_lower in cls.name.lower() or (
+                    cls.docstring and query_lower in cls.docstring.lower()
+                ):
+                    results.append(
+                        {
+                            "entity_type": "class",
+                            "entity_id": cls.id,
+                            "name": cls.name,
+                            "file_path": file.path,
+                            "module_name": module.name,
+                            "docstring": cls.docstring,
+                            "start_line": cls.start_line,
+                            "end_line": cls.end_line,
+                            "similarity": 0.8,  # Placeholder similarity score
+                        }
+                    )
+
+        # Search modules
+        if not entity_types or "module" in entity_types:
+            stmt = select(Module, File).select_from(
+                Module.__table__.join(File.__table__, Module.file_id == File.id)
+            )
+            if repository_filter:
+                stmt = stmt.where(File.path.like(f"%{repository_filter}%"))
+
+            result = await self.session.execute(stmt.limit(limit))
+            modules = result.all()
+
+            for module, file in modules:
+                if query_lower in module.name.lower() or (
+                    module.docstring and query_lower in module.docstring.lower()
+                ):
+                    results.append(
+                        {
+                            "entity_type": "module",
+                            "entity_id": module.id,
+                            "name": module.name,
+                            "file_path": file.path,
+                            "module_name": module.name,
+                            "docstring": module.docstring,
+                            "similarity": 0.8,  # Placeholder similarity score
+                        }
+                    )
+
+        # Sort by relevance (for now just by name similarity)
+        results.sort(key=lambda x: x["name"].lower().find(query_lower))
+
         return results[:limit]
 
-    async def _load_entity_details(  # noqa: PLR0911
+    async def search_semantic(
         self,
-        repos: dict[str, Any],
+        query: str,
+        limit: int = 10,
+        threshold: float = 0.7,
+        entity_types: list[str] | None = None,
+        repository_filter: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Search code entities using semantic similarity with embeddings."""
+        # Generate embedding for query
+        try:
+            query_embedding = await self.embedding_generator.generate_embedding(query)
+        except Exception as e:
+            logger.error("Failed to generate query embedding: %s", e)
+            # Fall back to keyword search
+            return await self.search(query, limit, entity_types, repository_filter)
+
+        # Search for similar embeddings in the database
+        from sqlalchemy import text
+
+        # Build the query based on entity types
+        if not entity_types:
+            entity_types = ["module", "class", "function", "method"]
+
+        results = []
+
+        # Query for similar embeddings using pgvector
+        sql = text(
+            """
+            SELECT
+                e.entity_type,
+                e.entity_id,
+                e.file_id,
+                1 - (e.embedding <=> cast(:query_embedding as vector)) as similarity
+            FROM code_embeddings e
+            WHERE
+                e.entity_type = ANY(:entity_types)
+                AND 1 - (e.embedding <=> cast(:query_embedding as vector)) > :threshold
+            ORDER BY similarity DESC
+            LIMIT :limit
+        """
+        )
+
+        result = await self.session.execute(
+            sql,
+            {
+                "query_embedding": str(query_embedding),
+                "entity_types": entity_types,
+                "threshold": threshold,
+                "limit": limit,
+            },
+        )
+
+        for row in result:
+            entity_type = row.entity_type
+            entity_id = row.entity_id
+            similarity = row.similarity
+
+            # Fetch entity details based on type
+            if entity_type == "function" or entity_type == "method":
+                entity_result = await self.session.execute(
+                    select(Function, Module, File)
+                    .select_from(
+                        Function.__table__.join(
+                            Module.__table__, Function.module_id == Module.id
+                        ).join(File.__table__, Module.file_id == File.id)
+                    )
+                    .where(Function.id == entity_id)
+                )
+                entity_row = entity_result.first()
+                if entity_row:
+                    func, module, file = entity_row
+                    results.append(
+                        {
+                            "entity_type": entity_type,
+                            "entity_id": func.id,
+                            "name": func.name,
+                            "file_path": file.path,
+                            "module_name": module.name,
+                            "docstring": func.docstring,
+                            "start_line": func.start_line,
+                            "end_line": func.end_line,
+                            "similarity": similarity,
+                        }
+                    )
+            elif entity_type == "class":
+                entity_result = await self.session.execute(
+                    select(Class, Module, File)
+                    .select_from(
+                        Class.__table__.join(
+                            Module.__table__, Class.module_id == Module.id
+                        ).join(File.__table__, Module.file_id == File.id)
+                    )
+                    .where(Class.id == entity_id)
+                )
+                entity_row = entity_result.first()
+                if entity_row:
+                    cls, module, file = entity_row
+                    results.append(
+                        {
+                            "entity_type": entity_type,
+                            "entity_id": cls.id,
+                            "name": cls.name,
+                            "file_path": file.path,
+                            "module_name": module.name,
+                            "docstring": cls.docstring,
+                            "start_line": cls.start_line,
+                            "end_line": cls.end_line,
+                            "similarity": similarity,
+                        }
+                    )
+            elif entity_type == "module":
+                entity_result = await self.session.execute(
+                    select(Module, File)
+                    .select_from(
+                        Module.__table__.join(File.__table__, Module.file_id == File.id)
+                    )
+                    .where(Module.id == entity_id)
+                )
+                entity_row = entity_result.first()
+                if entity_row:
+                    module, file = entity_row
+                    results.append(
+                        {
+                            "entity_type": entity_type,
+                            "entity_id": module.id,
+                            "name": module.name,
+                            "file_path": file.path,
+                            "module_name": module.name,
+                            "docstring": module.docstring,
+                            "similarity": similarity,
+                        }
+                    )
+
+        return results
+
+    async def search_similar_code(
+        self,
+        code_snippet: str,
+        limit: int = 10,
+        threshold: float = 0.7,
+    ) -> list[dict[str, Any]]:
+        """Search for similar code patterns."""
+        # For now, return empty results until embedding search is implemented
+        logger.warning("Similar code search not yet implemented")
+        return []
+
+    async def get_code_context(
+        self,
         entity_type: str,
         entity_id: int,
-    ) -> dict[str, Any] | None:
-        """Load detailed information about an entity."""
-        session = repos["repository"].session
-
+        include_dependencies: bool = False,
+    ) -> dict[str, Any]:
+        """Get context information for a code entity."""
         try:
             if entity_type == "function":
-                # Load function with related data
-                func = await session.get(Function, entity_id)
-                if not func:
-                    return None
+                return await self._get_function_context(entity_id, include_dependencies)
+            elif entity_type == "class":
+                return await self._get_class_context(entity_id, include_dependencies)
+            elif entity_type == "module":
+                return await self._get_module_context(entity_id, include_dependencies)
+            else:
+                return {"error": f"Unknown entity type: {entity_type}"}
+        except Exception as e:
+            logger.exception("Failed to get context for %s %d", entity_type, entity_id)
+            return {"error": str(e)}
 
-                # Load related module and file
-                module = await session.get(Module, func.module_id)
-                file = await session.get(File, module.file_id) if module else None
-                repo = (
-                    await repos["repository"].get_by_id(file.repository_id)
-                    if file
-                    else None
-                )
+    async def _get_function_context(
+        self, function_id: int, include_dependencies: bool
+    ) -> dict[str, Any]:
+        """Get context for a function."""
+        result = await self.session.execute(
+            select(Function, Module, File)
+            .join(Module)
+            .join(File)
+            .where(Function.id == function_id)
+        )
+        row = result.first()
 
-                return {
-                    "id": func.id,
-                    "name": func.name,
-                    "type": "method" if func.class_id else "function",
-                    "parameters": func.parameters,
-                    "return_type": func.return_type,
-                    "docstring": func.docstring,
-                    "is_async": func.is_async,
-                    "is_generator": func.is_generator,
-                    "start_line": func.start_line,
-                    "end_line": func.end_line,
-                    "file_path": file.path if file else None,
-                    "repository_name": repo.name if repo else None,
-                    "repository_url": repo.github_url if repo else None,
+        if not row:
+            return {"error": "Function not found"}
+
+        func, module, file = row
+        context = {
+            "type": "function",
+            "name": func.name,
+            "module": module.name,
+            "file": file.path,
+            "docstring": func.docstring,
+            "parameters": func.parameters,
+            "return_type": func.return_type,
+            "start_line": func.start_line,
+            "end_line": func.end_line,
+        }
+
+        if include_dependencies:
+            # Add related functions, classes, etc.
+            # This would need more complex implementation
+            context["dependencies"] = []
+
+        return context
+
+    async def _get_class_context(
+        self, class_id: int, include_dependencies: bool
+    ) -> dict[str, Any]:
+        """Get context for a class."""
+        result = await self.session.execute(
+            select(Class, Module, File)
+            .join(Module)
+            .join(File)
+            .where(Class.id == class_id)
+        )
+        row = result.first()
+
+        if not row:
+            return {"error": "Class not found"}
+
+        cls, module, file = row
+
+        # Get methods
+        methods_result = await self.session.execute(
+            select(Function).where(Function.class_id == class_id)
+        )
+        methods = methods_result.scalars().all()
+
+        context = {
+            "type": "class",
+            "name": cls.name,
+            "module": module.name,
+            "file": file.path,
+            "docstring": cls.docstring,
+            "base_classes": cls.base_classes,
+            "start_line": cls.start_line,
+            "end_line": cls.end_line,
+            "methods": [
+                {
+                    "name": method.name,
+                    "docstring": method.docstring,
+                    "parameters": method.parameters,
+                    "is_property": method.is_property,
+                    "is_static": method.is_static,
+                    "is_classmethod": method.is_classmethod,
                 }
+                for method in methods
+            ],
+        }
 
-            if entity_type == "class":
-                # Load class with related data
-                cls = await session.get(Class, entity_id)
-                if not cls:
-                    return None
+        return context
 
-                module = await session.get(Module, cls.module_id)
-                file = await session.get(File, module.file_id) if module else None
-                repo = (
-                    await repos["repository"].get_by_id(file.repository_id)
-                    if file
-                    else None
-                )
+    async def _get_module_context(
+        self, module_id: int, include_dependencies: bool
+    ) -> dict[str, Any]:
+        """Get context for a module."""
+        result = await self.session.execute(
+            select(Module, File).join(File).where(Module.id == module_id)
+        )
+        row = result.first()
 
-                return {
-                    "id": cls.id,
+        if not row:
+            return {"error": "Module not found"}
+
+        module, file = row
+
+        # Get classes and functions
+        classes_result = await self.session.execute(
+            select(Class).where(Class.module_id == module_id)
+        )
+        classes = classes_result.scalars().all()
+
+        functions_result = await self.session.execute(
+            select(Function).where(
+                Function.module_id == module_id,
+                Function.class_id.is_(None),  # Only module-level functions
+            )
+        )
+        functions = functions_result.scalars().all()
+
+        context = {
+            "type": "module",
+            "name": module.name,
+            "file": file.path,
+            "docstring": module.docstring,
+            "classes": [
+                {
                     "name": cls.name,
-                    "type": "class",
-                    "base_classes": cls.base_classes,
                     "docstring": cls.docstring,
                     "is_abstract": cls.is_abstract,
-                    "start_line": cls.start_line,
-                    "end_line": cls.end_line,
-                    "file_path": file.path if file else None,
-                    "repository_name": repo.name if repo else None,
-                    "repository_url": repo.github_url if repo else None,
                 }
-
-            if entity_type == "module":
-                # Load module with related data
-                module = await session.get(Module, entity_id)
-                if not module:
-                    return None
-
-                file = await session.get(File, module.file_id)
-                repo = (
-                    await repos["repository"].get_by_id(file.repository_id)
-                    if file
-                    else None
-                )
-
-                return {
-                    "id": module.id,
-                    "name": module.name,
-                    "type": "module",
-                    "docstring": module.docstring,
-                    "file_path": file.path if file else None,
-                    "repository_name": repo.name if repo else None,
-                    "repository_url": repo.github_url if repo else None,
+                for cls in classes
+            ],
+            "functions": [
+                {
+                    "name": func.name,
+                    "docstring": func.docstring,
+                    "parameters": func.parameters,
                 }
+                for func in functions
+            ],
+        }
 
-            return None
-
-        except Exception:
-            logger.exception("Error loading entity details: %s")
-            return None
-
-    def _calculate_keyword_match(self, query: str, name: str, docstring: str) -> float:
-        """Calculate keyword match score."""
-        query_words = set(query.lower().split())
-
-        # Check name match
-        name_words = set(name.lower().split("_"))
-        name_match = len(query_words & name_words) / len(query_words)
-
-        # Check docstring match
-        docstring_match = 0.0
-        if docstring:
-            docstring_words = set(docstring.lower().split())
-            docstring_match = len(query_words & docstring_words) / len(query_words)
-
-        # Weight name match higher
-        return 0.7 * name_match + 0.3 * docstring_match
+        return context
