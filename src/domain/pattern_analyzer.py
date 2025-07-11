@@ -469,13 +469,6 @@ class DomainPatternAnalyzer:
         }
 
         # Get entities created in time period
-        # First get all file IDs for this repository
-        file_ids_result = await self.db_session.execute(
-            select(File.id).where(File.repository_id == repository_id)
-        )
-        file_ids = [row[0] for row in file_ids_result]
-
-        # Then get entities that reference these files and were created recently
         new_entities_result = await self.db_session.execute(
             select(DomainEntity).where(
                 DomainEntity.created_at >= since_date,
