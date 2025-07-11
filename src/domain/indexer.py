@@ -23,18 +23,22 @@ class DomainIndexer:
     def __init__(
         self,
         db_session: AsyncSession,
+        embeddings: Any = None,
+        llm: Any = None,
     ) -> None:
         """Initialize the domain indexer.
 
         Args:
             db_session: Database session
+            embeddings: Optional embeddings instance (for testing)
+            llm: Optional LLM instance (for testing)
         """
         self.db_session = db_session
 
         # Initialize components
-        self.entity_extractor = DomainEntityExtractor()
-        self.graph_builder = SemanticGraphBuilder(db_session)
-        self.summarizer = HierarchicalSummarizer(db_session)
+        self.entity_extractor = DomainEntityExtractor(llm=llm)
+        self.graph_builder = SemanticGraphBuilder(db_session, embeddings=embeddings, llm=llm)
+        self.summarizer = HierarchicalSummarizer(db_session, llm=llm)
 
     async def index_file(
         self,

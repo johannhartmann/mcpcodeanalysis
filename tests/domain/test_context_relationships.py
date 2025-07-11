@@ -1,6 +1,6 @@
 """Tests for context relationship saving functionality."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy import select
@@ -109,62 +109,49 @@ async def test_save_context_relationships(async_session: AsyncSession):
     await async_session.commit()
 
     # Initialize graph builder with mocked OpenAI dependencies
-    with (
-        patch("src.domain.graph_builder.settings") as mock_settings,
-        patch("src.domain.graph_builder.OpenAIEmbeddings") as mock_embeddings_cls,
-        patch("src.domain.graph_builder.ChatOpenAI") as mock_llm_cls,
-    ):
-        # Mock settings
-        mock_settings.openai_api_key.get_secret_value.return_value = "test-key"
-        mock_settings.embeddings.model = "text-embedding-ada-002"
-        mock_settings.llm.model = "gpt-4"
-        mock_settings.llm.temperature = 0.7
+    mock_embeddings = MagicMock()
+    mock_llm = MagicMock()
 
-        mock_embeddings = MagicMock()
-        mock_llm = MagicMock()
-        mock_embeddings_cls.return_value = mock_embeddings
-        mock_llm_cls.return_value = mock_llm
+    graph_builder = SemanticGraphBuilder(async_session, embeddings=mock_embeddings, llm=mock_llm)
 
-        graph_builder = SemanticGraphBuilder(async_session)
+    # Prepare relationship data
+    relationships = [
+        {
+            "source_context_id": 0,  # Will be mapped to context1.id
+            "target_context_id": 1,  # Will be mapped to context2.id
+            "relationship_type": "customer_supplier",
+            "strength": 0.75,
+            "interaction_count": 2,
+            "interaction_types": ["orchestrates", "publishes"],
+        }
+    ]
 
-        # Prepare relationship data
-        relationships = [
-            {
-                "source_context_id": 0,  # Will be mapped to context1.id
-                "target_context_id": 1,  # Will be mapped to context2.id
-                "relationship_type": "customer_supplier",
-                "strength": 0.75,
-                "interaction_count": 2,
-                "interaction_types": ["orchestrates", "publishes"],
-            }
-        ]
+    # Save context relationships
+    saved_relationships = await graph_builder.save_context_relationships(
+        relationships, [context1, context2]
+    )
 
-        # Save context relationships
-        saved_relationships = await graph_builder.save_context_relationships(
-            relationships, [context1, context2]
+    # Verify relationships were saved
+    assert len(saved_relationships) == 1
+
+    # Query saved relationship
+    result = await async_session.execute(
+        select(ContextRelationship).where(
+            ContextRelationship.source_context_id == context1.id,
+            ContextRelationship.target_context_id == context2.id,
         )
+    )
+    saved_rel = result.scalar_one()
 
-        # Verify relationships were saved
-        assert len(saved_relationships) == 1
-
-        # Query saved relationship
-        result = await async_session.execute(
-            select(ContextRelationship).where(
-                ContextRelationship.source_context_id == context1.id,
-                ContextRelationship.target_context_id == context2.id,
-            )
-        )
-        saved_rel = result.scalar_one()
-
-        assert saved_rel.relationship_type == "customer_supplier"
-        assert (
-            saved_rel.description
-            == "Customer-supplier relationship where one context drives the other"
-        )
-        assert saved_rel.interface_description["strength"] == 0.75
-        assert saved_rel.interface_description["interaction_count"] == 2
-        assert "orchestrates" in saved_rel.interface_description["interaction_types"]
-        assert "publishes" in saved_rel.interface_description["interaction_types"]
+    assert saved_rel.relationship_type == "customer_supplier"
+    assert (
+        saved_rel.description
+        == "Customer-supplier relationship where one context drives the other"
+    )
+    assert saved_rel.interface_description["strength"] == 0.75
+    assert saved_rel.interface_description["interaction_count"] == 2
+    assert "orchestrates" in saved_rel.interface_description["interaction_types"]
+    assert "publishes" in saved_rel.interface_description["interaction_types"]
 
 
 @pytest.mark.asyncio
@@ -215,65 +202,50 @@ async def test_analyze_and_save_context_relationships(async_session: AsyncSessio
     await async_session.commit()
 
     # Initialize indexer with mocked OpenAI dependencies
-    with (
-        patch("src.domain.graph_builder.settings") as mock_settings,
-        patch("src.domain.graph_builder.OpenAIEmbeddings") as mock_embeddings_cls,
-        patch("src.domain.graph_builder.ChatOpenAI") as mock_llm_cls,
-    ):
-        # Mock graph builder settings
-        mock_openai_key = MagicMock()
-        mock_openai_key.get_secret_value.return_value = "test-key"
-        mock_settings.openai_api_key = mock_openai_key
-        mock_settings.embeddings.model = "text-embedding-ada-002"
-        mock_settings.llm.model = "gpt-4"
-        mock_settings.llm.temperature = 0.7
+    mock_embeddings = MagicMock()
+    mock_llm = MagicMock()
 
-        mock_embeddings = MagicMock()
-        mock_llm = MagicMock()
-        mock_embeddings_cls.return_value = mock_embeddings
-        mock_llm_cls.return_value = mock_llm
+    indexer = DomainIndexer(async_session, embeddings=mock_embeddings, llm=mock_llm)
 
-        indexer = DomainIndexer(async_session)
+    # Build graph
+    graph = await indexer.graph_builder.build_graph()
 
-        # Build graph
-        graph = await indexer.graph_builder.build_graph()
+    # Detect contexts (should find 2)
+    contexts = await indexer.graph_builder.detect_bounded_contexts(
+        graph, use_embeddings=False
+    )
+    assert len(contexts) >= 2
 
-        # Detect contexts (should find 2)
-        contexts = await indexer.graph_builder.detect_bounded_contexts(
-            graph, use_embeddings=False
-        )
-        assert len(contexts) >= 2
+    # Save contexts
+    saved_contexts = await indexer.graph_builder.save_bounded_contexts(contexts)
 
-        # Save contexts
-        saved_contexts = await indexer.graph_builder.save_bounded_contexts(contexts)
+    # Analyze relationships
+    context_relationships = (
+        await indexer.graph_builder.analyze_context_relationships(graph, contexts)
+    )
 
-        # Analyze relationships
-        context_relationships = (
-            await indexer.graph_builder.analyze_context_relationships(graph, contexts)
-        )
+    # Should find at least one cross-context relationship
+    assert len(context_relationships) >= 1
 
-        # Should find at least one cross-context relationship
-        assert len(context_relationships) >= 1
+    # Save relationships
+    saved_rels = await indexer.graph_builder.save_context_relationships(
+        context_relationships, saved_contexts
+    )
 
-        # Save relationships
-        saved_rels = await indexer.graph_builder.save_context_relationships(
-            context_relationships, saved_contexts
-        )
+    assert len(saved_rels) >= 1
 
-        assert len(saved_rels) >= 1
+    # Verify in database
+    result = await async_session.execute(select(ContextRelationship))
+    all_context_rels = result.scalars().all()
 
-        # Verify in database
-        result = await async_session.execute(select(ContextRelationship))
-        all_context_rels = result.scalars().all()
+    assert len(all_context_rels) >= 1
 
-        assert len(all_context_rels) >= 1
-
-        # Check that relationship type was determined correctly
-        # Since we have a "publishes" relationship, it should be "published_language"
-        published_lang_rels = [
-            r for r in all_context_rels if r.relationship_type == "published_language"
-        ]
-        assert len(published_lang_rels) >= 1
+    # Check that relationship type was determined correctly
+    # Since we have a "publishes" relationship, it should be "published_language"
+    published_lang_rels = [
+        r for r in all_context_rels if r.relationship_type == "published_language"
+    ]
+    assert len(published_lang_rels) >= 1
 
 
 @pytest.mark.asyncio
@@ -303,53 +275,40 @@ async def test_duplicate_context_relationships_not_saved(async_session: AsyncSes
     await async_session.commit()
 
     # Initialize graph builder with mocked OpenAI dependencies
-    with (
-        patch("src.domain.graph_builder.settings") as mock_settings,
-        patch("src.domain.graph_builder.OpenAIEmbeddings") as mock_embeddings_cls,
-        patch("src.domain.graph_builder.ChatOpenAI") as mock_llm_cls,
-    ):
-        # Mock settings
-        mock_settings.openai_api_key.get_secret_value.return_value = "test-key"
-        mock_settings.embeddings.model = "text-embedding-ada-002"
-        mock_settings.llm.model = "gpt-4"
-        mock_settings.llm.temperature = 0.7
+    mock_embeddings = MagicMock()
+    mock_llm = MagicMock()
 
-        mock_embeddings = MagicMock()
-        mock_llm = MagicMock()
-        mock_embeddings_cls.return_value = mock_embeddings
-        mock_llm_cls.return_value = mock_llm
+    graph_builder = SemanticGraphBuilder(async_session, embeddings=mock_embeddings, llm=mock_llm)
 
-        graph_builder = SemanticGraphBuilder(async_session)
+    # Try to save duplicate relationship
+    relationships = [
+        {
+            "source_context_id": 0,
+            "target_context_id": 1,
+            "relationship_type": "partnership",
+            "strength": 0.9,
+            "interaction_count": 5,
+            "interaction_types": ["uses", "modifies"],
+        }
+    ]
 
-        # Try to save duplicate relationship
-        relationships = [
-            {
-                "source_context_id": 0,
-                "target_context_id": 1,
-                "relationship_type": "partnership",
-                "strength": 0.9,
-                "interaction_count": 5,
-                "interaction_types": ["uses", "modifies"],
-            }
-        ]
+    # Should not save duplicate
+    saved_relationships = await graph_builder.save_context_relationships(
+        relationships, [context1, context2]
+    )
 
-        # Should not save duplicate
-        saved_relationships = await graph_builder.save_context_relationships(
-            relationships, [context1, context2]
+    assert len(saved_relationships) == 0
+
+    # Verify only one relationship exists
+    result = await async_session.execute(
+        select(ContextRelationship).where(
+            ContextRelationship.source_context_id == context1.id,
+            ContextRelationship.target_context_id == context2.id,
+            ContextRelationship.relationship_type == "partnership",
         )
-
-        assert len(saved_relationships) == 0
-
-        # Verify only one relationship exists
-        result = await async_session.execute(
-            select(ContextRelationship).where(
-                ContextRelationship.source_context_id == context1.id,
-                ContextRelationship.target_context_id == context2.id,
-                ContextRelationship.relationship_type == "partnership",
-            )
-        )
-        all_rels = result.scalars().all()
-        assert len(all_rels) == 1
-        assert (
-            all_rels[0].description == "Existing partnership"
-        )  # Original not overwritten
+    )
+    all_rels = result.scalars().all()
+    assert len(all_rels) == 1
+    assert (
+        all_rels[0].description == "Existing partnership"
+    )  # Original not overwritten

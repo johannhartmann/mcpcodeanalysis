@@ -297,10 +297,7 @@ class PythonParser(TreeSitterParser):
                         self.find_nodes_by_type(child, "yield_statement")
                         or self.find_nodes_by_type(child, "yield_expression")
                         or self.find_nodes_by_type(child, "yield")
-                    ):
-                        func_data["is_generator"] = True
-                    # Also check for generator expressions and comprehensions in return statements
-                    elif self._contains_generator_return(child, content):
+                    ) or self._contains_generator_return(child, content):
                         func_data["is_generator"] = True
 
             # Extract docstring

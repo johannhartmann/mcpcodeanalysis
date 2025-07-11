@@ -45,29 +45,52 @@ class SemanticGraphBuilder:
     def __init__(
         self,
         db_session: AsyncSession,
+        embeddings: Any = None,
+        llm: Any = None,
     ) -> None:
         """Initialize the graph builder.
 
         Args:
             db_session: Database session
+            embeddings: Optional embeddings instance (for testing)
+            llm: Optional LLM instance (for testing)
         """
         self.db_session = db_session
-        # Initialize OpenAI components only if API key is available
-        try:
-            openai_key = settings.OPENAI_API_KEY
-            self.embeddings = OpenAIEmbeddings(
-                openai_api_key=openai_key,
-                model=settings.embeddings.model,
-            )
-            self.llm = ChatOpenAI(
-                openai_api_key=openai_key,
-                model=settings.llm.model,
-                temperature=settings.llm.temperature,
-            )
-        except (AttributeError, KeyError):
-            logger.warning("OpenAI API key not found, embedding features disabled")
-            self.embeddings = None
-            self.llm = None
+
+        # Use provided instances or try to create from settings
+        if embeddings is not None and llm is not None:
+            self.embeddings = embeddings
+            self.llm = llm
+        else:
+            # Initialize OpenAI components only if API key is available
+            try:
+                # Try to get OpenAI key - handle both direct access and SecretStr
+                openai_key = None
+                if hasattr(settings, "OPENAI_API_KEY"):
+                    openai_key = settings.OPENAI_API_KEY
+                elif hasattr(settings, "openai_api_key"):
+                    # Handle SecretStr case
+                    if hasattr(settings.openai_api_key, "get_secret_value"):
+                        openai_key = settings.openai_api_key.get_secret_value()
+                    else:
+                        openai_key = settings.openai_api_key
+
+                if not openai_key:
+                    raise ValueError("OpenAI API key not found")
+
+                self.embeddings = OpenAIEmbeddings(
+                    openai_api_key=openai_key,
+                    model=settings.embeddings.model,
+                )
+                self.llm = ChatOpenAI(
+                    openai_api_key=openai_key,
+                    model=settings.llm.model,
+                    temperature=settings.llm.temperature,
+                )
+            except (AttributeError, KeyError, ValueError) as e:
+                logger.warning("OpenAI API key not found, embedding features disabled: %s", e)
+                self.embeddings = None
+                self.llm = None
 
     async def build_graph(
         self,
@@ -212,12 +235,20 @@ class SemanticGraphBuilder:
         ig.es["weight"] = weights
 
         # Run Leiden algorithm
-        partition = leidenalg.find_partition(
-            ig,
-            leidenalg.ModularityVertexPartition,
-            weights=weights,
-            resolution_parameter=resolution,
-        )
+        # Use RBConfigurationVertexPartition if resolution != 1.0, otherwise use ModularityVertexPartition
+        if resolution != 1.0:
+            partition = leidenalg.find_partition(
+                ig,
+                leidenalg.RBConfigurationVertexPartition,
+                weights=weights,
+                resolution_parameter=resolution,
+            )
+        else:
+            partition = leidenalg.find_partition(
+                ig,
+                leidenalg.ModularityVertexPartition,
+                weights=weights,
+            )
 
         # Convert back to node IDs
         communities = []

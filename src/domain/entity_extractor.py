@@ -17,14 +17,38 @@ MIN_ENTITIES_FOR_RELATIONSHIPS = 2
 class DomainEntityExtractor:
     """Extract domain entities from code using LLM analysis."""
 
-    def __init__(self) -> None:
-        """Initialize the entity extractor."""
-        # settings imported globally from src.config
-        self.llm = ChatOpenAI(
-            openai_api_key=settings.openai_api_key.get_secret_value(),
-            model=settings.llm.model,
-            temperature=settings.llm.temperature,
-        )
+    def __init__(self, llm: Any = None) -> None:
+        """Initialize the entity extractor.
+        
+        Args:
+            llm: Optional LLM instance (for testing)
+        """
+        if llm is not None:
+            self.llm = llm
+        else:
+            # Try to create from settings
+            try:
+                # Handle different ways settings might store the API key
+                openai_key = None
+                if hasattr(settings, "OPENAI_API_KEY"):
+                    openai_key = settings.OPENAI_API_KEY
+                elif hasattr(settings, "openai_api_key"):
+                    if hasattr(settings.openai_api_key, "get_secret_value"):
+                        openai_key = settings.openai_api_key.get_secret_value()
+                    else:
+                        openai_key = settings.openai_api_key
+
+                if not openai_key:
+                    raise ValueError("OpenAI API key not found")
+
+                self.llm = ChatOpenAI(
+                    openai_api_key=openai_key,
+                    model=settings.llm.model,
+                    temperature=settings.llm.temperature,
+                )
+            except (AttributeError, KeyError, ValueError) as e:
+                logger.warning("Failed to initialize LLM: %s", e)
+                self.llm = None
 
     async def extract_entities(
         self,

@@ -12,6 +12,20 @@ from src.database.models import Repository
 from src.logger import get_logger
 from src.mcp_server.tools.code_analysis import CodeAnalysisTools
 from src.mcp_server.tools.code_search import CodeSearchTools
+from src.mcp_server.tools.package_analysis import (
+    AnalyzePackagesRequest,
+    FindCircularDependenciesRequest,
+    GetPackageCouplingRequest,
+    GetPackageDependenciesRequest,
+    GetPackageDetailsRequest,
+    GetPackageTreeRequest,
+    analyze_packages,
+    find_circular_dependencies,
+    get_package_coupling_metrics,
+    get_package_dependencies,
+    get_package_details,
+    get_package_tree,
+)
 from src.mcp_server.tools.repository_management import RepositoryManagementTools
 from src.models import RepositoryConfig
 
@@ -440,6 +454,128 @@ async def analyze_dependencies(
                 "repository_id": repository_id,
                 "depth": depth,
             },
+        )
+    return None
+
+
+# Package analysis tools
+@mcp.tool(
+    name="analyze_package_structure",
+    description="Analyze the package structure of a repository",
+)
+async def analyze_package_structure_tool(
+    repository_id: int = Field(description="Repository ID to analyze"),
+    force_refresh: bool = Field(
+        default=False, description="Force re-analysis even if data exists"
+    ),
+) -> dict[str, Any]:
+    """Analyze the package structure of a repository."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        return await analyze_packages(
+            AnalyzePackagesRequest(
+                repository_id=repository_id, force_refresh=force_refresh
+            ),
+            session,
+        )
+    return None
+
+
+@mcp.tool(
+    name="get_package_tree",
+    description="Get the hierarchical package structure",
+)
+async def get_package_tree_tool(
+    repository_id: int = Field(description="Repository ID"),
+) -> dict[str, Any]:
+    """Get the hierarchical package structure of a repository."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        return await get_package_tree(
+            GetPackageTreeRequest(repository_id=repository_id), session
+        )
+    return None
+
+
+@mcp.tool(
+    name="get_package_details",
+    description="Get detailed information about a specific package",
+)
+async def get_package_details_tool(
+    repository_id: int = Field(description="Repository ID"),
+    package_path: str = Field(description="Package path (e.g., 'src/utils')"),
+) -> dict[str, Any]:
+    """Get detailed information about a specific package."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        return await get_package_details(
+            GetPackageDetailsRequest(
+                repository_id=repository_id, package_path=package_path
+            ),
+            session,
+        )
+    return None
+
+
+@mcp.tool(
+    name="get_package_dependencies",
+    description="Get dependencies for a specific package",
+)
+async def get_package_dependencies_tool(
+    repository_id: int = Field(description="Repository ID"),
+    package_path: str = Field(description="Package path"),
+    direction: str = Field(
+        default="both", description="Direction: 'imports', 'imported_by', or 'both'"
+    ),
+) -> dict[str, Any]:
+    """Get dependencies for a specific package."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        return await get_package_dependencies(
+            GetPackageDependenciesRequest(
+                repository_id=repository_id,
+                package_path=package_path,
+                direction=direction,
+            ),
+            session,
+        )
+    return None
+
+
+@mcp.tool(
+    name="find_circular_dependencies",
+    description="Find circular dependencies between packages",
+)
+async def find_circular_dependencies_tool(
+    repository_id: int = Field(description="Repository ID"),
+) -> dict[str, Any]:
+    """Find circular dependencies between packages."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        return await find_circular_dependencies(
+            FindCircularDependenciesRequest(repository_id=repository_id), session
+        )
+    return None
+
+
+@mcp.tool(
+    name="get_package_coupling_metrics",
+    description="Get coupling metrics for all packages",
+)
+async def get_package_coupling_metrics_tool(
+    repository_id: int = Field(description="Repository ID"),
+) -> dict[str, Any]:
+    """Get coupling metrics for all packages in a repository."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        return await get_package_coupling_metrics(
+            GetPackageCouplingRequest(repository_id=repository_id), session
         )
     return None
 
