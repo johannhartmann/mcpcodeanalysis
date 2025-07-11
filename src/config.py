@@ -62,9 +62,16 @@ settings = Dynaconf(
 # Helper function to get database URL
 def get_database_url() -> str:
     """Get database URL from settings."""
+    import os
+
+    # Allow override for local testing
+    if os.getenv("DATABASE_URL"):
+        return os.getenv("DATABASE_URL")
     db = settings.database
     password = db.password
-    return f"postgresql://{db.user}:{password}@{db.host}:{db.port}/{db.database}"
+    return (
+        f"postgresql+asyncpg://{db.user}:{password}@{db.host}:{db.port}/{db.database}"
+    )
 
 
 # Ensure directories exist

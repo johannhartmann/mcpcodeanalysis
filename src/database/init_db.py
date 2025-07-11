@@ -8,10 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engin
 from sqlalchemy.orm import sessionmaker
 
 # Import domain models to ensure they're registered with metadata
-from src.database import (
-    domain_models,  # noqa: F401
-    package_models,  # noqa: F401
-)
+from src.database import domain_models  # noqa: F401
+from src.database import package_models  # noqa: F401
 from src.database.models import Base
 from src.logger import get_logger
 
@@ -25,9 +23,23 @@ async def create_database_if_not_exists(database_url: str) -> None:
         database_url: PostgreSQL database URL
     """
     # Extract database name and create URL without it
-    parts = database_url.split("/")
-    db_name = parts[-1].split("?")[0]
-    server_url = "/".join(parts[:-1]) + "/postgres"
+    # Parse the URL properly to maintain the driver
+    from urllib.parse import urlparse, urlunparse
+
+    parsed = urlparse(database_url)
+    db_name = parsed.path.lstrip("/")
+
+    # Create server URL with postgres database
+    server_url = urlunparse(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            "/postgres",
+            parsed.params,
+            parsed.query,
+            parsed.fragment,
+        )
+    )
 
     # Connect to postgres database
     engine = create_async_engine(server_url, isolation_level="AUTOCOMMIT")

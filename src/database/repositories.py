@@ -1,6 +1,6 @@
 """Database repositories for the MCP Code Analysis Server."""
 
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
 import numpy as np
@@ -65,7 +65,7 @@ class RepositoryRepo:
         )
         repo = await self.get_by_id(repo_id)
         if repo:
-            repo.last_synced = datetime.now(tz=UTC)
+            repo.last_synced = datetime.utcnow()  # Use timezone-naive datetime
             await self.session.commit()
 
 
