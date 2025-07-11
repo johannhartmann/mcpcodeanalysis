@@ -37,6 +37,21 @@ An intelligent MCP (Model Context Protocol) server that provides advanced code a
 ### Repository Management Tools
 - `sync_repository` - Manually trigger synchronization for a specific repository
 
+### Domain-Driven Design Analysis Tools
+- `extract_domain_model` - Extract domain entities and relationships using LLM analysis
+- `find_aggregate_roots` - Find aggregate roots in the codebase using domain analysis
+- `analyze_bounded_context` - Analyze a bounded context and its relationships
+- `suggest_ddd_refactoring` - Suggest Domain-Driven Design refactoring improvements
+- `find_bounded_contexts` - Find all bounded contexts in the codebase
+- `generate_context_map` - Generate context maps (JSON, Mermaid, PlantUML)
+
+### Advanced Analysis Tools
+- `analyze_coupling` - Analyze coupling between bounded contexts with metrics
+- `suggest_context_splits` - Suggest how to split large bounded contexts
+- `detect_anti_patterns` - Detect DDD anti-patterns (anemic models, god objects, etc.)
+- `analyze_domain_evolution` - Track domain model changes over time
+- `get_domain_metrics` - Get comprehensive domain health metrics and insights
+
 ## Quick Start
 
 ### Prerequisites
@@ -220,6 +235,27 @@ await mcp.call_tool("get_code_structure", {
 await mcp.call_tool("suggest_refactoring", {
     "file_path": "src/auth/user_service.py",
     "focus_area": "performance"
+})
+
+# Extract domain model from code
+await mcp.call_tool("extract_domain_model", {
+    "code_path": "src/domain/user.py",
+    "include_relationships": True
+})
+
+# Find aggregate roots
+await mcp.call_tool("find_aggregate_roots", {
+    "context_name": "user_management"  # optional
+})
+
+# Analyze bounded context
+await mcp.call_tool("analyze_bounded_context", {
+    "context_name": "authentication"
+})
+
+# Generate context map
+await mcp.call_tool("generate_context_map", {
+    "output_format": "mermaid"  # json, mermaid, or plantuml
 })
 ```
 
