@@ -2,7 +2,7 @@
 
 import ast
 import asyncio
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -81,7 +81,7 @@ class CodeProcessor:
             stats["references"] = ref_stats
 
             # Update file processing status
-            file_record.last_modified = datetime.now(tz=UTC)
+            file_record.last_modified = datetime.utcnow()
             await self.db_session.commit()
 
             # Run domain analysis if enabled

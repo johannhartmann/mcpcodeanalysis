@@ -2,8 +2,6 @@
 
 from typing import Any
 
-from langchain.chains import LLMChain
-from langchain_core.callbacks import get_openai_callback
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 
@@ -17,11 +15,16 @@ class CodeInterpreter:
     """Generate natural language interpretations of code."""
 
     def __init__(self) -> None:
-        # settings imported globally from src.config
+        # Use gpt-4.1 as default model for interpretations
+        import os
+
+        model = getattr(settings, "llm", {}).get("model", "gpt-4.1")
+        temperature = getattr(settings, "llm", {}).get("temperature", 0.3)
+
         self.llm = ChatOpenAI(
-            model=settings.llm.model,
-            temperature=settings.llm.temperature,
-            openai_api_key=settings.openai_api_key.get_secret_value(),
+            model=model,
+            temperature=temperature,
+            openai_api_key=os.getenv("OPENAI_API_KEY"),
         )
 
         # Prompts for different entity types
@@ -105,18 +108,15 @@ Description:""",
                 [f"{p['name']}: {p.get('type', 'Any')}" for p in params],
             )
 
-            chain = LLMChain(llm=self.llm, prompt=self.function_prompt)
-
-            with get_openai_callback() as cb:
-                result = await chain.arun(
-                    code=code,
-                    name=name,
-                    params=param_str or "None",
-                    return_type=return_type or "None",
-                    docstring=docstring or "No docstring provided",
-                )
-
-                logger.debug("Function interpretation used %s tokens", cb.total_tokens)
+            prompt_value = self.function_prompt.format(
+                code=code,
+                name=name,
+                params=param_str or "None",
+                return_type=return_type or "None",
+                docstring=docstring or "No docstring provided",
+            )
+            result = await self.llm.ainvoke(prompt_value)
+            result = result.content if hasattr(result, "content") else str(result)
 
             return result.strip()
 
@@ -134,18 +134,15 @@ Description:""",
     ) -> str:
         """Generate natural language interpretation of a class."""
         try:
-            chain = LLMChain(llm=self.llm, prompt=self.class_prompt)
-
-            with get_openai_callback() as cb:
-                result = await chain.arun(
-                    code=code[:3000],  # Limit code length
-                    name=name,
-                    base_classes=", ".join(base_classes) if base_classes else "None",
-                    docstring=docstring or "No docstring provided",
-                    methods=", ".join(methods[:10]) if methods else "None",
-                )
-
-                logger.debug("Class interpretation used %s tokens", cb.total_tokens)
+            prompt_value = self.class_prompt.format(
+                code=code[:3000],  # Limit code length
+                name=name,
+                base_classes=", ".join(base_classes) if base_classes else "None",
+                docstring=docstring or "No docstring provided",
+                methods=", ".join(methods[:10]) if methods else "None",
+            )
+            result = await self.llm.ainvoke(prompt_value)
+            result = result.content if hasattr(result, "content") else str(result)
 
             return result.strip()
 
@@ -163,18 +160,15 @@ Description:""",
     ) -> str:
         """Generate natural language interpretation of a module."""
         try:
-            chain = LLMChain(llm=self.llm, prompt=self.module_prompt)
-
-            with get_openai_callback() as cb:
-                result = await chain.arun(
-                    name=name,
-                    docstring=docstring or "No module docstring",
-                    imports=", ".join(imports[:10]) if imports else "None",
-                    classes=", ".join(classes[:10]) if classes else "None",
-                    functions=", ".join(functions[:10]) if functions else "None",
-                )
-
-                logger.debug("Module interpretation used %s tokens", cb.total_tokens)
+            prompt_value = self.module_prompt.format(
+                name=name,
+                docstring=docstring or "No module docstring",
+                imports=", ".join(imports[:10]) if imports else "None",
+                classes=", ".join(classes[:10]) if classes else "None",
+                functions=", ".join(functions[:10]) if functions else "None",
+            )
+            result = await self.llm.ainvoke(prompt_value)
+            result = result.content if hasattr(result, "content") else str(result)
 
             return result.strip()
 

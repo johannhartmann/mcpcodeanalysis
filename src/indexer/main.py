@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from src.config import settings
-from src.database import get_repositories, get_session, init_database
+from src.database import get_session_factory, init_database
 from src.indexer.chunking import CodeChunker
 from src.indexer.embeddings import EmbeddingGenerator
 from src.indexer.interpreter import CodeInterpreter
@@ -74,30 +74,39 @@ class IndexerService:
 
     async def process_unindexed_entities(self) -> None:
         """Process entities that don't have embeddings yet."""
-        async with get_session() as session, get_repositories(session) as repos:
+        engine = await init_database()
+        session_factory = get_session_factory(engine)
+        async with session_factory() as session:
             # Get files without embeddings
             # This is simplified - in practice, we'd have a more sophisticated query
+            from sqlalchemy import text
+
             files = await session.execute(
-                "SELECT f.* FROM files f "
-                "LEFT JOIN code_embeddings e ON e.entity_type = 'file' AND e.entity_id = f.id "
-                "WHERE e.id IS NULL LIMIT 100",
+                text(
+                    "SELECT f.* FROM files f "
+                    "WHERE f.id NOT IN (SELECT DISTINCT file_id FROM code_embeddings) "
+                    "LIMIT 100"
+                )
             )
 
             for file in files:
-                await self.index_file(repos, file)
+                await self.index_file(session, file)
 
-    async def index_file(self, repos: dict[str, Any], file: Any) -> None:
+    async def index_file(self, session: Any, file: Any) -> None:
         """Index a single file."""
         try:
             Path(file.path)
 
             # Get repository info
-            repo = await repos["repository"].get_by_id(file.repository_id)
+            from src.database.repositories import RepositoryRepo
+
+            repo_repo = RepositoryRepo(session)
+            repo = await repo_repo.get_by_id(file.repository_id)
             if not repo:
                 return
 
             # Get full file path
-            full_path = Path("./repositories") / repo.owner / repo.name / file.path
+            full_path = Path("repositories") / repo.owner / repo.name / file.path
 
             if not full_path.exists():
                 logger.warning("File not found: %s", full_path)
@@ -118,7 +127,7 @@ class IndexerService:
 
             # Process each chunk
             for chunk in chunks:
-                await self.process_chunk(repos, file, chunk, full_path)
+                await self.process_chunk(session, file, chunk, full_path)
 
             logger.info("Indexed file: %s", file.path)
 
@@ -127,7 +136,7 @@ class IndexerService:
 
     async def process_chunk(
         self,
-        repos: dict[str, Any],
+        session: Any,
         file: Any,
         chunk: dict[str, Any],
         file_path: Path,
@@ -185,10 +194,11 @@ class IndexerService:
                 {
                     "entity_type": entity_type,
                     "entity_id": entity_id,
+                    "file_id": file.id,  # Add file_id
                     "embedding_type": "raw",
                     "embedding": raw_embedding,
                     "content": chunk_content[:1000],  # Store truncated content
-                    "metadata": metadata,
+                    "repo_metadata": metadata,  # Changed from metadata to repo_metadata
                     "tokens": self.embedding_generator.count_tokens(chunk_content),
                 },
             )
@@ -199,15 +209,19 @@ class IndexerService:
                     {
                         "entity_type": entity_type,
                         "entity_id": entity_id,
+                        "file_id": file.id,  # Add file_id
                         "embedding_type": "interpreted",
                         "embedding": interpreted_embedding,
                         "content": interpretation[:1000],
-                        "metadata": metadata,
+                        "repo_metadata": metadata,  # Changed from metadata to repo_metadata
                         "tokens": self.embedding_generator.count_tokens(interpretation),
                     },
                 )
 
-            await repos["embedding"].create_batch(embedding_data)
+            from src.database.repositories import EmbeddingRepo
+
+            embedding_repo = EmbeddingRepo(session)
+            await embedding_repo.create_batch(embedding_data)
 
         except Exception:
             logger.exception("Error processing chunk: %s")
