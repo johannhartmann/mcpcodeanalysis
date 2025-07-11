@@ -6,7 +6,6 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
-
 from src.database.models import (
     Class,
     CodeEmbedding,

@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, patch
 import git
 import pytest
 from git.exc import GitCommandError, InvalidGitRepositoryError
-
 from src.scanner.git_sync import GitSync
 from src.utils.exceptions import RepositoryError
 

@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import numpy as np
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.database.models import Class, CodeEmbedding, Function
 from src.embeddings.vector_search import SearchScope, VectorSearch
 

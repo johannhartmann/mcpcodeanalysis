@@ -4,7 +4,6 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.database.domain_models import (
     BoundedContext,
     BoundedContextMembership,

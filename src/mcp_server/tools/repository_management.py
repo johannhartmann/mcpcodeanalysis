@@ -6,7 +6,6 @@ from fastmcp import FastMCP
 from pydantic import BaseModel, Field, SecretStr
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.database.models import Commit, File, Repository
 from src.embeddings.embedding_service import EmbeddingService
 from src.embeddings.vector_search import VectorSearch

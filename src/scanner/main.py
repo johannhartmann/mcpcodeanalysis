@@ -8,12 +8,13 @@ from pathlib import Path
 from typing import Any
 
 from src.config import settings
-from src.database import init_database
 from src.logger import get_logger, setup_logging
 from src.parser.code_extractor import CodeExtractor
 from src.scanner.file_watcher import FileWatcher
 from src.scanner.git_sync import GitSync
 from src.scanner.github_monitor import GitHubMonitor
+
+from src.database import init_database
 
 logger = get_logger(__name__)
 

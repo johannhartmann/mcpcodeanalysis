@@ -10,7 +10,6 @@ import pytest_asyncio
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
-
 from src.config import settings
 from src.database.models import Base
 from src.logger import setup_logging

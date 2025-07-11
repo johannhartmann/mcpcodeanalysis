@@ -3,7 +3,6 @@
 from typing import Any
 
 from sqlalchemy import text
-
 from src.logger import get_logger
 from src.query.aggregator import CodeAggregator
 

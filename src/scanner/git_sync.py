@@ -11,7 +11,6 @@ from pathlib import Path
 
 import git
 from git.exc import GitCommandError, InvalidGitRepositoryError
-
 from src.config import settings
 from src.logger import get_logger
 from src.utils.exceptions import RepositoryError, ValidationError

@@ -4,7 +4,6 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import text
-
 from src.logger import get_logger
 from src.scanner.git_sync import GitSync
 from src.scanner.github_monitor import GitHubMonitor

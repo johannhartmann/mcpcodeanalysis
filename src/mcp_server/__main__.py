@@ -6,7 +6,6 @@ import sys
 from pathlib import Path
 
 import click
-
 from src.config import settings
 from src.logger import setup_logging
 from src.mcp_server.server import create_server

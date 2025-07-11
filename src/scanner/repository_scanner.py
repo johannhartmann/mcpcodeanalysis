@@ -5,7 +5,6 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-
 from src.config import settings
 from src.database.models import Commit, File, Repository
 from src.logger import get_logger

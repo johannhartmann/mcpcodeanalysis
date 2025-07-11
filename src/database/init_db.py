@@ -6,13 +6,12 @@ import logging
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
-
 from src.config import settings
+from src.database.models import Base
+from src.logger import get_logger
 
 # Import domain models to ensure they're registered with metadata
 from src.database import domain_models  # noqa: F401
-from src.database.models import Base
-from src.logger import get_logger
 
 logger = get_logger(__name__)
 

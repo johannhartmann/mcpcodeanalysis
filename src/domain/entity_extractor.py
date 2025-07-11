@@ -5,7 +5,6 @@ from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
-
 from src.config import settings
 from src.logger import get_logger
 

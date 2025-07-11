@@ -4,10 +4,11 @@ import time
 from typing import Any
 
 from src.config import settings
-from src.database import get_repositories, get_session
 from src.database.models import Class, File, Function, Module
 from src.indexer.embeddings import EmbeddingGenerator
 from src.logger import get_logger
+
+from src.database import get_repositories, get_session
 
 logger = get_logger(__name__)
 

@@ -3,7 +3,6 @@
 from pathlib import Path
 
 import pytest
-
 from src.parser.python_parser import PythonCodeParser
 from src.utils.exceptions import ParserError
 

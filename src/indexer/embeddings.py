@@ -7,11 +7,10 @@ from pathlib import Path
 import numpy as np
 import openai
 import tiktoken
-from tenacity import retry, stop_after_attempt, wait_exponential
-
 from src.config import settings
 from src.logger import get_logger
 from src.utils.exceptions import EmbeddingError
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 logger = get_logger(__name__)
 

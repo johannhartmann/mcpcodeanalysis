@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pytest
 from pydantic import SecretStr, ValidationError
-
 from src.models import (
     DatabaseConfig,
     QueryConfig,

@@ -6,8 +6,6 @@ from typing import Any, cast
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
-
 from src.database.domain_models import (
     BoundedContext,
     BoundedContextMembership,

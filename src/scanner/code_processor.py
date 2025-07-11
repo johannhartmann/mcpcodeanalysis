@@ -8,7 +8,6 @@ from typing import Any
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-
 from src.database.models import Class, File, Function, Import, Module
 from src.domain.indexer import DomainIndexer
 from src.logger import get_logger

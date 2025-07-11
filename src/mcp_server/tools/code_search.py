@@ -5,7 +5,6 @@ from typing import Any
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.embeddings.domain_search import DomainAwareSearch, DomainSearchScope
 from src.embeddings.vector_search import SearchScope, VectorSearch
 from src.logger import get_logger
@@ -318,7 +317,6 @@ class CodeSearchTools:
             """
             try:
                 from sqlalchemy import or_, select
-
                 from src.database.models import Class, Function, Module
 
                 results = []

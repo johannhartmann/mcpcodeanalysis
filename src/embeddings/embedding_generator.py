@@ -3,7 +3,6 @@
 from typing import Any
 
 from langchain_openai import OpenAIEmbeddings
-
 from src.config import settings
 from src.logger import get_logger
 from src.parser.code_extractor import CodeExtractor

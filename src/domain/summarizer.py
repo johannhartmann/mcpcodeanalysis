@@ -8,7 +8,6 @@ from langchain_openai import ChatOpenAI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-
 from src.config import settings
 from src.database.domain_models import (
     BoundedContext,

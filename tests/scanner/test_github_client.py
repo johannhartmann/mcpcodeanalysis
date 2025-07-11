@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
-
 from src.scanner.github_client import GitHubClient
 from src.utils.exceptions import GitHubError, RateLimitError
 

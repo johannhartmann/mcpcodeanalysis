@@ -9,7 +9,6 @@ from typing import Any
 import httpx
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
-
 from src.config import get_database_url, settings
 from src.logger import get_logger
 

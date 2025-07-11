@@ -28,7 +28,7 @@ from sqlalchemy import (
 )
 
 try:
-    from sqlalchemy.dialects.postgresql import ARRAY
+    pass
 except ImportError:
     # For SQLite, we'll use JSON instead
     def ARRAY(item_type: Any) -> Any:  # type: ignore[no-redef]  # noqa: ARG001, N802
@@ -36,7 +36,6 @@ except ImportError:
 
 
 from sqlalchemy.orm import relationship
-
 from src.database.models import Base
 
 

@@ -10,7 +10,6 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.config import settings
 from src.database.domain_models import (
     BoundedContext,

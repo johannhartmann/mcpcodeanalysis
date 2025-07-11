@@ -6,7 +6,6 @@ from typing import Any
 from fastmcp import FastMCP
 from pydantic import Field
 from sqlalchemy import select
-
 from src.database.init_db import get_session_factory, init_database
 from src.database.models import Repository
 from src.logger import get_logger
@@ -177,7 +176,6 @@ async def list_repositories(
                 if include_stats:
                     # Get file count
                     from sqlalchemy import func
-
                     from src.database.models import CodeEmbedding, File
 
                     file_count_result = await session.execute(
