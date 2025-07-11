@@ -1,5 +1,5 @@
 # Multi-stage build for optimal image size
-FROM python:3.11-slim AS builder
+FROM python:3.13-slim AS builder
 
 # Install UV using the recommended method
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
@@ -30,7 +30,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY . .
 
 # Final stage
-FROM python:3.11-slim
+FROM python:3.13-slim
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
