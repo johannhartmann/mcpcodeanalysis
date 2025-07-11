@@ -39,7 +39,8 @@ class DomainEntityExtractor:
                         openai_key = settings.openai_api_key
 
                 if not openai_key:
-                    raise ValueError("OpenAI API key not found")
+                    msg = "OpenAI API key not found"
+                    raise ValueError(msg)  # noqa: TRY301
 
                 self.llm = ChatOpenAI(
                     openai_api_key=openai_key,

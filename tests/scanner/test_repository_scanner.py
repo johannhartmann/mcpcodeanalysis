@@ -52,8 +52,14 @@ def mock_settings():
 def repository_scanner(mock_db_session, mock_settings):
     """Create RepositoryScanner fixture."""
     with patch("src.scanner.repository_scanner.settings", mock_settings):
-        scanner = RepositoryScanner(mock_db_session)
-        yield scanner
+        with patch("src.scanner.repository_scanner.GitSync") as mock_git_sync_class:
+            # Create a mock GitSync instance
+            mock_git_sync = MagicMock()
+            mock_git_sync_class.return_value = mock_git_sync
+
+            scanner = RepositoryScanner(mock_db_session)
+            scanner.git_sync = mock_git_sync
+            yield scanner
 
 
 @pytest.fixture

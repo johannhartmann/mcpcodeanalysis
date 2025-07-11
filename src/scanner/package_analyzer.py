@@ -37,7 +37,8 @@ class PackageAnalyzer:
         # Get repository info
         repo = await self.db_session.get(Repository, self.repository_id)
         if not repo:
-            raise ValueError(f"Repository {self.repository_id} not found")
+            msg = f"Repository {self.repository_id} not found"
+            raise ValueError(msg)
 
         # Find all Python files
         result = await self.db_session.execute(

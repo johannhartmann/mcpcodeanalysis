@@ -10,18 +10,29 @@ from src.logger import get_logger, setup_logging
 
 logger = get_logger(__name__)
 
-# Global database state
-_engine = None
-_session_factory = None
+
+# Database connection manager
+class DatabaseManager:
+    """Manages database connections."""
+
+    def __init__(self):
+        self._engine = None
+        self._session_factory = None
+
+    async def get_session(self):
+        """Get database session for tools."""
+        if self._session_factory is None:
+            self._engine = await init_database()
+            self._session_factory = get_session_factory(self._engine)
+        return self._session_factory()
+
+
+_db_manager = DatabaseManager()
 
 
 async def get_db_session():
     """Get database session for tools."""
-    global _engine, _session_factory
-    if _session_factory is None:
-        _engine = await init_database()
-        _session_factory = get_session_factory(_engine)
-    return _session_factory()
+    return await _db_manager.get_session()
 
 
 # Create MCP server
@@ -54,7 +65,7 @@ async def search_code(query: str, limit: int = 10) -> list[dict[str, Any]]:
                 include_context=True,
             )
     except Exception as e:
-        logger.exception("Error in search_code: %s", e)
+        logger.exception("Error in search_code")
         return [{"error": str(e), "query": query}]
 
 
@@ -70,19 +81,13 @@ async def explain_code(path: str) -> str:
         A hierarchical explanation of the code element.
     """
     try:
-        from src.query.explain import CodeExplainer
+        from src.mcp_server.tools.explain import ExplainTool
 
-        async with await get_db_session() as session:
-            explainer = CodeExplainer(session)
-            explanation = await explainer.explain(path)
-
-            if not explanation:
-                return f"Code element not found: {path}"
-
-            return explainer.format_explanation(explanation)
+        tool = ExplainTool()
+        return await tool.explain_code(path)
     except Exception as e:
-        logger.exception("Error in explain_code: %s", e)
-        return f"Error explaining code: {str(e)}"
+        logger.exception("Error in explain_code")
+        return f"Error explaining code: {e!s}"
 
 
 @mcp.tool
@@ -107,38 +112,10 @@ async def find_definition(
 
         async with await get_db_session() as session:
             finder = SymbolFinder(session)
-            results = await finder.find_definition(name, file_path, entity_type)
-            return finder.format_results(results)
+            return await finder.find_definitions(name, file_path, entity_type)
     except Exception as e:
-        logger.exception("Error in find_definition: %s", e)
+        logger.exception("Error in find_definition")
         return [{"error": str(e)}]
-
-
-@mcp.tool
-async def analyze_dependencies(
-    module_path: str,
-    include_transitive: bool = False,
-) -> dict[str, Any]:
-    """
-    Analyze dependencies of a module.
-
-    Args:
-        module_path: The path to the module (e.g., "src.utils.helpers")
-        include_transitive: Whether to include transitive dependencies
-
-    Returns:
-        Dictionary containing direct imports and optionally transitive dependencies.
-    """
-    try:
-        from src.query.dependency_analyzer import DependencyAnalyzer
-
-        async with await get_db_session() as session:
-            analyzer = DependencyAnalyzer(session)
-            dependencies = await analyzer.analyze(module_path, include_transitive)
-            return analyzer.format_results(dependencies)
-    except Exception as e:
-        logger.exception("Error in analyze_dependencies: %s", e)
-        return {"error": str(e)}
 
 
 @mcp.tool
@@ -169,38 +146,11 @@ async def get_code_structure(file_path: str) -> dict[str, Any]:
             from src.scanner.code_processor import CodeProcessor
 
             processor = CodeProcessor(session)
-            structure = await processor.get_file_structure(file)
+            return await processor.get_file_structure(file)
 
-            return structure
     except Exception as e:
-        logger.exception("Error in get_code_structure: %s", e)
+        logger.exception("Error in get_code_structure")
         return {"error": str(e)}
-
-
-@mcp.tool
-async def find_usage(
-    name: str,
-    entity_type: str | None = None,
-    search_scope: str | None = None,
-) -> list[dict[str, Any]]:
-    """Find where a symbol is used."""
-    try:
-        # Placeholder implementation
-        return [{"info": f"Usage search for '{name}' not yet implemented"}]
-    except Exception as e:
-        logger.exception("Error in find_usage: %s", e)
-        return [{"error": str(e)}]
-
-
-@mcp.tool
-async def find_similar_code(code_snippet: str, limit: int = 10) -> list[dict[str, Any]]:
-    """Find code similar to the given snippet."""
-    try:
-        # Placeholder implementation
-        return [{"info": "Similar code search not yet implemented"}]
-    except Exception as e:
-        logger.exception("Error in find_similar_code: %s", e)
-        return [{"error": str(e)}]
 
 
 @mcp.tool
@@ -209,42 +159,27 @@ async def suggest_refactoring(
 ) -> list[dict[str, Any]]:
     """Suggest refactoring opportunities."""
     try:
-        # Placeholder implementation
-        return [
-            {"info": f"Refactoring suggestions for '{file_path}' not yet implemented"}
-        ]
-    except Exception as e:
-        logger.exception("Error in suggest_refactoring: %s", e)
-        return [{"error": str(e)}]
-
-
-@mcp.tool
-async def list_repositories() -> list[dict[str, Any]]:
-    """List all tracked repositories."""
-    try:
-        from sqlalchemy.future import select
-
-        from src.database.models import Repository
+        from src.mcp_server.tools.analyze import AnalyzeTool
 
         async with await get_db_session() as session:
-            result = await session.execute(select(Repository))
-            repositories = result.scalars().all()
+            tool = AnalyzeTool(session)
+            suggestions = await tool.suggest_refactoring(file_path)
 
-            return [
-                {
-                    "id": repo.id,
-                    "name": repo.name,
-                    "owner": repo.owner,
-                    "url": repo.github_url,
-                    "branch": repo.default_branch,
-                    "last_synced": (
-                        repo.last_synced.isoformat() if repo.last_synced else None
-                    ),
-                }
-                for repo in repositories
-            ]
+            # If focus_area is provided, filter suggestions
+            if focus_area and suggestions:
+                # Filter suggestions based on focus area
+                # For now, just mention the focus area in the response
+                return [
+                    {
+                        "focus_area": focus_area,
+                        "suggestions": suggestions,
+                        "note": f"Focused on {focus_area} improvements",
+                    }
+                ]
+
+            return suggestions
     except Exception as e:
-        logger.exception("Error in list_repositories: %s", e)
+        logger.exception("Error in suggest_refactoring")
         return [{"error": str(e)}]
 
 
@@ -252,10 +187,13 @@ async def list_repositories() -> list[dict[str, Any]]:
 async def sync_repository(repository_url: str) -> dict[str, Any]:
     """Manually trigger sync for a specific repository."""
     try:
-        # Placeholder implementation
-        return {"info": f"Repository sync for '{repository_url}' not yet implemented"}
+        from src.mcp_server.tools.repository import RepositoryTool
+
+        async with await get_db_session() as session:
+            tool = RepositoryTool(session)
+            return await tool.sync_repository(repository_url)
     except Exception as e:
-        logger.exception("Error in sync_repository: %s", e)
+        logger.exception("Error in sync_repository")
         return {"error": str(e)}
 
 

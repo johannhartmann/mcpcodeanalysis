@@ -2,6 +2,7 @@
 
 import os
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -42,7 +43,7 @@ class RepositoryScanner:
         repo_config: RepositoryConfig,
         *,
         force_full_scan: bool = False,
-    ) -> dict[str, any]:
+    ) -> dict[str, Any]:
         """Scan a single repository."""
         logger.info(
             "Starting repository scan",
@@ -412,7 +413,7 @@ class RepositoryScanner:
         self,
         *,
         force_full_scan: bool = False,
-    ) -> dict[str, any]:
+    ) -> dict[str, Any]:
         """Scan all configured repositories."""
         logger.info("Starting scan of all repositories")
 

@@ -279,9 +279,6 @@ class AnalyzeTool:
             results = await self.entity_repo.find_by_name(parts[0])
             if results:
                 return {"entity": results[0]["entity"], "type": results[0]["type"]}
-            return None
-            if results:
-                return {"entity": results[0]["entity"], "type": results[0]["type"]}
 
         return None
 
@@ -625,12 +622,113 @@ class AnalyzeTool:
         package_path: str,
     ) -> dict[str, Any]:
         """Get structure of a package (directory)."""
-        # This would need implementation to scan directory structure
-        return {
-            "type": "package",
-            "path": package_path,
-            "message": "Package structure analysis not yet implemented",
-        }
+        try:
+            # Use the package analyzer to get structure
+            # Find repository containing this package
+            from src.database.models import File
+            from src.scanner.package_analyzer import PackageAnalyzer
+
+            # First, find any file in the package to get repository_id
+            pattern = f"{package_path}%"
+            result = await self.session.execute(
+                select(File).where(File.path.like(pattern)).limit(1)
+            )
+            file = result.scalar_one_or_none()
+
+            if not file:
+                return {
+                    "type": "package",
+                    "path": package_path,
+                    "error": f"Package not found: {package_path}",
+                }
+
+            # Use package analyzer
+            PackageAnalyzer(self.session, file.repository_id)
+
+            # Get package structure
+            from src.database.package_models import Package
+
+            result = await self.session.execute(
+                select(Package).where(
+                    and_(
+                        Package.repository_id == file.repository_id,
+                        Package.path == package_path,
+                    )
+                )
+            )
+            package = result.scalar_one_or_none()
+
+            if not package:
+                return {
+                    "type": "package",
+                    "path": package_path,
+                    "error": "Package structure not analyzed yet. Run package analyzer first.",
+                }
+
+            # Build structure
+            structure = {
+                "type": "package",
+                "name": package.name,
+                "path": package_path,
+                "docstring": package.docstring,
+                "has_init": package.has_init,
+                "is_namespace": package.is_namespace,
+                "modules": [],
+                "subpackages": [],
+                "stats": {
+                    "total_modules": package.module_count,
+                    "total_subpackages": package.subpackage_count,
+                    "total_lines": package.total_lines,
+                    "total_functions": package.total_functions,
+                    "total_classes": package.total_classes,
+                },
+            }
+
+            # Get direct modules
+            from src.database.package_models import PackageModule
+
+            result = await self.session.execute(
+                select(PackageModule, File)
+                .join(File, PackageModule.file_id == File.id)
+                .where(PackageModule.package_id == package.id)
+                .order_by(File.path)
+            )
+
+            for pkg_module, file in result.all():
+                structure["modules"].append(
+                    {
+                        "name": pkg_module.module_name,
+                        "path": file.path,
+                        "is_public": pkg_module.is_public,
+                    }
+                )
+
+            # Get direct subpackages
+            result = await self.session.execute(
+                select(Package)
+                .where(Package.parent_id == package.id)
+                .order_by(Package.name)
+            )
+
+            for subpkg in result.scalars().all():
+                structure["subpackages"].append(
+                    {
+                        "name": subpkg.name,
+                        "path": subpkg.path,
+                        "has_init": subpkg.has_init,
+                        "module_count": subpkg.module_count,
+                    }
+                )
+
+            return structure
+
+        except Exception as e:
+            logger.exception("Error getting package structure")
+            return {
+                "type": "package",
+                "path": package_path,
+                "error": str(e),
+            }
 
     def _is_snake_case(self, name: str) -> bool:
         """Check if name follows snake_case convention."""

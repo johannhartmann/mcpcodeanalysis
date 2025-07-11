@@ -3,7 +3,7 @@
 import time
 from typing import Any
 
-from sqlalchemy import func, select, text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
@@ -54,8 +54,8 @@ class SearchEngine:
 
             return results
 
-        except Exception as e:
-            logger.exception("Search failed: %s", e)
+        except Exception:
+            logger.exception("Search failed")
             return []
 
     async def _keyword_search(
@@ -175,8 +175,8 @@ class SearchEngine:
         # Generate embedding for query
         try:
             query_embedding = await self.embedding_generator.generate_embedding(query)
-        except Exception as e:
-            logger.error("Failed to generate query embedding: %s", e)
+        except Exception:
+            logger.exception("Failed to generate query embedding")
             # Fall back to keyword search
             return await self.search(query, limit, entity_types, repository_filter)
 
@@ -222,7 +222,7 @@ class SearchEngine:
             similarity = row.similarity
 
             # Fetch entity details based on type
-            if entity_type == "function" or entity_type == "method":
+            if entity_type in {"function", "method"}:
                 entity_result = await self.session.execute(
                     select(Function, Module, File)
                     .select_from(
@@ -306,9 +306,67 @@ class SearchEngine:
         threshold: float = 0.7,
     ) -> list[dict[str, Any]]:
         """Search for similar code patterns."""
-        # For now, return empty results until embedding search is implemented
-        logger.warning("Similar code search not yet implemented")
-        return []
+        try:
+            # Generate embedding for the code snippet
+            snippet_embedding = await self.embedding_generator.generate_embedding(
+                code_snippet
+            )
+
+            # Search for similar embeddings
+            query = text(
+                """
+                SELECT
+                    e.entity_type,
+                    e.entity_id,
+                    e.file_id,
+                    e.content,
+                    1 - (e.embedding <=> cast(:query_embedding as vector)) as similarity
+                FROM code_embeddings e
+                WHERE
+                    e.embedding_type = 'raw'
+                    AND 1 - (e.embedding <=> cast(:query_embedding as vector)) > :threshold
+                ORDER BY similarity DESC
+                LIMIT :limit
+                """
+            )
+
+            result = await self.session.execute(
+                query,
+                {
+                    "query_embedding": str(snippet_embedding),
+                    "threshold": threshold,
+                    "limit": limit,
+                },
+            )
+
+            similar_code = []
+            for row in result:
+                # Get entity details
+                entity_details = await self._get_entity_details(
+                    row.entity_type, row.entity_id
+                )
+
+                if entity_details:
+                    similar_code.append(
+                        {
+                            "entity_type": row.entity_type,
+                            "entity_id": row.entity_id,
+                            "name": entity_details.get("name", "Unknown"),
+                            "file_path": entity_details.get("file_path", "Unknown"),
+                            "similarity": row.similarity,
+                            "content_preview": (
+                                row.content[:200] + "..."
+                                if len(row.content) > 200
+                                else row.content
+                            ),
+                        }
+                    )
+
+            return similar_code
+
+        except Exception:
+            logger.exception("Failed to search similar code")
+            return []
 
     async def get_code_context(
         self,
@@ -320,18 +378,17 @@ class SearchEngine:
         try:
             if entity_type == "function":
                 return await self._get_function_context(entity_id, include_dependencies)
-            elif entity_type == "class":
+            if entity_type == "class":
                 return await self._get_class_context(entity_id, include_dependencies)
-            elif entity_type == "module":
+            if entity_type == "module":
                 return await self._get_module_context(entity_id, include_dependencies)
-            else:
-                return {"error": f"Unknown entity type: {entity_type}"}
+            return {"error": f"Unknown entity type: {entity_type}"}
         except Exception as e:
             logger.exception("Failed to get context for %s %d", entity_type, entity_id)
             return {"error": str(e)}
 
     async def _get_function_context(
-        self, function_id: int, include_dependencies: bool
+        self, function_id: int, _include_dependencies: bool
     ) -> dict[str, Any]:
         """Get context for a function."""
         result = await self.session.execute(
@@ -358,7 +415,7 @@ class SearchEngine:
             "end_line": func.end_line,
         }
 
-        if include_dependencies:
+        if _include_dependencies:
             # Add related functions, classes, etc.
             # This would need more complex implementation
             context["dependencies"] = []
@@ -366,7 +423,7 @@ class SearchEngine:
         return context
 
     async def _get_class_context(
-        self, class_id: int, include_dependencies: bool
+        self, class_id: int, _include_dependencies: bool
     ) -> dict[str, Any]:
         """Get context for a class."""
         result = await self.session.execute(
@@ -388,7 +445,7 @@ class SearchEngine:
         )
         methods = methods_result.scalars().all()
 
-        context = {
+        return {
             "type": "class",
             "name": cls.name,
             "module": module.name,
@@ -410,10 +467,8 @@ class SearchEngine:
             ],
         }
 
-        return context
-
     async def _get_module_context(
-        self, module_id: int, include_dependencies: bool
+        self, module_id: int, _include_dependencies: bool
     ) -> dict[str, Any]:
         """Get context for a module."""
         result = await self.session.execute(
@@ -440,7 +495,7 @@ class SearchEngine:
         )
         functions = functions_result.scalars().all()
 
-        context = {
+        return {
             "type": "module",
             "name": module.name,
             "file": file.path,
@@ -463,4 +518,62 @@ class SearchEngine:
             ],
         }
 
-        return context
+    async def _get_entity_details(
+        self, entity_type: str, entity_id: int
+    ) -> dict[str, Any] | None:
+        """Get details for a specific entity."""
+        try:
+            if entity_type in {"function", "method"}:
+                result = await self.session.execute(
+                    select(Function, Module, File)
+                    .join(Module, Function.module_id == Module.id)
+                    .join(File, Module.file_id == File.id)
+                    .where(Function.id == entity_id)
+                )
+                row = result.first()
+                if row:
+                    func, module, file = row
+                    return {
+                        "name": func.name,
+                        "file_path": file.path,
+                        "module_name": module.name,
+                        "start_line": func.start_line,
+                        "end_line": func.end_line,
+                    }
+            elif entity_type == "class":
+                result = await self.session.execute(
+                    select(Class, Module, File)
+                    .join(Module, Class.module_id == Module.id)
+                    .join(File, Module.file_id == File.id)
+                    .where(Class.id == entity_id)
+                )
+                row = result.first()
+                if row:
+                    cls, module, file = row
+                    return {
+                        "name": cls.name,
+                        "file_path": file.path,
+                        "module_name": module.name,
+                        "start_line": cls.start_line,
+                        "end_line": cls.end_line,
+                    }
+            elif entity_type == "module":
+                result = await self.session.execute(
+                    select(Module, File)
+                    .join(File, Module.file_id == File.id)
+                    .where(Module.id == entity_id)
+                )
+                row = result.first()
+                if row:
+                    module, file = row
+                    return {
+                        "name": module.name,
+                        "file_path": file.path,
+                        "module_name": module.name,
+                        "start_line": module.start_line,
+                        "end_line": module.end_line,
+                    }
+        except Exception:
+            logger.exception("Failed to get entity details")
+
+        return None

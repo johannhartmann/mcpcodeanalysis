@@ -238,9 +238,11 @@ class TestCodeProcessor:
     @pytest.mark.asyncio
     async def test_clear_file_entities(self, code_processor, mock_db_session) -> None:
         """Test clearing existing file entities."""
-        # Mock the module query
+        # Mock the module query result
         mock_modules = MagicMock()
-        mock_modules.scalars.return_value = [MagicMock(id=1), MagicMock(id=2)]
+        mock_scalars = MagicMock()
+        mock_scalars.all.return_value = [MagicMock(id=1), MagicMock(id=2)]
+        mock_modules.scalars.return_value = mock_scalars
         mock_db_session.execute.return_value = mock_modules
 
         await code_processor._clear_file_entities(1)

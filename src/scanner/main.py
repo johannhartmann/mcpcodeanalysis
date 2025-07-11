@@ -3,7 +3,7 @@
 import asyncio
 import signal
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -91,7 +91,8 @@ class ScannerService:
 
             # Create or update repository in database
             if self.session_factory is None:
-                raise RuntimeError("Session factory not initialized")
+                msg = "Session factory not initialized"
+                raise RuntimeError(msg)  # noqa: TRY301
             async with self.session_factory() as session:
                 repo_repo = RepositoryRepo(session)
                 db_repo = await repo_repo.get_by_url(repo_url)
@@ -136,7 +137,8 @@ class ScannerService:
 
                 # Store commits
                 if self.session_factory is None:
-                    raise RuntimeError("Session factory not initialized")
+                    msg = "Session factory not initialized"
+                raise RuntimeError(msg)  # noqa: TRY301
                 async with self.session_factory() as session:
                     commit_repo = CommitRepo(session)
                     await commit_repo.create_batch(
@@ -196,7 +198,8 @@ class ScannerService:
 
             # Update last synced time
             if self.session_factory is None:
-                raise RuntimeError("Session factory not initialized")
+                msg = "Session factory not initialized"
+                raise RuntimeError(msg)  # noqa: TRY301
             async with self.session_factory() as session:
                 repo_repo = RepositoryRepo(session)
                 await repo_repo.update_last_synced(db_repo.id)
@@ -311,14 +314,15 @@ class ScannerService:
             else:
                 # Fallback if git repo not available
                 metadata = {
-                    "last_modified": datetime.utcnow(),
+                    "last_modified": datetime.now(UTC).replace(tzinfo=None),
                     "git_hash": None,
                     "size": file_path.stat().st_size,
                 }
 
             # Create or update file in database
             if self.session_factory is None:
-                raise RuntimeError("Session factory not initialized")
+                msg = "Session factory not initialized"
+                raise RuntimeError(msg)  # noqa: TRY301
             async with self.session_factory() as session:
                 file_repo = FileRepo(session)
 
@@ -327,9 +331,9 @@ class ScannerService:
 
                 if db_file:
                     # Update existing file
-                    db_file.last_modified = (
-                        metadata.get("last_modified") or datetime.utcnow()
-                    )
+                    db_file.last_modified = metadata.get(
+                        "last_modified"
+                    ) or datetime.now(UTC).replace(tzinfo=None)
                     git_hash = metadata.get("git_hash")
                     if git_hash:
                         db_file.git_hash = git_hash
@@ -339,7 +343,9 @@ class ScannerService:
                     db_file = await file_repo.create(
                         repository_id=repo_id,
                         path=relative_path,
-                        last_modified=metadata.get("last_modified", datetime.utcnow()),
+                        last_modified=metadata.get(
+                            "last_modified", datetime.now(UTC).replace(tzinfo=None)
+                        ),
                         git_hash=metadata.get("git_hash"),
                         size=metadata.get("size", file_path.stat().st_size),
                         language="python",
@@ -401,7 +407,7 @@ class ScannerService:
             else:
                 # Fallback if git repo not available
                 metadata = {
-                    "last_modified": datetime.utcnow(),
+                    "last_modified": datetime.now(UTC).replace(tzinfo=None),
                     "git_hash": None,
                     "size": file_path.stat().st_size,
                 }
@@ -414,9 +420,9 @@ class ScannerService:
 
             if db_file:
                 # Update existing file
-                db_file.last_modified = (
-                    metadata.get("last_modified") or datetime.utcnow()
-                )
+                db_file.last_modified = metadata.get("last_modified") or datetime.now(
+                    UTC
+                ).replace(tzinfo=None)
                 git_hash = metadata.get("git_hash")
                 if git_hash:
                     db_file.git_hash = git_hash
@@ -426,7 +432,9 @@ class ScannerService:
                 db_file = await file_repo.create(
                     repository_id=repo_id,
                     path=relative_path,
-                    last_modified=metadata.get("last_modified", datetime.utcnow()),
+                    last_modified=metadata.get(
+                        "last_modified", datetime.now(UTC).replace(tzinfo=None)
+                    ),
                     git_hash=metadata.get("git_hash"),
                     size=metadata.get("size", file_path.stat().st_size),
                     language="python",

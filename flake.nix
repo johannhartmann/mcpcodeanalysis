@@ -164,6 +164,16 @@
               FAILED=1
             fi
 
+            # Run Vulture
+            echo -e "\n''${YELLOW}Running Vulture...''${NC}"
+            if ${virtualenv}/bin/vulture $FILES vulture_whitelist.py --min-confidence 80; then
+              echo -e "''${GREEN}✓ Vulture passed''${NC}"
+            else
+              echo -e "''${RED}✗ Vulture found dead code''${NC}"
+              echo -e "''${YELLOW}Note: Review findings - some might be false positives''${NC}"
+              # Don't fail on vulture - it often has false positives
+            fi
+
             # Summary
             echo ""
             if [ $FAILED -eq 0 ]; then
@@ -224,6 +234,7 @@
               echo "  mypy .               - Type checking"
               echo "  black .              - Format code"
               echo "  pyupgrade --py311-plus <files> - Upgrade Python syntax"
+              echo "  vulture src vulture_whitelist.py - Find dead code"
               echo "  viberdash monitor --interval 300 - Monitor code quality metrics (5 min updates)"
               echo "  vdash                - Start ViberDash monitor (alias)"
               echo ""
@@ -312,6 +323,7 @@
               echo "  uv run mypy .        - Type checking"
               echo "  uv run black .       - Format code"
               echo "  uv run pyupgrade --py311-plus <files> - Upgrade Python syntax"
+              echo "  uv run vulture src vulture_whitelist.py - Find dead code"
               echo "  uv run viberdash monitor --interval 300 - Monitor code quality metrics (5 min updates)"
               echo "  vdash                - Start ViberDash monitor (alias)"
               echo ""

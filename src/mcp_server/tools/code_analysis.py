@@ -454,48 +454,27 @@ class CodeAnalysisTools:
                 Usage locations
             """
             try:
-                # This is a simplified implementation
-                # In a real system, we'd parse code to find actual usage
+                from src.mcp_server.tools.find import FindTool
 
-                # Search for the entity name in file contents
-                # For now, return files that might contain references
+                # Get repository name if repository_id is provided
+                repository_name = None
+                if repository_id:
+                    from src.database.models import Repository
 
-                from sqlalchemy import text
+                    repo = await self.db_session.get(Repository, repository_id)
+                    if repo:
+                        repository_name = repo.name
 
-                query = text(
-                    """
-                    SELECT DISTINCT f.id, f.path, f.repository_id
-                    FROM files f
-                    WHERE f.is_deleted = false
-                    AND f.content IS NOT NULL
-                    AND f.content LIKE :pattern
-                """,
+                # Use the proper FindTool implementation
+                find_tool = FindTool(self.db_session)
+                usages = await find_tool.find_usage(
+                    function_or_class=entity_name,
+                    repository=repository_name,
                 )
 
-                if repository_id:
-                    query = text(query.text + " AND f.repository_id = :repo_id")
-
-                query = text(query.text + " LIMIT :limit")
-
-                params = {
-                    "pattern": f"%{entity_name}%",
-                    "limit": limit,
-                }
-                if repository_id:
-                    params["repo_id"] = repository_id
-
-                result = await self.db_session.execute(query, params)
-                files = result.fetchall()
-
-                usages = []
-                for file_id, file_path, repo_id in files:
-                    usages.append(
-                        {
-                            "file_id": file_id,
-                            "file_path": file_path,
-                            "repository_id": repo_id,
-                        },
-                    )
+                # Filter results if needed to respect limit
+                if len(usages) > limit:
+                    usages = usages[:limit]
 
                 return {
                     "success": True,
@@ -503,7 +482,6 @@ class CodeAnalysisTools:
                     "entity_name": entity_name,
                     "usages": usages,
                     "count": len(usages),
-                    "note": "This is a text-based search. Actual usage analysis requires parsing.",
                 }
 
             except Exception as e:

@@ -135,8 +135,8 @@ class TestPythonCodeParser:
         assert sample_class["base_classes"] == []
         assert not sample_class["is_abstract"]
         assert (
-            len(sample_class["methods"]) == 3
-        )  # Parser currently only finds regular methods
+            len(sample_class["methods"]) == 5
+        )  # Should find all methods including decorated ones
 
         # Check AbstractBase
         abstract_class = next(c for c in classes if c["name"] == "AbstractBase")
@@ -154,8 +154,14 @@ class TestPythonCodeParser:
         assert init_method["parameters"][0]["name"] == "name"
         assert init_method["parameters"][0]["type"] == "str"
 
-        # Parser currently doesn't extract @property or @staticmethod decorated methods
-        # Only check methods that are actually extracted
+        # Check property method
+        display_name = next(m for m in methods if m["name"] == "display_name")
+        assert display_name["is_property"]
+        assert display_name["return_type"] == "str"
+
+        # Check static method
+        static_method = next(m for m in methods if m["name"] == "static_method")
+        assert static_method["is_static"]
 
         # Check async method
         async_method = next(m for m in methods if m["name"] == "async_method")

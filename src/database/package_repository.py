@@ -260,5 +260,3 @@ class PackageRepository:
             ]
 
         return metrics
-
-

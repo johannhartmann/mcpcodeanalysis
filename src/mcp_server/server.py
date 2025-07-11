@@ -28,6 +28,7 @@ from src.mcp_server.tools.package_analysis import (
 )
 from src.mcp_server.tools.repository_management import RepositoryManagementTools
 from src.models import RepositoryConfig
+from src.utils.version import get_package_version
 
 logger = get_logger(__name__)
 
@@ -355,14 +356,38 @@ async def find_similar_code(
 
     async for session in get_db_session():
         search_tools = CodeSearchTools(session, mcp)
-        return await search_tools.find_similar_code(
-            {
-                "code_snippet": code_snippet,
-                "repository_id": repository_id,
-                "threshold": threshold,
-                "limit": limit,
-            },
-        )
+        # Register the tools first
+        await search_tools.register_tools()
+
+        # Use search_by_code_snippet which accepts a code snippet
+        from src.embeddings.vector_search import SearchScope
+
+        try:
+            results = await search_tools.vector_search.search_by_code(
+                code_snippet=code_snippet,
+                scope=SearchScope.ALL,
+                repository_id=repository_id,
+                limit=limit,
+            )
+
+            return {
+                "success": True,
+                "code_snippet": (
+                    code_snippet[:100] + "..."
+                    if len(code_snippet) > 100
+                    else code_snippet
+                ),
+                "results": results,
+                "count": len(results),
+                "threshold": threshold,  # Note: threshold is not used in search_by_code
+            }
+        except Exception as e:
+            logger.exception("Find similar code failed")
+            return {
+                "success": False,
+                "error": str(e),
+                "results": [],
+            }
     return None
 
 
@@ -578,6 +603,17 @@ async def get_package_coupling_metrics_tool(
             GetPackageCouplingRequest(repository_id=repository_id), session
         )
     return None
+
+
+@mcp.tool(name="health_check", description="Check server health status")
+async def health_check() -> dict[str, Any]:
+    """Check server health status."""
+    return {
+        "status": "healthy",
+        "service": "mcp-code-analysis-server",
+        "version": get_package_version(),
+        "tools_available": True,
+    }
 
 
 # Aliases for compatibility

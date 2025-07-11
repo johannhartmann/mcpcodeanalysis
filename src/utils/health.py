@@ -74,10 +74,7 @@ class DatabaseHealthCheck(HealthCheck):
     async def _perform_check(self) -> dict[str, Any]:
         """Check database connectivity and pgvector extension."""
         engine = create_async_engine(
-            get_database_url().replace(
-                "postgresql://",
-                "postgresql+asyncpg://",
-            ),
+            get_database_url(),
             pool_size=1,
             max_overflow=0,
         )

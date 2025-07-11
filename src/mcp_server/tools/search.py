@@ -62,5 +62,5 @@ class SearchTool:
                 )
 
         except Exception as e:
-            logger.exception("Error in search_code: %s", e)
+            logger.exception("Error in search_code")
             return [{"error": str(e), "query": query}]

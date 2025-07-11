@@ -52,22 +52,14 @@ def serve(host: str, port: int, reload: bool, log_level: str) -> None:  # noqa: 
     if log_level:
         logging.getLogger().setLevel(log_level.upper())
 
-    # Get settings
-    # settings imported globally from src.config
+    # Import MCP server here to avoid circular imports
+    from src.mcp_server.main import mcp
 
-    # Override with CLI options
+    # Override settings with CLI options if provided
     if host != DEFAULT_HOST:
         settings.mcp.host = host
     if port != DEFAULT_PORT:
         settings.mcp.port = port
-
-    # Run the MCP server
-    # Override settings with CLI options if provided
-    from src.config import settings
-    from src.mcp_server.main import mcp
-
-    settings.mcp.host = host
-    settings.mcp.port = port
 
     # Run the MCP server
     mcp.run(transport="http", host=host, port=port)

@@ -6,7 +6,7 @@ import contextlib
 import hashlib
 import os
 import shutil
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -321,7 +321,9 @@ class GitSync:
                             "path": str(relative_path),
                             "absolute_path": str(file_path),
                             "size": stat.st_size,
-                            "modified_time": datetime.utcfromtimestamp(stat.st_mtime),
+                            "modified_time": datetime.fromtimestamp(
+                                stat.st_mtime, tz=UTC
+                            ).replace(tzinfo=None),
                             "content_hash": self.get_file_hash(file_path),
                             "git_hash": git_hash,
                             "language": self._detect_language(file_path),
@@ -372,7 +374,9 @@ class GitSync:
                 "message": commit.message.strip(),
                 "author": commit.author.name,
                 "author_email": commit.author.email,
-                "timestamp": datetime.utcfromtimestamp(commit.committed_date),
+                "timestamp": datetime.fromtimestamp(
+                    commit.committed_date, tz=UTC
+                ).replace(tzinfo=None),
                 "files_changed": [],
                 "additions": 0,
                 "deletions": 0,
@@ -424,7 +428,9 @@ class GitSync:
 
             # Filter by date if needed
             for commit in commit_iter:
-                commit_date = datetime.utcfromtimestamp(commit.committed_date)
+                commit_date = datetime.fromtimestamp(
+                    commit.committed_date, tz=UTC
+                ).replace(tzinfo=None)
                 if since and commit_date < since:
                     break
 
@@ -487,7 +493,9 @@ class GitSync:
 
             metadata = {
                 "git_hash": git_hash,
-                "last_modified": datetime.utcfromtimestamp(stat.st_mtime),
+                "last_modified": datetime.fromtimestamp(stat.st_mtime, tz=UTC).replace(
+                    tzinfo=None
+                ),
                 "size": stat.st_size,
             }
 
@@ -495,9 +503,9 @@ class GitSync:
                 metadata.update(
                     {
                         "last_commit_sha": last_commit.hexsha,
-                        "last_commit_date": datetime.utcfromtimestamp(
-                            last_commit.committed_date
-                        ),
+                        "last_commit_date": datetime.fromtimestamp(
+                            last_commit.committed_date, tz=UTC
+                        ).replace(tzinfo=None),
                         "last_commit_author": last_commit.author.name,
                         "last_commit_message": last_commit.message.strip(),
                     }
@@ -510,6 +518,6 @@ class GitSync:
             # Return basic metadata on error
             return {
                 "git_hash": None,
-                "last_modified": datetime.utcnow(),
+                "last_modified": datetime.now(UTC).replace(tzinfo=None),
                 "size": 0,
             }

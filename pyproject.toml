@@ -101,6 +101,7 @@ dev = [
     "safety>=3.0.0",  # dependency security check
     "pylint>=3.0.0",  # additional linting
     "pyupgrade>=3.15.0",  # upgrade Python syntax
+    "vulture>=2.10",  # dead code detection
 
     # Type stubs
     "types-pyyaml>=6.0.0",
@@ -411,6 +412,11 @@ upload_to_pypi = false
 upload_to_release = true
 build_command = "python -m build"
 commit_subject = "chore(release): v{version}"
+
+[tool.vulture]
+min_confidence = 80
+paths = ["src", "tests"]
+exclude = ["vulture_whitelist.py"]
 
 [dependency-groups]
 dev = [

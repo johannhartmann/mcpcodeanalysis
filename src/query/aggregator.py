@@ -28,17 +28,17 @@ class CodeAggregator:
         entity_type: str,
         entity_id: int,
         *,
-        include_code: bool = False,
+        _include_code: bool = False,
     ) -> dict[str, Any]:
         """Generate comprehensive explanation for a code entity."""
         if entity_type == "function":
-            return await self._explain_function(entity_id, include_code=include_code)
+            return await self._explain_function(entity_id, include_code=_include_code)
         if entity_type == "class":
-            return await self._explain_class(entity_id, include_code=include_code)
+            return await self._explain_class(entity_id, include_code=_include_code)
         if entity_type == "module":
-            return await self._explain_module(entity_id, include_code=include_code)
+            return await self._explain_module(entity_id, include_code=_include_code)
         if entity_type == "package":
-            return await self._explain_package(entity_id, include_code=include_code)
+            return await self._explain_package(entity_id, include_code=_include_code)
         msg = f"Unknown entity type: {entity_type}"
         raise ValueError(msg)
 
@@ -184,7 +184,7 @@ class CodeAggregator:
         self,
         module_id: int,
         *,
-        include_code: bool = False,
+        _include_code: bool = False,
     ) -> dict[str, Any]:
         """Explain a module."""
         # Load module details
@@ -214,7 +214,7 @@ class CodeAggregator:
         )
         functions = result.scalars().all()
 
-        explanation = {
+        return {
             "type": "module",
             "name": module.name,
             "qualified_name": module.name,
@@ -241,13 +241,11 @@ class CodeAggregator:
             ],
         }
 
-        return explanation
-
     async def _explain_package(
         self,
         package_id: int,
         *,
-        include_code: bool = False,
+        _include_code: bool = False,
     ) -> dict[str, Any]:
         """Explain a package (placeholder)."""
         return {
