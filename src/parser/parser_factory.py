@@ -75,7 +75,7 @@ class ParserFactory:
         # Combine registered parsers and available extensions from language registry
         extensions = set(cls._parsers.keys())
         extensions.update(LanguageRegistry.get_available_extensions())
-        return sorted(list(extensions))
+        return sorted(extensions)
 
     @classmethod
     def get_supported_languages(cls) -> list[str]:
@@ -83,7 +83,7 @@ class ParserFactory:
         # Combine registered parsers and available languages from registry
         languages = set(cls._language_parsers.keys())
         languages.update(LanguageRegistry.get_available_languages())
-        return sorted(list(languages))
+        return sorted(languages)
 
     @classmethod
     def register_parser(cls, extension: str, parser_class: type) -> None:

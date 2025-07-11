@@ -76,7 +76,7 @@ class PackageAnalyzer:
             "package_tree": await self._build_package_tree(),
         }
 
-    async def _discover_packages(
+    async def _discover_packages(  # noqa: PLR0912
         self, python_files: list[File]
     ) -> dict[str, dict[str, Any]]:
         """Discover all packages in the repository."""

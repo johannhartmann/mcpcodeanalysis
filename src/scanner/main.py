@@ -3,12 +3,14 @@
 import asyncio
 import signal
 import sys
-from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy.ext.asyncio import AsyncEngine
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from sqlalchemy.ext.asyncio import AsyncEngine
 
 from src.config import settings
 from src.database import get_session_factory, init_database

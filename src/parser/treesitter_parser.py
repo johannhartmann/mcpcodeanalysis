@@ -274,9 +274,7 @@ class PythonParser(TreeSitterParser):
                         func_data["is_staticmethod"] = True
                     elif decorator_name == "classmethod":
                         func_data["is_classmethod"] = True
-                    elif decorator_name.endswith(".setter") or decorator_name.endswith(
-                        ".deleter"
-                    ):
+                    elif decorator_name.endswith((".setter", ".deleter")):
                         # Property setters and deleters
                         func_data["is_property"] = True
 
@@ -468,7 +466,7 @@ class PythonParser(TreeSitterParser):
     def _contains_generator_return(
         self,
         block_node: tree_sitter.Node,
-        content: bytes,
+        _content: bytes,
     ) -> bool:
         """Check if a block contains a return statement with a generator expression."""
         return_nodes = self.find_nodes_by_type(block_node, "return_statement")

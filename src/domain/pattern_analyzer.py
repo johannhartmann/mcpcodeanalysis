@@ -430,7 +430,7 @@ class DomainPatternAnalyzer:
 
     async def analyze_evolution(
         self,
-        repository_id: int,
+        _repository_id: int,
         days: int = 30,
     ) -> dict[str, Any]:
         """Analyze how the domain model evolved over time.

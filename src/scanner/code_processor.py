@@ -627,7 +627,7 @@ class CodeProcessor:
 
                 if source_type == "module":
                     # For module-level references, use the file's module
-                    source_id = list(module_map.values())[0] if module_map else None
+                    source_id = next(iter(module_map.values())) if module_map else None
                 elif source_type == "class":
                     # Extract class name from full path
                     class_name = source_name.split(".")[-1]
@@ -673,7 +673,7 @@ class CodeProcessor:
                     }
                 )
 
-            except Exception as e:
+            except (KeyError, AttributeError, ValueError) as e:
                 logger.debug("Error resolving reference: %s - %s", ref, e)
 
         return resolved

@@ -52,7 +52,7 @@ class ReferenceAnalyzer(ast.NodeVisitor):
         self.visit(tree)
         return self.references
 
-    def visit_Import(self, node: ast.Import) -> None:
+    def visit_Import(self, node: ast.Import) -> None:  # noqa: N802
         """Process import statements."""
         for alias in node.names:
             import_name = alias.name
@@ -73,7 +73,7 @@ class ReferenceAnalyzer(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:  # noqa: N802
         """Process from...import statements."""
         module = node.module or ""
         level = node.level
@@ -102,10 +102,7 @@ class ReferenceAnalyzer(ast.NodeVisitor):
                 self.imports[as_name] = full_name
 
                 # Determine if it's likely a class/function based on naming
-                if import_name[0].isupper():
-                    target_type = "class"
-                else:
-                    target_type = "function"
+                target_type = "class" if import_name[0].isupper() else "function"
                 target_name = full_name
 
             self.references.append(
@@ -122,7 +119,7 @@ class ReferenceAnalyzer(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:  # noqa: N802
         """Process class definitions."""
         old_class = self.current_class
         self.current_class = node.name
@@ -164,7 +161,7 @@ class ReferenceAnalyzer(ast.NodeVisitor):
         self.generic_visit(node)
         self.current_class = old_class
 
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:  # noqa: N802
         """Process function definitions."""
         old_function = self.current_function
         self.current_function = node.name
@@ -224,7 +221,7 @@ class ReferenceAnalyzer(ast.NodeVisitor):
         self.generic_visit(node)
         self.current_function = old_function
 
-    def visit_Call(self, node: ast.Call) -> None:
+    def visit_Call(self, node: ast.Call) -> None:  # noqa: N802
         """Process function/class calls."""
         call_name = self._get_name_from_node(node.func)
         if call_name:
@@ -252,7 +249,7 @@ class ReferenceAnalyzer(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    def visit_Attribute(self, node: ast.Attribute) -> None:
+    def visit_Attribute(self, node: ast.Attribute) -> None:  # noqa: N802
         """Process attribute access."""
         # Only track module-level attribute access for now
         if isinstance(node.value, ast.Name):
