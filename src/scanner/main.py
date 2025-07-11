@@ -15,7 +15,7 @@ from src.database import get_session_factory, init_database
 from src.database.repositories import CommitRepo, FileRepo, RepositoryRepo
 from src.database.session_manager import ParallelSessionManager
 from src.logger import get_logger, setup_logging
-from src.parser.code_extractor import CodeExtractor
+from src.scanner.code_processor import CodeProcessor
 from src.scanner.file_watcher import FileWatcher
 from src.scanner.git_sync import GitSync
 from src.scanner.github_monitor import GitHubMonitor
@@ -30,7 +30,6 @@ class ScannerService:
         self.github_monitor = GitHubMonitor()
         self.git_sync = GitSync()
         self.file_watcher = FileWatcher()
-        self.code_extractor = CodeExtractor()
         self.running = False
         self.tasks: list[asyncio.Task] = []
         self.engine: AsyncEngine | None = None
@@ -242,6 +241,7 @@ class ScannerService:
 
         # Process files in parallel using the session manager
         if self.parallel_session_manager:
+
             async def process_file_with_session(file_path: Path, session: Any) -> None:
                 return await self._process_file_with_session(
                     db_repo.id, owner, name, file_path, session
@@ -250,7 +250,7 @@ class ScannerService:
             await self.parallel_session_manager.process_files_parallel(
                 [str(fp) for fp in supported_files],
                 lambda fp, session: process_file_with_session(Path(fp), session),
-                batch_size=5
+                batch_size=5,
             )
         else:
             # Fallback to sequential processing
@@ -287,6 +287,7 @@ class ScannerService:
 
         # Process files in parallel using the session manager
         if self.parallel_session_manager:
+
             async def process_file_with_session(file_path: Path, session: Any) -> None:
                 return await self._process_file_with_session(
                     db_repo.id, owner, name, file_path, session
@@ -295,7 +296,7 @@ class ScannerService:
             await self.parallel_session_manager.process_files_parallel(
                 [str(fp) for fp in valid_files],
                 lambda fp, session: process_file_with_session(Path(fp), session),
-                batch_size=3  # Smaller batch size for changed files
+                batch_size=3,  # Smaller batch size for changed files
             )
         else:
             # Fallback to sequential processing
@@ -353,17 +354,31 @@ class ScannerService:
                         language="python",
                     )
 
-                # Extract code entities
-                entities = self.code_extractor.extract_from_file(file_path, db_file.id)
+                # Process code entities using CodeProcessor
+                code_processor = CodeProcessor(
+                    db_session=session,
+                    repository_path=repo_path,
+                    parser_factory=None,  # Will use default
+                    domain_indexer=None,  # Skip domain indexing for now
+                )
 
-                if entities:
-                    # TODO: Implement entity storage with proper module tracking
+                # Process the file to extract and store entities
+                result = await code_processor.process_file(db_file)
+
+                if result["status"] == "success":
+                    stats = result.get("statistics", {})
                     logger.debug(
-                        "Extracted entities from %s: %d modules, %d classes, %d functions",
+                        "Processed entities from %s: %d modules, %d classes, %d functions",
                         relative_path,
-                        len(entities.get("modules", [])),
-                        len(entities.get("classes", [])),
-                        len(entities.get("functions", [])),
+                        stats.get("modules", 0),
+                        stats.get("classes", 0),
+                        stats.get("functions", 0),
+                    )
+                else:
+                    logger.warning(
+                        "Failed to process entities from %s: %s",
+                        relative_path,
+                        result.get("reason", "unknown"),
                     )
 
                 # Commit is handled inside repository methods
@@ -402,9 +417,9 @@ class ScannerService:
 
             if db_file:
                 # Update existing file
-                db_file.last_modified = metadata.get(
-                    "last_modified"
-                ) or datetime.now(tz=UTC)
+                db_file.last_modified = metadata.get("last_modified") or datetime.now(
+                    tz=UTC
+                )
                 git_hash = metadata.get("git_hash")
                 if git_hash:
                     db_file.git_hash = git_hash
@@ -414,28 +429,42 @@ class ScannerService:
                 db_file = await file_repo.create(
                     repository_id=repo_id,
                     path=relative_path,
-                    last_modified=metadata.get(
-                        "last_modified", datetime.now(tz=UTC)
-                    ),
+                    last_modified=metadata.get("last_modified", datetime.now(tz=UTC)),
                     git_hash=metadata.get("git_hash"),
                     size=file_path.stat().st_size,
                     language="python",
                 )
 
-            # Extract code entities
+            # Process code entities using CodeProcessor
             try:
-                entities = self.code_extractor.extract_from_file(file_path, db_file.id)
-                if entities:
-                    # TODO: Implement entity storage with proper module tracking
+                # Create CodeProcessor instance with the session
+                code_processor = CodeProcessor(
+                    db_session=session,
+                    repository_path=repo_path,
+                    parser_factory=None,  # Will use default
+                    domain_indexer=None,  # Skip domain indexing for now
+                )
+
+                # Process the file to extract and store entities
+                result = await code_processor.process_file(db_file)
+
+                if result["status"] == "success":
+                    stats = result.get("statistics", {})
                     logger.debug(
-                        "Extracted entities from %s: %d modules, %d classes, %d functions",
+                        "Processed entities from %s: %d modules, %d classes, %d functions",
                         relative_path,
-                        len(entities.get("modules", [])),
-                        len(entities.get("classes", [])),
-                        len(entities.get("functions", [])),
+                        stats.get("modules", 0),
+                        stats.get("classes", 0),
+                        stats.get("functions", 0),
+                    )
+                else:
+                    logger.warning(
+                        "Failed to process entities from %s: %s",
+                        relative_path,
+                        result.get("reason", "unknown"),
                     )
             except Exception:
-                logger.exception("Error extracting entities from %s", relative_path)
+                logger.exception("Error processing entities from %s", relative_path)
 
             logger.debug("Processed file: %s", relative_path)
 

@@ -256,10 +256,11 @@ class CodeProcessor:
         await self.db_session.execute(delete(Import).where(Import.file_id == file_id))
         # Functions are linked to modules, not files directly
         # First get modules for this file
-        modules = await self.db_session.execute(
+        modules_result = await self.db_session.execute(
             select(Module).where(Module.file_id == file_id),
         )
-        module_ids = [m.id for m in modules.scalars()]
+        modules = modules_result.scalars().all()
+        module_ids = [m.id for m in modules]
 
         if module_ids:
             # Delete functions linked to these modules
