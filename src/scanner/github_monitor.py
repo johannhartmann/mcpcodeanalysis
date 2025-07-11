@@ -109,7 +109,7 @@ class GitHubMonitor:
         since_str = since.isoformat() + "Z"
 
         url = f"https://api.github.com/repos/{owner}/{repo}/commits"
-        params = {
+        params: dict[str, str | int] = {
             "sha": branch,
             "since": since_str,
             "per_page": 100,
@@ -273,7 +273,8 @@ class GitHubMonitor:
             response = await self.client.post(url, headers=headers, json=payload)
             response.raise_for_status()
 
-            return response.json()
+            result: dict[str, Any] = response.json()
+            return result
 
         except httpx.HTTPStatusError as e:
             if e.response.status_code == HTTP_UNPROCESSABLE_ENTITY:

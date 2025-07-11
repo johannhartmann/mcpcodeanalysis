@@ -42,9 +42,33 @@ class TestCodeSearchTools:
     @pytest.fixture
     def search_tools(self, mock_db_session, mock_mcp, mock_embeddings):
         """Create code search tools fixture."""
-        with patch("src.embeddings.vector_search.settings") as mock_settings:
-            mock_settings.openai_api_key.get_secret_value.return_value = "test-key"
-            mock_settings.embeddings.model = "text-embedding-ada-002"
+        # Mock both vector_search and domain_search settings
+        with (
+            patch("src.embeddings.vector_search.settings") as mock_vector_settings,
+            patch("src.embeddings.domain_search.settings") as mock_domain_settings,
+            patch("src.embeddings.vector_search.OpenAIEmbeddings") as mock_openai_class,
+            patch(
+                "src.embeddings.domain_search.OpenAIEmbeddings"
+            ) as mock_domain_openai_class,
+            patch("src.embeddings.domain_search.ChatOpenAI") as mock_chat_openai,
+        ):
+            # Configure settings
+            mock_vector_settings.openai_api_key.get_secret_value.return_value = (
+                "test-key"
+            )
+            mock_vector_settings.embeddings.model = "text-embedding-ada-002"
+            mock_domain_settings.openai_api_key.get_secret_value.return_value = (
+                "test-key"
+            )
+            mock_domain_settings.embeddings.model = "text-embedding-ada-002"
+            mock_domain_settings.llm.model = "gpt-3.5-turbo"
+            mock_domain_settings.llm.temperature = 0.0
+
+            # Use the mock embeddings fixture
+            mock_openai_class.return_value = mock_embeddings
+            mock_domain_openai_class.return_value = mock_embeddings
+            mock_chat_openai.return_value = MagicMock()
+
             return CodeSearchTools(mock_db_session, mock_mcp)
 
     @pytest.mark.asyncio
@@ -160,9 +184,20 @@ class TestRepositoryManagementTools:
     @pytest.fixture
     def repo_tools(self, mock_db_session, mock_mcp, mock_embeddings):
         """Create repository management tools fixture."""
-        with patch("src.embeddings.embedding_generator.settings") as mock_settings:
-            mock_settings.openai_api_key.get_secret_value.return_value = "test-key"
-            mock_settings.embeddings.model = "text-embedding-ada-002"
+        # Mock embedding generator and its dependencies
+        with (
+            patch("src.embeddings.embedding_generator.settings") as mock_gen_settings,
+            patch(
+                "src.embeddings.embedding_generator.OpenAIEmbeddings"
+            ) as mock_gen_openai,
+        ):
+            # Configure settings
+            mock_gen_settings.openai_api_key.get_secret_value.return_value = "test-key"
+            mock_gen_settings.embeddings.model = "text-embedding-ada-002"
+
+            # Use the mock embeddings fixture
+            mock_gen_openai.return_value = mock_embeddings
+
             return RepositoryManagementTools(mock_db_session, mock_mcp)
 
     @pytest.mark.asyncio

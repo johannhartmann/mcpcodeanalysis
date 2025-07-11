@@ -89,7 +89,7 @@ class GitHubClient:
         self,
         method: str,
         endpoint: str,
-        **kwargs,
+        **kwargs: Any,
     ) -> httpx.Response:
         """Make an API request with retry logic."""
         await self._check_rate_limit()
@@ -122,12 +122,14 @@ class GitHubClient:
         """Get repository information."""
         logger.info("Fetching repository info", owner=owner, repo=repo)
         response = await self._request("GET", f"/repos/{owner}/{repo}")
-        return response.json()
+        result: dict[str, Any] = response.json()
+        return result
 
     async def get_default_branch(self, owner: str, repo: str) -> str:
         """Get repository's default branch."""
         repo_info = await self.get_repository(owner, repo)
-        return repo_info.get("default_branch", "main")
+        default_branch: str = repo_info.get("default_branch", "main")
+        return default_branch
 
     async def get_commits(
         self,
@@ -194,7 +196,8 @@ class GitHubClient:
         """Get detailed information about a specific commit."""
         logger.debug("Fetching commit details", owner=owner, repo=repo, sha=sha)
         response = await self._request("GET", f"/repos/{owner}/{repo}/commits/{sha}")
-        return response.json()
+        result: dict[str, Any] = response.json()
+        return result
 
     async def get_tree(
         self,
@@ -212,7 +215,8 @@ class GitHubClient:
             f"/repos/{owner}/{repo}/git/trees/{tree_sha}",
             params=params,
         )
-        return response.json()
+        result: dict[str, Any] = response.json()
+        return result
 
     async def get_file_content(
         self,
@@ -235,7 +239,8 @@ class GitHubClient:
             f"/repos/{owner}/{repo}/contents/{path}",
             params=params,
         )
-        return response.json()
+        result: dict[str, Any] = response.json()
+        return result
 
     async def create_webhook(
         self,
@@ -264,7 +269,8 @@ class GitHubClient:
             f"/repos/{owner}/{repo}/hooks",
             json=data,
         )
-        return response.json()
+        result: dict[str, Any] = response.json()
+        return result
 
     async def delete_webhook(self, owner: str, repo: str, hook_id: int) -> None:
         """Delete a webhook."""
@@ -274,7 +280,8 @@ class GitHubClient:
     async def get_rate_limit(self) -> dict[str, Any]:
         """Get current rate limit status."""
         response = await self._request("GET", "/rate_limit")
-        return response.json()
+        result: dict[str, Any] = response.json()
+        return result
 
     async def get_changed_files(
         self,
@@ -297,5 +304,6 @@ class GitHubClient:
             f"/repos/{owner}/{repo}/compare/{base_sha}...{head_sha}",
         )
 
-        data = response.json()
-        return data.get("files", [])
+        data: dict[str, Any] = response.json()
+        files: list[dict[str, Any]] = data.get("files", [])
+        return files

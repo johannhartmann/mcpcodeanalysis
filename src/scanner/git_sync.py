@@ -8,6 +8,7 @@ import os
 import shutil
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import git
 from git.exc import GitCommandError, InvalidGitRepositoryError
@@ -207,7 +208,7 @@ class GitSync:
         self,
         repo: git.Repo,
         since_commit: str | None = None,
-    ) -> dict[str, dict[str, any]]:
+    ) -> dict[str, dict[str, Any]]:
         """Get files changed since a specific commit."""
         changed_files = {}
 
@@ -257,7 +258,7 @@ class GitSync:
         self,
         repo: git.Repo,
         file_extensions: set[str] | None = None,
-    ) -> list[dict[str, any]]:
+    ) -> list[dict[str, Any]]:
         """Scan all files in a repository."""
         if file_extensions is None:
             file_extensions = {".py"}  # Default to Python files
@@ -353,13 +354,13 @@ class GitSync:
 
         return extension_map.get(file_path.suffix.lower(), "unknown")
 
-    def get_commit_info(self, repo: git.Repo, commit_sha: str) -> dict[str, any]:
+    def get_commit_info(self, repo: git.Repo, commit_sha: str) -> dict[str, Any]:
         """Get information about a specific commit."""
         try:
             commit = repo.commit(commit_sha)
 
             # Get basic commit info
-            commit_info = {
+            commit_info: dict[str, Any] = {
                 "sha": commit.hexsha,
                 "message": commit.message.strip(),
                 "author": commit.author.name,
@@ -399,7 +400,7 @@ class GitSync:
         branch: str | None = None,
         limit: int = 100,
         since: datetime | None = None,
-    ) -> list[dict[str, any]]:
+    ) -> list[dict[str, Any]]:
         """Get recent commits from repository."""
         commits = []
 

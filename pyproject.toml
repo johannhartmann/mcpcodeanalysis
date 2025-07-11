@@ -21,31 +21,31 @@ classifiers = [
 dependencies = [
     # MCP Framework
     "fastmcp>=0.1.0",
-    
+
     # LangChain/LangGraph
     "langchain-core>=0.1.0",
     "langgraph>=0.0.20",
     "langchain-openai>=0.0.5",
-    
+
     # Database
     "psycopg2-binary>=2.9.9",
     "sqlalchemy>=2.0.0",
     "alembic>=1.13.0",
     "asyncpg>=0.29.0",
     "pgvector>=0.2.4",
-    
+
     # Code Parsing
     "tree-sitter>=0.20.4",
     "tree-sitter-python>=0.20.4",
     "GitPython>=3.1.40",
-    
+
     # Web Framework
     "fastapi>=0.109.0",
     "uvicorn>=0.25.0",
     "httpx>=0.25.0",
     "pydantic>=2.5.0",
     "pydantic-settings>=2.1.0",
-    
+
     # Utilities
     "pyyaml>=6.0.1",
     "click>=8.1.7",
@@ -53,19 +53,19 @@ dependencies = [
     "rich>=13.7.0",
     "tenacity>=8.2.3",
     "aiofiles>=23.2.1",
-    
+
     # Configuration and Logging
     "dynaconf>=3.2.0",
     "structlog>=24.0.0",
-    
+
     # OpenAI
     "openai>=1.10.0",
     "tiktoken>=0.5.2",
-    
+
     # Data Processing
     "numpy>=1.26.0",
     "pandas>=2.1.0",
-    
+
     # Graph Analysis
     "networkx>=3.2",
     "igraph>=0.11.3",
@@ -90,7 +90,7 @@ dev = [
     "pytest-benchmark>=4.0.0",  # performance testing
     "hypothesis>=6.92.0",  # property-based testing
     "faker>=22.0.0",  # test data generation
-    
+
     # Code Quality
     "black>=23.12.0",
     "ruff>=0.1.0",
@@ -101,19 +101,19 @@ dev = [
     "safety>=3.0.0",  # dependency security check
     "pylint>=3.0.0",  # additional linting
     "pyupgrade>=3.15.0",  # upgrade Python syntax
-    
+
     # Type stubs
     "types-pyyaml>=6.0.0",
     "types-requests>=2.31.0",
     "pandas-stubs>=2.1.0",
     "sqlalchemy-stubs>=0.4",
     "types-click>=7.1.0",
-    
+
     # Documentation
     "mkdocs>=1.5.0",
     "mkdocs-material>=9.5.0",
     "mkdocstrings[python]>=0.24.0",
-    
+
     # Development tools
     "ipdb>=0.13.13",  # debugger
     "watchdog>=3.0.0",  # file watching
@@ -311,6 +311,7 @@ addopts = [
 testpaths = ["tests"]
 pythonpath = ["src"]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",

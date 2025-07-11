@@ -83,11 +83,11 @@ class DatabaseHealthCheck(HealthCheck):
         try:
             async with engine.begin() as conn:
                 # Check basic connectivity
-                result = await conn.execute(text("SELECT 1"))
+                result: Any = await conn.execute(text("SELECT 1"))
                 result.scalar()
 
                 # Check pgvector extension
-                vector_result = await conn.execute(
+                vector_result: Any = await conn.execute(
                     text(
                         "SELECT installed_version FROM pg_available_extensions WHERE name = 'vector'",
                     ),
@@ -95,13 +95,13 @@ class DatabaseHealthCheck(HealthCheck):
                 vector_version = vector_result.scalar()
 
                 # Get database size
-                size_result = await conn.execute(
+                size_result: Any = await conn.execute(
                     text("SELECT pg_database_size(current_database())"),
                 )
                 db_size_bytes = size_result.scalar()
 
                 # Get table counts
-                tables_result = await conn.execute(
+                tables_result: Any = await conn.execute(
                     text(
                         """
                         SELECT
@@ -269,7 +269,7 @@ class HealthCheckManager:
         )
 
         # Process results
-        checks = []
+        checks: list[dict[str, Any]] = []
         overall_status = HealthStatus.HEALTHY
 
         for result in check_results:
@@ -284,11 +284,13 @@ class HealthCheckManager:
                 )
                 overall_status = HealthStatus.UNHEALTHY
             else:
-                checks.append(result)
-                if result["status"] == HealthStatus.UNHEALTHY:
+                # Type narrowing - result is dict[str, Any] here, not Exception
+                result_dict = result  # type: dict[str, Any]
+                checks.append(result_dict)
+                if result_dict["status"] == HealthStatus.UNHEALTHY:
                     overall_status = HealthStatus.UNHEALTHY
                 elif (
-                    result["status"] == HealthStatus.DEGRADED
+                    result_dict["status"] == HealthStatus.DEGRADED
                     and overall_status == HealthStatus.HEALTHY
                 ):
                     overall_status = HealthStatus.DEGRADED

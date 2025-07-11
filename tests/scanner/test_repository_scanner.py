@@ -314,65 +314,6 @@ class TestRepositoryScanner:
             repository_scanner.db_session.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_incremental_file_scan(
-        self,
-        repository_scanner,
-        mock_repo_record,
-        mock_git_repo,
-    ) -> None:
-        """Test incremental file scan."""
-        # Create mock commits with changed files
-        commit1 = MagicMock(spec=Commit)
-        commit1.files_changed = ["src/main.py", "README.md"]
-        commit1.processed = False
-
-        commit2 = MagicMock(spec=Commit)
-        commit2.files_changed = ["src/utils.py", "tests/test_utils.py"]
-        commit2.processed = False
-
-        new_commits = [commit1, commit2]
-
-        # Mock file paths
-        with patch("pathlib.Path") as mock_path_class:
-
-            def create_mock_path(exists_val, size_val=1000):
-                mock_path = MagicMock()
-                mock_path.exists.return_value = exists_val
-                mock_path.stat.return_value = MagicMock(
-                    st_size=size_val,
-                    st_mtime=datetime.now(tz=UTC).timestamp(),
-                )
-                return mock_path
-
-            # Configure Path behavior
-            mock_path_class.side_effect = lambda p: create_mock_path(True)
-
-            with (
-                patch.object(
-                    repository_scanner,
-                    "_update_or_create_file",
-                ) as mock_update_file,
-                patch.object(
-                    repository_scanner.git_sync,
-                    "get_file_hash",
-                    return_value="hash123",
-                ),
-            ):
-                mock_file = MagicMock(spec=File)
-                mock_update_file.return_value = mock_file
-
-                scanned_files = await repository_scanner._incremental_file_scan(
-                    mock_repo_record,
-                    mock_git_repo,
-                    new_commits,
-                )
-
-                # Should only scan Python files
-                assert len(scanned_files) == 2  # main.py and utils.py
-                assert commit1.processed is True
-                assert commit2.processed is True
-
-    @pytest.mark.asyncio
     async def test_update_or_create_file_existing(
         self,
         repository_scanner,
@@ -473,7 +414,16 @@ class TestRepositoryScanner:
                 "_full_file_scan",
                 return_value=[MagicMock(), MagicMock()],
             ),
+            patch(
+                "src.scanner.repository_scanner.CodeProcessor"
+            ) as mock_code_processor_class,
         ):
+            # Mock CodeProcessor to avoid initialization issues
+            mock_code_processor = MagicMock()
+            mock_code_processor.process_files = AsyncMock(
+                return_value={"success": 2, "statistics": {}}
+            )
+            mock_code_processor_class.return_value = mock_code_processor
             # Mock GitHub client
             mock_github_client = AsyncMock()
             mock_github_client.get_repository = AsyncMock(

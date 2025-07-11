@@ -10,7 +10,7 @@ from sqlalchemy import engine_from_config, pool
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parents[3]))
 
-from src.config import settings
+from src.config import get_database_url
 from src.database.models import Base
 
 # this is the Alembic Config object, which provides
@@ -29,8 +29,8 @@ target_metadata = Base.metadata
 
 def get_url() -> str:
     """Get database URL from settings."""
-    # settings imported globally from src.config
-    return settings.get_database_url()
+    # get_database_url imported globally from src.config
+    return get_database_url()
 
 
 def run_migrations_offline() -> None:

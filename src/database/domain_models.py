@@ -28,7 +28,7 @@ from sqlalchemy import (
 )
 
 try:
-    pass
+    from sqlalchemy import ARRAY  # noqa: F401
 except ImportError:
     # For SQLite, we'll use JSON instead
     def ARRAY(item_type: Any) -> Any:  # type: ignore[no-redef]  # noqa: ARG001, N802
