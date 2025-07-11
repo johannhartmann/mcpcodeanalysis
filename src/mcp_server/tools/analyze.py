@@ -252,7 +252,6 @@ class AnalyzeTool:
 
         # Find imports
 
-
         # Using raw SQL for complex join
         query = text(
             """

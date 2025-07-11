@@ -534,7 +534,8 @@ Output as JSON:
                 select(ContextRelationship).where(
                     ContextRelationship.source_context_id == source_id,
                     ContextRelationship.target_context_id == target_id,
-                    ContextRelationship.relationship_type == rel_data["relationship_type"],
+                    ContextRelationship.relationship_type
+                    == rel_data["relationship_type"],
                 )
             )
 

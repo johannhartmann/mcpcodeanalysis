@@ -430,3 +430,80 @@ class GitSync:
             raise RepositoryError(msg) from e
 
         return commits
+
+    def get_file_git_metadata(
+        self,
+        repo: git.Repo,
+        file_path: Path,
+    ) -> dict[str, Any]:
+        """Get git metadata for a specific file.
+
+        Args:
+            repo: Git repository
+            file_path: Path to file (absolute or relative to repo)
+
+        Returns:
+            Dictionary with git metadata
+        """
+        try:
+            repo_path = Path(repo.working_dir)
+
+            # Get relative path
+            if file_path.is_absolute():
+                relative_path = file_path.relative_to(repo_path)
+            else:
+                relative_path = file_path
+
+            # Get git hash if file is tracked
+            git_hash = None
+            last_commit = None
+
+            try:
+                # Get the file's git object
+                git_file = repo.head.commit.tree[str(relative_path)]
+                git_hash = git_file.binsha.hex()
+
+                # Get last commit that modified this file
+                commits = list(repo.iter_commits(paths=str(relative_path), max_count=1))
+                if commits:
+                    last_commit = commits[0]
+
+            except (KeyError, git.exc.GitCommandError):
+                # File not tracked in git
+                logger.debug("File not tracked in git: %s", relative_path)
+
+            # Get file stats
+            stat = (
+                file_path.stat()
+                if file_path.is_absolute()
+                else (repo_path / file_path).stat()
+            )
+
+            metadata = {
+                "git_hash": git_hash,
+                "last_modified": datetime.fromtimestamp(stat.st_mtime, tz=UTC),
+                "size": stat.st_size,
+            }
+
+            if last_commit:
+                metadata.update(
+                    {
+                        "last_commit_sha": last_commit.hexsha,
+                        "last_commit_date": datetime.fromtimestamp(
+                            last_commit.committed_date, tz=UTC
+                        ),
+                        "last_commit_author": last_commit.author.name,
+                        "last_commit_message": last_commit.message.strip(),
+                    }
+                )
+
+            return metadata
+
+        except (OSError, git.exc.GitCommandError, ValueError) as e:
+            logger.warning("Error getting git metadata for file %s: %s", file_path, e)
+            # Return basic metadata on error
+            return {
+                "git_hash": None,
+                "last_modified": datetime.now(tz=UTC),
+                "size": 0,
+            }

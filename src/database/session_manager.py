@@ -55,7 +55,7 @@ class ParallelSessionManager:
 
         # Process items in batches to avoid overwhelming the database
         for i in range(0, len(items), batch_size):
-            batch = items[i:i + batch_size]
+            batch = items[i : i + batch_size]
 
             async def process_item(item: T) -> Any:
                 async with self.get_session() as session:
@@ -63,8 +63,7 @@ class ParallelSessionManager:
 
             # Execute batch in parallel
             batch_results = await asyncio.gather(
-                *[process_item(item) for item in batch],
-                return_exceptions=True
+                *[process_item(item) for item in batch], return_exceptions=True
             )
 
             # Handle exceptions and collect results
@@ -74,7 +73,7 @@ class ParallelSessionManager:
                         "Error processing item %d in batch %d: %s",
                         j,
                         i // batch_size,
-                        result
+                        result,
                     )
                     results.append(None)
                 else:
@@ -108,7 +107,7 @@ class ParallelSessionManager:
 
         # Process items in batches
         for i in range(0, len(items), batch_size):
-            batch = items[i:i + batch_size]
+            batch = items[i : i + batch_size]
 
             async def process_item_with_context(item: T) -> Any:
                 async with self.get_session() as session:
@@ -119,7 +118,7 @@ class ParallelSessionManager:
             # Execute batch in parallel
             batch_results = await asyncio.gather(
                 *[process_item_with_context(item) for item in batch],
-                return_exceptions=True
+                return_exceptions=True,
             )
 
             # Handle exceptions and collect results
@@ -129,7 +128,7 @@ class ParallelSessionManager:
                         "Error processing item %d in batch %d: %s",
                         j,
                         i // batch_size,
-                        result
+                        result,
                     )
                     results.append(None)
                 else:
@@ -151,7 +150,7 @@ class ParallelSessionManager:
         """
         async with self.get_session() as session:
             for i in range(0, len(items), batch_size):
-                batch = items[i:i + batch_size]
+                batch = items[i : i + batch_size]
                 session.add_all(batch)
                 await session.flush()  # Flush to get IDs
 
@@ -159,7 +158,7 @@ class ParallelSessionManager:
                     "Bulk inserted batch %d-%d (%d items)",
                     i,
                     min(i + batch_size, len(items)),
-                    len(batch)
+                    len(batch),
                 )
 
     async def bulk_update(
@@ -178,7 +177,7 @@ class ParallelSessionManager:
         """
         async with self.get_session() as session:
             for i in range(0, len(updates), batch_size):
-                batch = updates[i:i + batch_size]
+                batch = updates[i : i + batch_size]
 
                 # Prepare bulk update
                 await session.bulk_update_mappings(model_class, batch)
@@ -187,7 +186,7 @@ class ParallelSessionManager:
                     "Bulk updated batch %d-%d (%d items)",
                     i,
                     min(i + batch_size, len(updates)),
-                    len(batch)
+                    len(batch),
                 )
 
     async def process_files_parallel(
@@ -207,12 +206,14 @@ class ParallelSessionManager:
         Returns:
             List of processing results
         """
-        logger.info("Processing %d files in parallel (batch size: %d)", len(file_paths), batch_size)
+        logger.info(
+            "Processing %d files in parallel (batch size: %d)",
+            len(file_paths),
+            batch_size,
+        )
 
         return await self.execute_parallel(
-            file_paths,
-            processor_func,
-            batch_size=batch_size
+            file_paths, processor_func, batch_size=batch_size
         )
 
     def set_concurrency_limit(self, limit: int) -> None:

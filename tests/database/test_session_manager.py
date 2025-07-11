@@ -27,7 +27,9 @@ class TestParallelSessionManager:
         return ParallelSessionManager(mock_session_factory)
 
     @pytest.mark.asyncio
-    async def test_get_session_context_manager(self, session_manager, mock_session_factory):
+    async def test_get_session_context_manager(
+        self, session_manager, mock_session_factory
+    ):
         """Test that get_session works as context manager."""
         async with session_manager.get_session() as session:
             assert session is not None
@@ -35,7 +37,9 @@ class TestParallelSessionManager:
             mock_session_factory.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_session_commit_on_success(self, session_manager, mock_session_factory):
+    async def test_get_session_commit_on_success(
+        self, session_manager, mock_session_factory
+    ):
         """Test that session commits on successful completion."""
         mock_session = mock_session_factory.return_value.__aenter__.return_value
 
@@ -46,7 +50,9 @@ class TestParallelSessionManager:
         mock_session.rollback.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_get_session_rollback_on_exception(self, session_manager, mock_session_factory):
+    async def test_get_session_rollback_on_exception(
+        self, session_manager, mock_session_factory
+    ):
         """Test that session rolls back on exception."""
         mock_session = mock_session_factory.return_value.__aenter__.return_value
 
@@ -65,9 +71,7 @@ class TestParallelSessionManager:
         async def test_func(item, session):
             return item * 2
 
-        results = await session_manager.execute_parallel(
-            items, test_func, batch_size=2
-        )
+        results = await session_manager.execute_parallel(items, test_func, batch_size=2)
 
         assert results == [2, 4, 6, 8, 10]
 
@@ -81,9 +85,7 @@ class TestParallelSessionManager:
                 raise ValueError("Test exception")
             return item * 2
 
-        results = await session_manager.execute_parallel(
-            items, test_func, batch_size=2
-        )
+        results = await session_manager.execute_parallel(items, test_func, batch_size=2)
 
         # Should have None for the failed item
         assert results == [2, 4, None, 8, 10]
@@ -99,9 +101,7 @@ class TestParallelSessionManager:
             await asyncio.sleep(0.01)  # Small delay
             return item
 
-        results = await session_manager.execute_parallel(
-            items, test_func, batch_size=3
-        )
+        results = await session_manager.execute_parallel(items, test_func, batch_size=3)
 
         assert len(results) == 10
         assert set(results) == set(items)
@@ -132,7 +132,9 @@ class TestParallelSessionManager:
         await session_manager.bulk_insert(items, batch_size=3)
 
         # Should call add_all and flush for each batch
-        assert mock_session.add_all.call_count == 4  # 10 items / 3 batch_size = 4 batches
+        assert (
+            mock_session.add_all.call_count == 4
+        )  # 10 items / 3 batch_size = 4 batches
         assert mock_session.flush.call_count == 4
 
     @pytest.mark.asyncio
@@ -146,7 +148,9 @@ class TestParallelSessionManager:
         await session_manager.bulk_update(model_class, updates, batch_size=3)
 
         # Should call bulk_update_mappings for each batch
-        assert mock_session.bulk_update_mappings.call_count == 4  # 10 items / 3 batch_size = 4 batches
+        assert (
+            mock_session.bulk_update_mappings.call_count == 4
+        )  # 10 items / 3 batch_size = 4 batches
 
     def test_set_concurrency_limit(self, session_manager):
         """Test setting concurrency limit."""

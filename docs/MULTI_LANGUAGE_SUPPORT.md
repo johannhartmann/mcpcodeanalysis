@@ -66,7 +66,7 @@ To add support for a new language, you need to:
    ```python
    # src/parser/newlang_parser.py
    from src.parser.base_parser import BaseParser
-   
+
    class NewLangParser(BaseParser):
        def parse_file(self, file_path: Path) -> dict[str, Any]:
            # Implement parsing logic

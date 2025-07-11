@@ -7,7 +7,6 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-
 # Import domain models to ensure they're registered with metadata
 from src.database import domain_models  # noqa: F401
 from src.database.models import Base

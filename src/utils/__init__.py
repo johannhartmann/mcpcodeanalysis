@@ -1,6 +1,7 @@
 """Utility modules for MCP Code Analysis Server."""
 
 from src.logger import get_logger, setup_logging
+from src.utils.exceptions import TimeoutError  # noqa: A004
 from src.utils.exceptions import (
     AuthenticationError,
     AuthorizationError,
@@ -15,7 +16,6 @@ from src.utils.exceptions import (
     QueryError,
     RateLimitError,
     RepositoryError,
-    TimeoutError,  # noqa: A004
     ValidationError,
     VectorSearchError,
     WebhookError,

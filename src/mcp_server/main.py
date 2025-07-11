@@ -10,12 +10,12 @@ from fastmcp import FastMCP
 from src.config import settings  # TODO(johann): Review imports: config, settings
 from src.database import init_database
 from src.logger import get_logger, setup_logging
-from src.utils.version import get_package_version
 from src.mcp_server.tools.analyze import AnalyzeTool
 from src.mcp_server.tools.explain import ExplainTool
 from src.mcp_server.tools.find import FindTool
 from src.mcp_server.tools.repository import RepositoryTool
 from src.mcp_server.tools.search import SearchTool
+from src.utils.version import get_package_version
 
 logger = get_logger(__name__)
 

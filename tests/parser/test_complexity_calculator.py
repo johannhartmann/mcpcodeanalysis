@@ -216,7 +216,7 @@ def function_with_lambda():
 def complex_function(data, threshold):
     if not data:
         return None
-    
+
     results = []
     for item in data:
         if item > threshold:
@@ -230,7 +230,7 @@ def complex_function(data, threshold):
                 break
         elif item < 0:
             results.append(0)
-    
+
     return results if results else None
 """
         node = self._parse_function(code)

@@ -186,8 +186,20 @@ class RepositoryTool:
 
             # Get changed files count
             if repo.last_synced:
-                # TODO: Implement changed files detection
-                result["changed_files"] = 0
+                # Get commits since last sync to count changed files
+                recent_commits = await self.git_sync.get_recent_commits(
+                    git_repo,
+                    repo.default_branch,
+                    limit=100,
+                    since=repo.last_synced,
+                )
+
+                # Collect unique changed files
+                changed_files = set()
+                for commit_info in recent_commits:
+                    changed_files.update(commit_info.get("files_changed", []))
+
+                result["changed_files"] = len(changed_files)
 
             # Update last synced
             await self.repo_repo.update_last_synced(repo.id)

@@ -166,10 +166,25 @@ class ScannerService:
                     repo_config.get("access_token"),
                 )
 
-                # Process changed files
-                # TODO: Implement proper commit tracking
-                # For now, just process all files on update
-                changed_files: set[str] = set()
+                # Get changed files since last sync
+                changed_files = set()
+                if db_repo.last_synced:
+                    # Get commits since last sync
+                    recent_commits = await self.git_sync.get_recent_commits(
+                        git_repo,
+                        db_repo.default_branch,
+                        limit=100,
+                        since=db_repo.last_synced,
+                    )
+
+                    # Collect all changed files from commits
+                    for commit_info in recent_commits:
+                        changed_files.update(commit_info.get("files_changed", []))
+
+                    logger.info(
+                        "Found %d changed files since last sync",
+                        len(changed_files),
+                    )
 
                 await self.process_changed_files(
                     db_repo,
@@ -316,12 +331,18 @@ class ScannerService:
             repo_path = self.git_sync._get_repo_path(owner, name)
             relative_path = str(file_path.relative_to(repo_path))
 
-            # Get file metadata
-            # TODO: Implement proper git metadata extraction
-            metadata: dict[str, Any] = {
-                "last_modified": datetime.now(tz=UTC),
-                "git_hash": None,
-            }
+            # Get git metadata for the file
+            repo_url = f"https://github.com/{owner}/{name}"
+            git_repo = self.git_sync.get_repository(repo_url)
+            if git_repo:
+                metadata = self.git_sync.get_file_git_metadata(git_repo, file_path)
+            else:
+                # Fallback if git repo not available
+                metadata = {
+                    "last_modified": datetime.now(tz=UTC),
+                    "git_hash": None,
+                    "size": file_path.stat().st_size,
+                }
 
             # Create or update file in database
             if self.session_factory is None:
@@ -340,7 +361,7 @@ class ScannerService:
                     git_hash = metadata.get("git_hash")
                     if git_hash:
                         db_file.git_hash = git_hash
-                    db_file.size = file_path.stat().st_size
+                    db_file.size = metadata.get("size", file_path.stat().st_size)
                 else:
                     # Create new file
                     db_file = await file_repo.create(
@@ -350,7 +371,7 @@ class ScannerService:
                             "last_modified", datetime.now(tz=UTC)
                         ),
                         git_hash=metadata.get("git_hash"),
-                        size=file_path.stat().st_size,
+                        size=metadata.get("size", file_path.stat().st_size),
                         language="python",
                     )
 
@@ -402,12 +423,18 @@ class ScannerService:
             repo_path = self.git_sync._get_repo_path(owner, name)
             relative_path = str(file_path.relative_to(repo_path))
 
-            # Get file metadata
-            # TODO: Implement proper git metadata extraction
-            metadata: dict[str, Any] = {
-                "last_modified": datetime.now(tz=UTC),
-                "git_hash": None,
-            }
+            # Get git metadata for the file
+            repo_url = f"https://github.com/{owner}/{name}"
+            git_repo = self.git_sync.get_repository(repo_url)
+            if git_repo:
+                metadata = self.git_sync.get_file_git_metadata(git_repo, file_path)
+            else:
+                # Fallback if git repo not available
+                metadata = {
+                    "last_modified": datetime.now(tz=UTC),
+                    "git_hash": None,
+                    "size": file_path.stat().st_size,
+                }
 
             # Create or update file in database using provided session
             file_repo = FileRepo(session)
@@ -423,7 +450,7 @@ class ScannerService:
                 git_hash = metadata.get("git_hash")
                 if git_hash:
                     db_file.git_hash = git_hash
-                db_file.size = file_path.stat().st_size
+                db_file.size = metadata.get("size", file_path.stat().st_size)
             else:
                 # Create new file
                 db_file = await file_repo.create(
@@ -431,7 +458,7 @@ class ScannerService:
                     path=relative_path,
                     last_modified=metadata.get("last_modified", datetime.now(tz=UTC)),
                     git_hash=metadata.get("git_hash"),
-                    size=file_path.stat().st_size,
+                    size=metadata.get("size", file_path.stat().st_size),
                     language="python",
                 )
 
