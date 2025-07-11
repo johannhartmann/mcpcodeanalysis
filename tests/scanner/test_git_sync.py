@@ -31,7 +31,7 @@ def git_sync(tmp_path):
 def mock_repo():
     """Create mock git repository."""
     repo = MagicMock(spec=git.Repo)
-    repo.working_dir = "/tmp/test_repo"
+    repo.working_dir = "/tmp/test_repo"  # nosec B108 - mock path for testing
     repo.heads = {"main": MagicMock(), "develop": MagicMock()}
     repo.active_branch = MagicMock(name="main")
     repo.active_branch.name = "main"

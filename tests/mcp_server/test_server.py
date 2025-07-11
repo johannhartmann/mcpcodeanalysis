@@ -13,7 +13,7 @@ def mock_settings():
     """Create mock settings."""
     settings = MagicMock()
     settings.openai_api_key.get_secret_value.return_value = "test-key"
-    settings.mcp.host = "0.0.0.0"
+    settings.mcp.host = "127.0.0.1"
     settings.mcp.port = 8080
     settings.database.url = "postgresql+asyncpg://test@localhost/test"
     return settings

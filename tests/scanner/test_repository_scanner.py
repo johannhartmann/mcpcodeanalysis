@@ -77,7 +77,7 @@ def mock_git_repo():
     # working_dir needs to be a Path that supports division operator
     from pathlib import Path
 
-    repo.working_dir = Path("/tmp/test-repo")
+    repo.working_dir = Path("/tmp/test-repo")  # nosec B108 - mock path for testing
     repo.active_branch = MagicMock()
     repo.active_branch.name = "main"
     return repo
@@ -272,7 +272,7 @@ class TestRepositoryScanner:
         files_data = [
             {
                 "path": "src/main.py",
-                "absolute_path": "/tmp/test-repo/src/main.py",
+                "absolute_path": "/tmp/test-repo/src/main.py",  # nosec B108 - mock path
                 "size": 1000,
                 "modified_time": datetime.now(tz=UTC),
                 "content_hash": "hash123",
@@ -281,7 +281,7 @@ class TestRepositoryScanner:
             },
             {
                 "path": "src/utils.py",
-                "absolute_path": "/tmp/test-repo/src/utils.py",
+                "absolute_path": "/tmp/test-repo/src/utils.py",  # nosec B108 - mock path
                 "size": 500,
                 "modified_time": datetime.now(tz=UTC),
                 "content_hash": "hash456",

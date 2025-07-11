@@ -122,7 +122,7 @@ class DatabaseConfig(BaseModel):
 class MCPConfig(BaseModel):
     """MCP server configuration."""
 
-    host: str = Field("0.0.0.0", description="Server host")
+    host: str = Field("127.0.0.1", description="Server host")
     port: int = Field(8080, ge=1, le=65535, description="Server port")
     allow_origins: list[str] = Field(["*"], description="CORS allowed origins")
     rate_limit_enabled: bool = Field(False, description="Enable rate limiting")
