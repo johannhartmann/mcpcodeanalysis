@@ -31,28 +31,33 @@ services:
       - "8080:8080"
     environment:
       # Database
-      DATABASE_URL: postgresql://codeanalyzer:${POSTGRES_PASSWORD:-developmentpass}@postgres:5432/code_analysis
+      DATABASE_URL: postgresql+asyncpg://codeanalyzer:${POSTGRES_PASSWORD:-developmentpass}@postgres:5432/code_analysis
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_DB: code_analysis
       POSTGRES_USER: codeanalyzer
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-developmentpass}
-      
+
       # OpenAI
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      
+
       # Server
       MCP_HOST: 0.0.0.0
       MCP_PORT: 8080
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      
+
       # Development
       DEBUG: ${DEBUG:-false}
       RELOAD: ${RELOAD:-false}
+
+      # Enable all services
+      ENABLE_SCANNER: ${ENABLE_SCANNER:-true}
+      ENABLE_INDEXER: ${ENABLE_INDEXER:-true}
     volumes:
       - ./src:/app/src:ro
       - ./config.yaml:/app/config.yaml:ro
       - ./code_to_analyze:/workspace:ro
+      - repositories:/app/repositories
       - logs:/app/logs
       - embeddings_cache:/app/.embeddings_cache
     depends_on:
@@ -60,63 +65,9 @@ services:
         condition: service_healthy
     networks:
       - mcp-network
-    command: server
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/mcp/"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    command: all  # Run all services
 
-  scanner:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: mcp-scanner
-    restart: "no"
-    environment:
-      DATABASE_URL: postgresql://codeanalyzer:${POSTGRES_PASSWORD:-developmentpass}@postgres:5432/code_analysis
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    volumes:
-      - ./src:/app/src:ro
-      - ./config.yaml:/app/config.yaml:ro
-      - ./code_to_analyze:/workspace:ro
-      - logs:/app/logs
-      - embeddings_cache:/app/.embeddings_cache
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - mcp-network
-    command: scanner
-    profiles:
-      - tools
-
-  indexer:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: mcp-indexer
-    restart: "no"
-    environment:
-      DATABASE_URL: postgresql://codeanalyzer:${POSTGRES_PASSWORD:-developmentpass}@postgres:5432/code_analysis
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    volumes:
-      - ./src:/app/src:ro
-      - ./config.yaml:/app/config.yaml:ro
-      - ./code_to_analyze:/workspace:ro
-      - logs:/app/logs
-      - embeddings_cache:/app/.embeddings_cache
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - mcp-network
-    command: indexer
-    profiles:
-      - tools
-
+  # Optional development tools
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: mcp-pgadmin
@@ -137,30 +88,12 @@ services:
     profiles:
       - dev
 
-  redis:
-    image: redis:7-alpine
-    container_name: mcp-redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - mcp-network
-    profiles:
-      - cache
-
 volumes:
   postgres_data:
     driver: local
   pgadmin_data:
     driver: local
-  redis_data:
+  repositories:
     driver: local
   logs:
     driver: local
