@@ -8,6 +8,7 @@ from langchain_openai import OpenAIEmbeddings
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+
 from src.config import settings
 from src.database.models import (
     Class,

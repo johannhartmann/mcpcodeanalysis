@@ -4,6 +4,7 @@ from typing import Never
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 from src.utils.health import (
     DatabaseHealthCheck,
     DiskSpaceHealthCheck,

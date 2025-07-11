@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 from sqlalchemy import text
+
 from src.database.models import Class, File, Function, Module
 from src.indexer.embeddings import EmbeddingGenerator
 from src.logger import get_logger

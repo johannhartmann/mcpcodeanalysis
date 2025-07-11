@@ -4,11 +4,11 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy import text
+
+from src.database import get_repositories, get_session
 from src.database.models import Class, File, Function, Module
 from src.logger import get_logger
 from src.parser.code_extractor import CodeExtractor
-
-from src.database import get_repositories, get_session
 
 logger = get_logger(__name__)
 

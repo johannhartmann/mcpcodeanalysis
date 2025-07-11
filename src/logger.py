@@ -6,9 +6,10 @@ from pathlib import Path
 from typing import Any
 
 import structlog
-from src.config import settings
 from structlog.processors import CallsiteParameter
 from structlog.types import Processor
+
+from src.config import settings
 
 
 def setup_logging() -> None:

@@ -7,13 +7,12 @@ from pathlib import Path
 from typing import Any
 
 from src.config import settings
+from src.database import get_repositories, get_session, init_database
 from src.indexer.chunking import CodeChunker
 from src.indexer.embeddings import EmbeddingGenerator
 from src.indexer.interpreter import CodeInterpreter
 from src.logger import get_logger, setup_logging
 from src.parser.code_extractor import CodeExtractor
-
-from src.database import get_repositories, get_session, init_database
 
 logger = get_logger(__name__)
 

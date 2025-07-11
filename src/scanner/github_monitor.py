@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
+
 from src.config import settings
 from src.logger import get_logger
 from src.utils.exceptions import GitHubError

@@ -7,8 +7,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
 
-from src.logger import get_logger
 from tree_sitter import Language, Node, Parser, Tree
+
+from src.logger import get_logger
 
 logger = get_logger(__name__)
 

@@ -7,6 +7,7 @@ import numpy as np
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+
 from src.database.models import (
     Class,
     CodeEmbedding,

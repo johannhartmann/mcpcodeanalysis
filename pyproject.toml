@@ -366,6 +366,7 @@ use_parentheses = true
 ensure_newline_before_comments = true
 line_length = 88
 known_third_party = ["fastapi", "pydantic", "sqlalchemy", "langchain", "langgraph", "fastmcp"]
+known_first_party = ["src"]
 sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
 
 [tool.bandit]

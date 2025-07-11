@@ -6,15 +6,15 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastmcp import FastMCP
+
 from src.config import settings  # TODO(johann): Review imports: config, settings
+from src.database import init_database
 from src.logger import get_logger, setup_logging
 from src.mcp_server.tools.analyze import AnalyzeTool
 from src.mcp_server.tools.explain import ExplainTool
 from src.mcp_server.tools.find import FindTool
 from src.mcp_server.tools.repository import RepositoryTool
 from src.mcp_server.tools.search import SearchTool
-
-from src.database import init_database
 
 logger = get_logger(__name__)
 

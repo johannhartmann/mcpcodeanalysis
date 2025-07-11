@@ -6,6 +6,7 @@ from langchain.chains import LLMChain
 from langchain_core.callbacks import get_openai_callback
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
+
 from src.config import settings
 from src.logger import get_logger
 

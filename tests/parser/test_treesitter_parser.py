@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import tree_sitter
+
 from src.parser.treesitter_parser import PythonParser, TreeSitterParser
 
 

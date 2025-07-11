@@ -5,6 +5,7 @@ from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.database.domain_models import BoundedContext, DomainEntity, DomainRelationship
 from src.database.models import File, Module
 from src.domain.entity_extractor import DomainEntityExtractor

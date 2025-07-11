@@ -6,11 +6,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
+
 from src.config import settings
 from src.logger import get_logger
 from src.utils.exceptions import ValidationError
-from watchdog.events import FileSystemEventHandler
-from watchdog.observers import Observer
 
 logger = get_logger(__name__)
 

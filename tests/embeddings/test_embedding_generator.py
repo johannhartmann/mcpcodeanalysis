@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 from src.embeddings.embedding_generator import EmbeddingGenerator
 
 

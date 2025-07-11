@@ -36,6 +36,7 @@ except ImportError:
 
 
 from sqlalchemy.orm import relationship
+
 from src.database.models import Base
 
 

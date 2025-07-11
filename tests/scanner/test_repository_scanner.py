@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import git
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.database.models import Commit, File, Repository
 from src.models import RepositoryConfig
 from src.scanner.repository_scanner import RepositoryScanner
