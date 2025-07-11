@@ -207,11 +207,30 @@ class PythonParser(TreeSitterParser):
         functions = []
         root = parent_class if parent_class else tree.root_node
 
-        function_nodes = self.find_nodes_by_type(
-            root,
-            "function_definition",
-            max_depth=2 if parent_class else None,
-        )
+        # When extracting module-level functions, we need to exclude those inside classes
+        if parent_class:
+            function_nodes = self.find_nodes_by_type(
+                root,
+                "function_definition",
+                max_depth=4,  # Increased to handle decorated methods
+            )
+        else:
+            # For module-level, find all functions then filter out those inside classes
+            all_function_nodes = self.find_nodes_by_type(root, "function_definition")
+            class_nodes = self.find_nodes_by_type(root, "class_definition")
+
+            # Create a set of functions that are inside classes
+            class_function_nodes = set()
+            for class_node in class_nodes:
+                class_functions = self.find_nodes_by_type(
+                    class_node, "function_definition"
+                )
+                class_function_nodes.update(class_functions)
+
+            # Only keep module-level functions
+            function_nodes = [
+                f for f in all_function_nodes if f not in class_function_nodes
+            ]
 
         for node in function_nodes:
             func_data = {
@@ -255,6 +274,11 @@ class PythonParser(TreeSitterParser):
                         func_data["is_staticmethod"] = True
                     elif decorator_name == "classmethod":
                         func_data["is_classmethod"] = True
+                    elif decorator_name.endswith(".setter") or decorator_name.endswith(
+                        ".deleter"
+                    ):
+                        # Property setters and deleters
+                        func_data["is_property"] = True
 
             # Extract function details
             for child in node.children:
@@ -267,13 +291,17 @@ class PythonParser(TreeSitterParser):
                     func_data["return_type"] = (
                         self.get_node_text(child, content).strip("->").strip()
                     )
-                elif child.type == "block" and (
-                    self.find_nodes_by_type(child, "yield_statement")
-                    or self.find_nodes_by_type(child, "yield_expression")
-                    or self.find_nodes_by_type(child, "yield")
-                ):
+                elif child.type == "block":
                     # Check if it's a generator by looking for yield nodes
-                    func_data["is_generator"] = True
+                    if (
+                        self.find_nodes_by_type(child, "yield_statement")
+                        or self.find_nodes_by_type(child, "yield_expression")
+                        or self.find_nodes_by_type(child, "yield")
+                    ):
+                        func_data["is_generator"] = True
+                    # Also check for generator expressions and comprehensions in return statements
+                    elif self._contains_generator_return(child, content):
+                        func_data["is_generator"] = True
 
             # Extract docstring
             func_data["docstring"] = self.get_docstring(node, content)
@@ -437,3 +465,20 @@ class PythonParser(TreeSitterParser):
                             return docstring[1:-1].strip()
                 break
         return None
+
+    def _contains_generator_return(
+        self,
+        block_node: tree_sitter.Node,
+        content: bytes,
+    ) -> bool:
+        """Check if a block contains a return statement with a generator expression."""
+        return_nodes = self.find_nodes_by_type(block_node, "return_statement")
+        for return_node in return_nodes:
+            # Check for generator expressions in return statements
+            if self.find_nodes_by_type(return_node, "generator_expression"):
+                return True
+            # Check for yield from expressions
+            for child in return_node.children:
+                if child.type == "yield_from_expression":
+                    return True
+        return False
