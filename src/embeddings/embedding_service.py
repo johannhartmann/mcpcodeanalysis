@@ -1,12 +1,13 @@
 """Service for managing embeddings in the database."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from src.database.domain_models import DomainEntity
 from src.database.models import (
     Class,
     CodeEmbedding,
@@ -504,5 +505,124 @@ class EmbeddingService:
         # Create new embeddings
         stats = await self.create_file_embeddings(file_id)
         stats["deleted"] = deleted.rowcount
+
+        return stats
+
+    async def create_domain_entity_embedding(
+        self,
+        entity_id: int,
+    ) -> dict[str, Any]:
+        """Create embedding for a domain entity.
+
+        Args:
+            entity_id: Domain entity ID
+
+        Returns:
+            Embedding creation result
+        """
+        logger.info("Creating embedding for domain entity %d", entity_id)
+
+        # Get domain entity with relationships
+        result = await self.db_session.execute(
+            select(DomainEntity)
+            .where(DomainEntity.id == entity_id)
+            .options(selectinload(DomainEntity.bounded_contexts))
+        )
+        entity = result.scalar_one_or_none()
+
+        if not entity:
+            msg = f"Domain entity {entity_id} not found"
+            raise NotFoundError(msg)
+
+        # Prepare entity data
+        entity_data = {
+            "name": entity.name,
+            "entity_type": entity.entity_type,
+            "description": entity.description,
+            "business_rules": entity.business_rules,
+            "invariants": entity.invariants,
+            "responsibilities": entity.responsibilities,
+            "module_path": entity.module_path,
+            "class_name": entity.class_name,
+        }
+
+        # Add bounded context info if available
+        if entity.bounded_contexts:
+            context_names = [bc.name for bc in entity.bounded_contexts]
+            entity_data["bounded_context"] = ", ".join(context_names)
+
+        # Generate embedding
+        try:
+            result = await self.embedding_generator.generate_domain_entity_embedding(
+                entity_data
+            )
+
+            # Store in database
+            embedding_record = CodeEmbedding(
+                entity_type="domain_entity",
+                entity_id=entity.id,
+                text=result["text"],
+                embedding=result["embedding"],
+                metadata=result["metadata"],
+                tokens=result["tokens"],
+                model=self.embedding_generator.embeddings.model,
+                created_at=datetime.now(tz=UTC),
+            )
+
+            self.db_session.add(embedding_record)
+            await self.db_session.commit()
+
+            return {
+                "entity_id": entity.id,
+                "entity_name": entity.name,
+                "entity_type": entity.entity_type,
+                "embedding_id": embedding_record.id,
+                "tokens": result["tokens"],
+                "status": "success",
+            }
+
+        except Exception as e:
+            logger.exception(
+                "Failed to create embedding for domain entity %s",
+                entity.name,
+            )
+            return {
+                "entity_id": entity.id,
+                "entity_name": entity.name,
+                "entity_type": entity.entity_type,
+                "status": "failed",
+                "error": str(e),
+            }
+
+    async def create_all_domain_entity_embeddings(self) -> dict[str, Any]:
+        """Create embeddings for all domain entities.
+
+        Returns:
+            Summary of created embeddings
+        """
+        logger.info("Creating embeddings for all domain entities")
+
+        # Get all domain entities
+        result = await self.db_session.execute(
+            select(DomainEntity).options(selectinload(DomainEntity.bounded_contexts))
+        )
+        entities = result.scalars().all()
+
+        stats = {
+            "total": len(entities),
+            "success": 0,
+            "failed": 0,
+            "errors": [],
+        }
+
+        for entity in entities:
+            result = await self.create_domain_entity_embedding(entity.id)
+            if result["status"] == "success":
+                stats["success"] += 1
+            else:
+                stats["failed"] += 1
+                stats["errors"].append(
+                    f"{entity.name}: {result.get('error', 'Unknown error')}"
+                )
 
         return stats

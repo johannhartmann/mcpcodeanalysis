@@ -428,3 +428,103 @@ class EmbeddingGenerator:
             "metadata": metadata,
             "tokens": int(tokens),
         }
+
+    def prepare_domain_entity_text(
+        self,
+        entity_data: dict[str, Any],
+    ) -> str:
+        """Prepare domain entity text for embedding.
+
+        Args:
+            entity_data: Domain entity data with name, type, description, etc.
+
+        Returns:
+            Formatted text for embedding
+        """
+        parts = []
+
+        # Basic information
+        parts.append(f"Domain Entity: {entity_data['name']}")
+        parts.append(f"Type: {entity_data['entity_type']}")
+
+        if entity_data.get("description"):
+            parts.append(f"Description: {entity_data['description']}")
+
+        # Business context
+        if entity_data.get("business_rules"):
+            rules = entity_data["business_rules"]
+            if isinstance(rules, list):
+                parts.append(f"Business Rules: {', '.join(rules)}")
+            else:
+                parts.append(f"Business Rules: {rules}")
+
+        if entity_data.get("invariants"):
+            invariants = entity_data["invariants"]
+            if isinstance(invariants, list):
+                parts.append(f"Invariants: {', '.join(invariants)}")
+            else:
+                parts.append(f"Invariants: {invariants}")
+
+        if entity_data.get("responsibilities"):
+            resp = entity_data["responsibilities"]
+            if isinstance(resp, list):
+                parts.append(f"Responsibilities: {', '.join(resp)}")
+            else:
+                parts.append(f"Responsibilities: {resp}")
+
+        # Implementation details
+        if entity_data.get("module_path"):
+            parts.append(f"Module: {entity_data['module_path']}")
+
+        if entity_data.get("class_name"):
+            parts.append(f"Implementation: {entity_data['class_name']}")
+
+        # Relationships
+        if entity_data.get("bounded_context"):
+            parts.append(f"Bounded Context: {entity_data['bounded_context']}")
+
+        if entity_data.get("aggregate_root"):
+            parts.append(f"Aggregate Root: {entity_data['aggregate_root']}")
+
+        return "\n".join(parts)
+
+    async def generate_domain_entity_embedding(
+        self,
+        entity_data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Generate embedding for a domain entity.
+
+        Args:
+            entity_data: Domain entity data
+
+        Returns:
+            Embedding result with text, vector, and metadata
+        """
+        logger.debug(
+            "Generating embedding for domain entity: %s (%s)",
+            entity_data.get("name"),
+            entity_data.get("entity_type"),
+        )
+
+        text = self.prepare_domain_entity_text(entity_data)
+
+        metadata = {
+            "type": "domain_entity",
+            "entity_type": entity_data.get("entity_type"),
+            "name": entity_data.get("name"),
+            "bounded_context": entity_data.get("bounded_context"),
+            "module_path": entity_data.get("module_path"),
+            "class_name": entity_data.get("class_name"),
+        }
+
+        embedding = await self.embeddings.aembed_query(text)
+
+        # Estimate tokens
+        tokens = len(text.split()) * 1.3
+
+        return {
+            "text": text,
+            "embedding": embedding,
+            "metadata": metadata,
+            "tokens": int(tokens),
+        }

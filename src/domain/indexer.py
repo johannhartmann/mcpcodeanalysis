@@ -408,11 +408,13 @@ class DomainIndexer:
                 text_parts
             )  # Currently unused, kept for future embedding integration
 
-            # Generate embedding
+            # Generate embedding using embedding service
             try:
-                # Embedding generation is now handled separately
-                # TODO(@dev): Integrate with embedding service if needed
-                pass
+                from src.embeddings.embedding_service import EmbeddingService
+
+                embedding_service = EmbeddingService(self.db_session)
+                await embedding_service.create_domain_entity_embedding(entity.id)
+                logger.info("Generated embedding for domain entity: %s", entity.name)
             except Exception:
                 logger.exception(
                     "Error generating embedding for %s",
