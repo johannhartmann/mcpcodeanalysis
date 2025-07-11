@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from src.logger import get_logger
+from src.parser.language_config import LanguageRegistry
 from src.parser.python_parser import PythonCodeParser
 
 logger = get_logger(__name__)
@@ -57,7 +58,11 @@ class ParserFactory:
     @classmethod
     def is_supported(cls, file_path: Path) -> bool:
         """Check if a file type is supported for parsing."""
-        return file_path.suffix.lower() in cls._parsers
+        # First check if parser is registered
+        if file_path.suffix.lower() in cls._parsers:
+            return True
+        # Then check language registry for future languages
+        return LanguageRegistry.is_extension_available(file_path.suffix)
 
     @classmethod
     def is_language_supported(cls, language: str) -> bool:
@@ -67,12 +72,18 @@ class ParserFactory:
     @classmethod
     def get_supported_extensions(cls) -> list[str]:
         """Get list of supported file extensions."""
-        return list(cls._parsers.keys())
+        # Combine registered parsers and available extensions from language registry
+        extensions = set(cls._parsers.keys())
+        extensions.update(LanguageRegistry.get_available_extensions())
+        return sorted(list(extensions))
 
     @classmethod
     def get_supported_languages(cls) -> list[str]:
         """Get list of supported languages."""
-        return list(cls._language_parsers.keys())
+        # Combine registered parsers and available languages from registry
+        languages = set(cls._language_parsers.keys())
+        languages.update(LanguageRegistry.get_available_languages())
+        return sorted(list(languages))
 
     @classmethod
     def register_parser(cls, extension: str, parser_class: type) -> None:

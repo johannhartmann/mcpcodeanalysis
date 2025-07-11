@@ -122,15 +122,8 @@ class PythonCodeParser:
             "is_classmethod": func_info["is_classmethod"],
             "start_line": func_info["start_line"],
             "end_line": func_info["end_line"],
-            "complexity": self._calculate_complexity(func_info),
+            "complexity": func_info.get("complexity", 1),  # Get from TreeSitter parser
         }
-
-    def _calculate_complexity(self, func_info: dict[str, Any]) -> int:
-        """Calculate cyclomatic complexity of a function."""
-        # Simple approximation based on function size
-        # TODO(@dev): Implement proper cyclomatic complexity calculation
-        lines = func_info["end_line"] - func_info["start_line"] + 1
-        return max(1, lines // 10)
 
     def _count_lines(self, file_path: Path) -> int:
         """Count lines in a file."""

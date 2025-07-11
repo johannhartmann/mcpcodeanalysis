@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from src.config import get_database_url, settings
 from src.logger import get_logger
+from src.utils.version import get_package_version
 
 logger = get_logger(__name__)
 
@@ -304,7 +305,7 @@ class HealthCheckManager:
             "timestamp": end_time.isoformat(),
             "duration_ms": round(duration_ms, 2),
             "checks": checks,
-            "version": "0.1.0",  # TODO(@dev): Get from package
+            "version": get_package_version(),
             "environment": {
                 "debug": getattr(settings, "debug", False),
             },

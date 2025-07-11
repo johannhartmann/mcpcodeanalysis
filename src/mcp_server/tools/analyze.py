@@ -252,7 +252,6 @@ class AnalyzeTool:
 
         # Find imports
 
-        from src.database.models import File, Import
 
         # Using raw SQL for complex join
         query = text(

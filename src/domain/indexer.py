@@ -215,11 +215,17 @@ class DomainIndexer:
         # Analyze context relationships
         if len(saved_contexts) > 1:
             logger.info("Analyzing context relationships...")
-            await self.graph_builder.analyze_context_relationships(
+            relationships = await self.graph_builder.analyze_context_relationships(
                 graph,
                 contexts,
             )
-            # TODO(@dev): Save context relationships
+
+            if relationships:
+                logger.info("Saving %d context relationships...", len(relationships))
+                await self.graph_builder.save_context_relationships(
+                    relationships,
+                    saved_contexts,
+                )
 
         return [ctx.id for ctx in saved_contexts]
 

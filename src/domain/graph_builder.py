@@ -15,6 +15,7 @@ from src.config import settings
 from src.database.domain_models import (
     BoundedContext,
     BoundedContextMembership,
+    ContextRelationship,
     DomainEntity,
     DomainRelationship,
 )
@@ -497,3 +498,91 @@ Output as JSON:
         if "validates" in rel_types:
             return "anti_corruption_layer"
         return "partnership"
+
+    async def save_context_relationships(
+        self,
+        relationships: list[dict[str, Any]],
+        saved_contexts: list[BoundedContext],
+    ) -> list[ContextRelationship]:
+        """Save context relationships to database.
+
+        Args:
+            relationships: List of relationship data from analyze_context_relationships
+            saved_contexts: List of saved bounded contexts
+
+        Returns:
+            List of saved ContextRelationship objects
+        """
+        saved_relationships = []
+
+        # Create mapping from temporary IDs to actual database IDs
+        context_id_map = {i: ctx.id for i, ctx in enumerate(saved_contexts)}
+
+        for rel_data in relationships:
+            # Map temporary IDs to actual database IDs
+            source_id = context_id_map.get(rel_data["source_context_id"])
+            target_id = context_id_map.get(rel_data["target_context_id"])
+
+            if source_id is None or target_id is None:
+                logger.warning(
+                    "Skipping context relationship: context not found in saved contexts"
+                )
+                continue
+
+            # Check if relationship already exists
+            existing = await self.db_session.execute(
+                select(ContextRelationship).where(
+                    ContextRelationship.source_context_id == source_id,
+                    ContextRelationship.target_context_id == target_id,
+                    ContextRelationship.relationship_type == rel_data["relationship_type"],
+                )
+            )
+
+            if existing.scalar_one_or_none():
+                logger.debug(
+                    "Context relationship already exists: %s -> %s (%s)",
+                    source_id,
+                    target_id,
+                    rel_data["relationship_type"],
+                )
+                continue
+
+            # Create new relationship
+            context_rel = ContextRelationship(
+                source_context_id=source_id,
+                target_context_id=target_id,
+                relationship_type=rel_data["relationship_type"],
+                description=self._generate_relationship_description(rel_data),
+                interface_description={
+                    "strength": rel_data.get("strength", 1.0),
+                    "interaction_count": rel_data.get("interaction_count", 0),
+                    "interaction_types": rel_data.get("interaction_types", []),
+                },
+            )
+
+            self.db_session.add(context_rel)
+            saved_relationships.append(context_rel)
+
+        if saved_relationships:
+            await self.db_session.commit()
+            logger.info("Saved %d context relationships", len(saved_relationships))
+
+        return saved_relationships
+
+    def _generate_relationship_description(self, rel_data: dict[str, Any]) -> str:
+        """Generate a description for a context relationship."""
+        rel_type = rel_data["relationship_type"]
+        interaction_count = rel_data.get("interaction_count", 0)
+
+        descriptions = {
+            "shared_kernel": f"Shared kernel with {interaction_count} shared domain concepts",
+            "customer_supplier": "Customer-supplier relationship where one context drives the other",
+            "conformist": "Conformist relationship requiring alignment with upstream context",
+            "anti_corruption_layer": "Anti-corruption layer protecting from external model",
+            "open_host_service": "Open host service providing public API",
+            "published_language": "Published language for inter-context communication",
+            "partnership": f"Partnership with {interaction_count} collaborative interactions",
+            "big_ball_of_mud": "Tangled relationship requiring refactoring",
+        }
+
+        return descriptions.get(rel_type, f"{rel_type} relationship")

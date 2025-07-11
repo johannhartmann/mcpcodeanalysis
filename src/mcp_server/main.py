@@ -10,6 +10,7 @@ from fastmcp import FastMCP
 from src.config import settings  # TODO(johann): Review imports: config, settings
 from src.database import init_database
 from src.logger import get_logger, setup_logging
+from src.utils.version import get_package_version
 from src.mcp_server.tools.analyze import AnalyzeTool
 from src.mcp_server.tools.explain import ExplainTool
 from src.mcp_server.tools.find import FindTool
@@ -46,7 +47,7 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
 app = FastAPI(
     title="MCP Code Analysis Server",
     description="Intelligent code analysis and search capabilities via MCP",
-    version="0.1.0",
+    version=get_package_version(),
     lifespan=lifespan,
 )
 
@@ -148,7 +149,7 @@ async def health_check() -> dict[str, str]:
     return {
         "status": "healthy",
         "service": "mcp-code-analysis-server",
-        "version": "0.1.0",
+        "version": get_package_version(),
     }
 
 

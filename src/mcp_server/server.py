@@ -449,49 +449,50 @@ server = mcp
 app = mcp
 
 
-def create_server() -> "MockServer":
+class MockServer:
+    """Mock server for compatibility."""
+
+    async def initialize(self) -> None:
+        await initialize_server()
+
+    async def shutdown(self) -> None:
+        if _engine:
+            await _engine.dispose()
+
+    async def scan_repository(
+        self, url: str, branch: str | None = None, generate_embeddings: bool = True
+    ) -> dict[str, Any] | None:
+        await initialize_server()
+        async for session in get_db_session():
+            repo_tools = RepositoryManagementTools(session, mcp)
+            return await repo_tools.add_repository(
+                {
+                    "url": url,
+                    "branch": branch,
+                    "scan_immediately": True,
+                    "generate_embeddings": generate_embeddings,
+                },
+            )
+        return None
+
+    async def search(
+        self, query: str, repository_id: int | None = None, limit: int = 10
+    ) -> dict[str, Any] | None:
+        await initialize_server()
+        async for session in get_db_session():
+            search_tools = CodeSearchTools(session, mcp)
+            return await search_tools.semantic_search(
+                {
+                    "query": query,
+                    "repository_id": repository_id,
+                    "limit": limit,
+                },
+            )
+        return None
+
+
+def create_server() -> MockServer:
     """Create server instance for compatibility."""
-
-    # Return a mock object that has the required methods
-    class MockServer:
-        async def initialize(self) -> None:
-            await initialize_server()
-
-        async def shutdown(self) -> None:
-            if _engine:
-                await _engine.dispose()
-
-        async def scan_repository(
-            self, url: str, branch: str | None = None, generate_embeddings: bool = True
-        ) -> dict[str, Any] | None:
-            await initialize_server()
-            async for session in get_db_session():
-                repo_tools = RepositoryManagementTools(session, mcp)
-                return await repo_tools.add_repository(
-                    {
-                        "url": url,
-                        "branch": branch,
-                        "scan_immediately": True,
-                        "generate_embeddings": generate_embeddings,
-                    },
-                )
-            return None
-
-        async def search(
-            self, query: str, repository_id: int | None = None, limit: int = 10
-        ) -> dict[str, Any] | None:
-            await initialize_server()
-            async for session in get_db_session():
-                search_tools = CodeSearchTools(session, mcp)
-                return await search_tools.semantic_search(
-                    {
-                        "query": query,
-                        "repository_id": repository_id,
-                        "limit": limit,
-                    },
-                )
-            return None
-
     return MockServer()
 
 

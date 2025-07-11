@@ -7,6 +7,7 @@ import tree_sitter
 import tree_sitter_python as tspython
 
 from src.logger import get_logger
+from src.parser.complexity_calculator import ComplexityCalculator
 
 logger = get_logger(__name__)
 
@@ -99,6 +100,7 @@ class PythonParser(TreeSitterParser):
     def __init__(self) -> None:
         self.language = tree_sitter.Language(tspython.language())
         super().__init__(self.language)
+        self.complexity_calculator = ComplexityCalculator()
 
     def extract_imports(  # noqa: PLR0912
         self,
@@ -275,6 +277,11 @@ class PythonParser(TreeSitterParser):
 
             # Extract docstring
             func_data["docstring"] = self.get_docstring(node, content)
+
+            # Calculate cyclomatic complexity
+            func_data["complexity"] = self.complexity_calculator.calculate_complexity(
+                node, content
+            )
 
             functions.append(func_data)
 

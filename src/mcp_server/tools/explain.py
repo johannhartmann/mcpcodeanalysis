@@ -2,8 +2,11 @@
 
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import and_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.database.models import Class, File, Function, Module
+from src.database.repositories import CodeEntityRepo, FileRepo
 from src.logger import get_logger
 from src.query.aggregator import CodeAggregator
 
@@ -18,8 +21,11 @@ MAX_FUNCTION_LIST = 10
 class ExplainTool:
     """MCP tool for explaining code entities."""
 
-    def __init__(self) -> None:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
         self.aggregator = CodeAggregator()
+        self.file_repo = FileRepo(session)
+        self.entity_repo = CodeEntityRepo(session)
 
     async def explain_code(self, path: str) -> str:
         """
@@ -56,18 +62,27 @@ class ExplainTool:
 
     async def _parse_code_path(self, path: str) -> dict[str, Any] | None:
         """Parse a code path to find the entity."""
-        # TODO: Need to implement database session handling
-        # async with get_session() as session:
         # Check if it's a file path
         if "/" in path or path.endswith(".py"):
             # File path - look for module
-            file = await session.get_by_path(None, path)
+            # Extract just the filename from the full path for searching
+            file_name = path.split("/")[-1] if "/" in path else path
+            result = await self.session.execute(
+                select(File).where(File.path.like(f"%{file_name}")),
+            )
+            files = result.scalars().all()
+
+            file = None
+            for f in files:
+                if f.path.endswith(path):
+                    file = f
+                    break
+
             if file:
-                modules = await session.execute(
-                    text("SELECT * FROM modules WHERE file_id = :file_id LIMIT 1"),
-                    {"file_id": file.id},
+                result = await self.session.execute(
+                    select(Module).where(Module.file_id == file.id).limit(1),
                 )
-                module = modules.scalar_one_or_none() if modules else None
+                module = result.scalar_one_or_none()
                 if module:
                     return {"type": "module", "id": module.id}
 
@@ -77,7 +92,7 @@ class ExplainTool:
         # Try to find by name
         if len(parts) == 1:
             # Single name - could be function, class, or module
-            results = await session.find_by_name(parts[0])
+            results = await self.entity_repo.find_by_name(parts[0])
             if results:
                 entity = results[0]
                 return {"type": entity["type"], "id": entity["entity"].id}
@@ -85,71 +100,84 @@ class ExplainTool:
         elif len(parts) == MIN_CLASS_METHODS:
             # Could be module.function or class.method
             # First try module.function
-            module_results = await session.find_by_name(
+            module_results = await self.entity_repo.find_by_name(
                 parts[0],
                 "module",
             )
             if module_results:
                 module = module_results[0]["entity"]
                 # Look for function in this module
-                funcs = await session.execute(
-                    text(
-                        "SELECT * FROM functions WHERE module_id = :module_id "
-                        "AND name = :name AND class_id IS NULL LIMIT 1"
-                    ),
-                    {"module_id": module.id, "name": parts[1]},
+                result = await self.session.execute(
+                    select(Function)
+                    .where(
+                        and_(
+                            Function.module_id == module.id,
+                            Function.name == parts[1],
+                            Function.class_id.is_(None),
+                        )
+                    )
+                    .limit(1),
                 )
-                func = funcs.scalar_one_or_none() if funcs else None
+                func = result.scalar_one_or_none()
                 if func:
                     return {"type": "function", "id": func.id}
 
             # Try class.method
-            class_results = await session.find_by_name(
+            class_results = await self.entity_repo.find_by_name(
                 parts[0],
                 "class",
             )
             if class_results:
                 cls = class_results[0]["entity"]
                 # Look for method in this class
-                methods = await session.execute(
-                    text(
-                        "SELECT * FROM functions WHERE class_id = :class_id "
-                        "AND name = :name LIMIT 1"
-                    ),
-                    {"class_id": cls.id, "name": parts[1]},
+                result = await self.session.execute(
+                    select(Function)
+                    .where(
+                        and_(
+                            Function.class_id == cls.id,
+                            Function.name == parts[1],
+                        )
+                    )
+                    .limit(1),
                 )
-                method = methods.scalar_one_or_none() if methods else None
+                method = result.scalar_one_or_none()
                 if method:
                     return {"type": "function", "id": method.id}
 
         elif len(parts) >= MIN_MODULE_COMPONENTS:
             # module.class.method
-            module_results = await session.find_by_name(
+            module_results = await self.entity_repo.find_by_name(
                 parts[0],
                 "module",
             )
             if module_results:
                 module = module_results[0]["entity"]
                 # Look for class in module
-                classes = await session.execute(
-                    text(
-                        "SELECT * FROM classes WHERE module_id = :module_id "
-                        "AND name = :name LIMIT 1"
-                    ),
-                    {"module_id": module.id, "name": parts[1]},
+                result = await self.session.execute(
+                    select(Class)
+                    .where(
+                        and_(
+                            Class.module_id == module.id,
+                            Class.name == parts[1],
+                        )
+                    )
+                    .limit(1),
                 )
-                cls = classes.scalar_one_or_none() if classes else None
+                cls = result.scalar_one_or_none()
                 if cls:
                     if len(parts) == MIN_MODULE_COMPONENTS:
                         # Look for method
-                        methods = await session.execute(
-                            text(
-                                "SELECT * FROM functions WHERE class_id = :class_id "
-                                "AND name = :name LIMIT 1"
-                            ),
-                            {"class_id": cls.id, "name": parts[2]},
+                        result = await self.session.execute(
+                            select(Function)
+                            .where(
+                                and_(
+                                    Function.class_id == cls.id,
+                                    Function.name == parts[2],
+                                )
+                            )
+                            .limit(1),
                         )
-                        method = methods.scalar_one_or_none() if methods else None
+                        method = result.scalar_one_or_none()
                         if method:
                             return {"type": "function", "id": method.id}
                     else:
@@ -161,7 +189,7 @@ class ExplainTool:
     def _format_explanation(self, explanation: dict[str, Any]) -> str:
         """Format explanation dictionary as readable text."""
         if "error" in explanation:
-            return explanation["error"]
+            return str(explanation["error"])
 
         parts = []
 

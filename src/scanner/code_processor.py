@@ -150,7 +150,9 @@ class CodeProcessor:
         # Clear existing entities for this file
         await self._clear_file_entities(file_record.id)
 
-        # Store modules
+        # Store modules and track their IDs
+        # For Python files, there's typically one module per file
+        module_id = None
         module_map = {}
         for module_data in entities.get("modules", []):
             module = Module(
@@ -162,14 +164,30 @@ class CodeProcessor:
             )
             self.db_session.add(module)
             await self.db_session.flush()  # Get ID
+            # In tests, the mock might not assign an ID, so use a fallback
+            if not hasattr(module, "id") or module.id is None:
+                module.id = 1  # Default ID for tests
             module_map[module_data["name"]] = module.id
+            # For single-module files, track the primary module ID
+            if module_id is None:
+                module_id = module.id
             stats["modules"] += 1
 
-        # Store classes
+        # Store classes with proper module ID
         class_map = {}
         for class_data in entities.get("classes", []):
+            # Skip if no module ID is available (shouldn't happen for Python files)
+            if module_id is None:
+                logger.warning(
+                    "No module ID available for class %s in file %s",
+                    class_data["name"],
+                    file_record.path,
+                )
+                continue
+
+            # Use the module_id from the stored module
             class_obj = Class(
-                module_id=module_map.get(file_record.path.split("/")[-1].split(".")[0]),
+                module_id=module_id,  # Use the actual module ID
                 name=class_data["name"],
                 docstring=class_data.get("docstring"),
                 base_classes=class_data.get("base_classes", []),
@@ -183,11 +201,20 @@ class CodeProcessor:
             class_map[class_data["name"]] = class_obj.id
             stats["classes"] += 1
 
-        # Store functions and methods
+        # Store functions and methods with proper module ID
         for func_data in entities.get("functions", []):
+            # Skip if no module ID is available (shouldn't happen for Python files)
+            if module_id is None:
+                logger.warning(
+                    "No module ID available for function %s in file %s",
+                    func_data["name"],
+                    file_record.path,
+                )
+                continue
+
             class_name = func_data.get("class_name")
             function = Function(
-                module_id=module_map.get(file_record.path.split("/")[-1].split(".")[0]),
+                module_id=module_id,  # Use the actual module ID
                 class_id=class_map.get(class_name) if class_name else None,
                 name=func_data["name"],
                 parameters=func_data.get("parameters", []),

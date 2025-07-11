@@ -235,21 +235,3 @@ class TestPythonCodeParser:
             context_lines=2,
         )
         assert len(chunk_with_context.split("\n")) > len(chunk.split("\n"))
-
-    def test_calculate_complexity(self, python_parser) -> None:
-        """Test complexity calculation."""
-        func_info = {
-            "start_line": 10,
-            "end_line": 50,
-        }
-
-        complexity = python_parser._calculate_complexity(func_info)
-        assert complexity == 4  # (50-10+1) // 10 = 4
-
-        # Test small function
-        small_func = {
-            "start_line": 1,
-            "end_line": 5,
-        }
-        complexity = python_parser._calculate_complexity(small_func)
-        assert complexity == 1  # Minimum complexity
