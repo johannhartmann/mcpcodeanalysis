@@ -52,16 +52,22 @@ class SemanticGraphBuilder:
             db_session: Database session
         """
         self.db_session = db_session
-        # settings imported globally from src.config
-        self.embeddings = OpenAIEmbeddings(
-            openai_api_key=settings.openai_api_key.get_secret_value(),
-            model=settings.embeddings.model,
-        )
-        self.llm = ChatOpenAI(
-            openai_api_key=settings.openai_api_key.get_secret_value(),
-            model=settings.llm.model,
-            temperature=settings.llm.temperature,
-        )
+        # Initialize OpenAI components only if API key is available
+        try:
+            openai_key = settings.OPENAI_API_KEY
+            self.embeddings = OpenAIEmbeddings(
+                openai_api_key=openai_key,
+                model=settings.embeddings.model,
+            )
+            self.llm = ChatOpenAI(
+                openai_api_key=openai_key,
+                model=settings.llm.model,
+                temperature=settings.llm.temperature,
+            )
+        except (AttributeError, KeyError):
+            logger.warning("OpenAI API key not found, embedding features disabled")
+            self.embeddings = None
+            self.llm = None
 
     async def build_graph(
         self,

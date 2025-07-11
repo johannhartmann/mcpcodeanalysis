@@ -220,8 +220,10 @@ async def test_analyze_and_save_context_relationships(async_session: AsyncSessio
         patch("src.domain.graph_builder.OpenAIEmbeddings") as mock_embeddings_cls,
         patch("src.domain.graph_builder.ChatOpenAI") as mock_llm_cls,
     ):
-        # Mock settings
-        mock_settings.openai_api_key.get_secret_value.return_value = "test-key"
+        # Mock graph builder settings
+        mock_openai_key = MagicMock()
+        mock_openai_key.get_secret_value.return_value = "test-key"
+        mock_settings.openai_api_key = mock_openai_key
         mock_settings.embeddings.model = "text-embedding-ada-002"
         mock_settings.llm.model = "gpt-4"
         mock_settings.llm.temperature = 0.7

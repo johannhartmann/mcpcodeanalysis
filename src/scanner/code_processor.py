@@ -1,5 +1,6 @@
 """Code processing integration between scanner and parser."""
 
+import ast
 import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
@@ -14,6 +15,7 @@ from src.domain.indexer import DomainIndexer
 from src.logger import get_logger
 from src.parser.code_extractor import CodeExtractor
 from src.parser.parser_factory import ParserFactory
+from src.parser.reference_analyzer import ReferenceAnalyzer
 
 logger = get_logger(__name__)
 
@@ -71,6 +73,10 @@ class CodeProcessor:
 
             # Store entities in database
             stats = await self._store_entities(entities, file_record)
+
+            # Extract and store references
+            ref_stats = await self.extract_and_store_references(file_record, entities)
+            stats["references"] = ref_stats
 
             # Update file processing status
             file_record.last_modified = datetime.now(tz=UTC)
@@ -302,6 +308,7 @@ class CodeProcessor:
                 "classes": 0,
                 "functions": 0,
                 "imports": 0,
+                "references": 0,
             },
         }
 
@@ -319,7 +326,11 @@ class CodeProcessor:
                     summary["success"] += 1
                     # Aggregate statistics
                     for key, value in result.get("statistics", {}).items():
-                        summary["statistics"][key] += value
+                        if key == "references" and isinstance(value, dict):
+                            # Handle nested reference statistics
+                            summary["statistics"]["references"] += value.get("total", 0)
+                        else:
+                            summary["statistics"][key] += value
                 elif result["status"] == "skipped":
                     summary["skipped"] += 1
                 else:
@@ -427,3 +438,236 @@ class CodeProcessor:
         ]
 
         return structure
+
+    async def extract_and_store_references(
+        self,
+        file_record: File,
+        entities: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Extract and store code references for a file.
+
+        Args:
+            file_record: File database record
+            entities: Extracted entities with their database IDs
+
+        Returns:
+            Statistics about extracted references
+        """
+        logger.info("Extracting references for file %s", file_record.path)
+
+        stats = {
+            "total": 0,
+            "imports": 0,
+            "calls": 0,
+            "inherits": 0,
+            "type_hints": 0,
+            "errors": [],
+        }
+
+        try:
+            # Read the file content
+            file_path = (
+                Path(self.repository_path) / file_record.path
+                if self.repository_path
+                else Path(file_record.path)
+            )
+            if not file_path.exists():
+                logger.warning("File not found for reference analysis: %s", file_path)
+                return stats
+
+            content = file_path.read_text()
+            tree = ast.parse(content)
+
+            # Get module path from entities
+            module_info = entities.get("modules", [{}])[0]
+            module_path = module_info.get(
+                "name", file_record.path.replace("/", ".").replace(".py", "")
+            )
+
+            # Analyze references
+            analyzer = ReferenceAnalyzer(module_path, file_path)
+            raw_references = analyzer.analyze(tree)
+
+            # Convert raw references to database references
+            # This requires looking up entity IDs from names
+            db_references = await self._resolve_references(
+                raw_references,
+                file_record,
+                entities,
+            )
+
+            # Store references in database
+            if db_references:
+                from src.database.repositories import CodeReferenceRepo
+
+                ref_repo = CodeReferenceRepo(self.db_session)
+                await ref_repo.bulk_create(db_references)
+
+                # Update statistics
+                stats["total"] = len(db_references)
+                for ref in db_references:
+                    ref_type = ref.get("reference_type", "")
+                    if ref_type == "import":
+                        stats["imports"] += 1
+                    elif ref_type == "call":
+                        stats["calls"] += 1
+                    elif ref_type == "inherit":
+                        stats["inherits"] += 1
+                    elif ref_type == "type_hint":
+                        stats["type_hints"] += 1
+
+            logger.info(
+                "Extracted %d references: %d imports, %d calls, %d inherits, %d type hints",
+                stats["total"],
+                stats["imports"],
+                stats["calls"],
+                stats["inherits"],
+                stats["type_hints"],
+            )
+
+        except Exception as e:
+            logger.exception("Error extracting references for %s", file_record.path)
+            stats["errors"].append(str(e))
+
+        return stats
+
+    async def _resolve_references(
+        self,
+        raw_references: list[dict[str, Any]],
+        file_record: File,
+        entities: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        """Resolve reference names to database entity IDs.
+
+        Args:
+            raw_references: Raw references from analyzer
+            file_record: Source file record
+            entities: Entities from the current file
+
+        Returns:
+            List of references ready for database storage
+        """
+        resolved = []
+
+        # Build lookup maps for current file entities
+        module_map = {e["name"]: e["id"] for e in entities.get("modules", [])}
+        class_map = {e["name"]: e["id"] for e in entities.get("classes", [])}
+        function_map = {e["name"]: e["id"] for e in entities.get("functions", [])}
+
+        for ref in raw_references:
+            try:
+                # Resolve source entity
+                source_id = None
+                source_name = ref["source_name"]
+                source_type = ref["source_type"]
+
+                if source_type == "module":
+                    # For module-level references, use the file's module
+                    source_id = list(module_map.values())[0] if module_map else None
+                elif source_type == "class":
+                    # Extract class name from full path
+                    class_name = source_name.split(".")[-1]
+                    source_id = class_map.get(class_name)
+                elif source_type == "function":
+                    # Extract function name from full path
+                    func_name = source_name.split(".")[-1]
+                    source_id = function_map.get(func_name)
+
+                if not source_id:
+                    logger.debug(
+                        "Could not resolve source entity: %s (%s)",
+                        source_name,
+                        source_type,
+                    )
+                    continue
+
+                # Resolve target entity - this is more complex as it may be in another file
+                target_id, target_file_id = await self._resolve_target_entity(
+                    ref["target_name"],
+                    ref["target_type"],
+                )
+
+                if not target_id:
+                    logger.debug(
+                        "Could not resolve target entity: %s (%s)",
+                        ref["target_name"],
+                        ref["target_type"],
+                    )
+                    continue
+
+                resolved.append(
+                    {
+                        "source_type": source_type,
+                        "source_id": source_id,
+                        "source_file_id": file_record.id,
+                        "source_line": ref.get("source_line"),
+                        "target_type": ref["target_type"],
+                        "target_id": target_id,
+                        "target_file_id": target_file_id,
+                        "reference_type": ref["reference_type"],
+                        "context": ref.get("context", "")[:500],  # Limit context length
+                    }
+                )
+
+            except Exception as e:
+                logger.debug("Error resolving reference: %s - %s", ref, e)
+
+        return resolved
+
+    async def _resolve_target_entity(
+        self,
+        target_name: str,
+        target_type: str,
+    ) -> tuple[int | None, int | None]:
+        """Resolve a target entity name to its database ID.
+
+        Args:
+            target_name: Full entity name (e.g., 'src.parser.base_parser.BaseParser')
+            target_type: Entity type (module, class, function)
+
+        Returns:
+            Tuple of (entity_id, file_id) or (None, None) if not found
+        """
+        # For now, use simple lookups - in production, this would use a name index
+        if target_type == "module":
+            # Look up module by name
+            result = await self.db_session.execute(
+                select(Module).where(Module.name == target_name)
+            )
+            module = result.scalar_one_or_none()
+            if module:
+                return module.id, module.file_id
+
+        elif target_type == "class":
+            # Extract class name from full path
+            class_name = target_name.split(".")[-1]
+            result = await self.db_session.execute(
+                select(Class).where(Class.name == class_name)
+            )
+            cls = result.scalar_one_or_none()
+            if cls:
+                # Get file ID through module
+                module_result = await self.db_session.execute(
+                    select(Module).where(Module.id == cls.module_id)
+                )
+                module = module_result.scalar_one_or_none()
+                if module:
+                    return cls.id, module.file_id
+
+        elif target_type == "function":
+            # Extract function name from full path
+            func_name = target_name.split(".")[-1]
+            result = await self.db_session.execute(
+                select(Function).where(Function.name == func_name)
+            )
+            func = result.scalar_one_or_none()
+            if func:
+                # Get file ID through module
+                module_result = await self.db_session.execute(
+                    select(Module).where(Module.id == func.module_id)
+                )
+                module = module_result.scalar_one_or_none()
+                if module:
+                    return func.id, module.file_id
+
+        return None, None

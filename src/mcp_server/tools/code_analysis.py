@@ -382,7 +382,43 @@ class CodeAnalysisTools:
                     for i in imports
                 ]
 
-                # TODO(@dev): Add reference analysis (which entities use this one)
+                # Add reference analysis (which entities use this one)
+                from src.database.repositories import CodeReferenceRepo
+
+                ref_repo = CodeReferenceRepo(self.db_session)
+
+                # Get references TO this entity (who uses it)
+                references_to = await ref_repo.get_references_to(
+                    request.entity_type, request.entity_id
+                )
+                dependencies["used_by"] = [
+                    {
+                        "source_type": ref.source_type,
+                        "source_id": ref.source_id,
+                        "file": ref.source_file.path if ref.source_file else None,
+                        "line": ref.source_line,
+                        "reference_type": ref.reference_type,
+                        "context": ref.context,
+                    }
+                    for ref in references_to[:10]  # Limit to 10 for brevity
+                ]
+                dependencies["usage_count"] = len(references_to)
+
+                # Get references FROM this entity (what it uses)
+                references_from = await ref_repo.get_references_from(
+                    request.entity_type, request.entity_id
+                )
+                dependencies["dependencies"] = [
+                    {
+                        "target_type": ref.target_type,
+                        "target_id": ref.target_id,
+                        "file": ref.target_file.path if ref.target_file else None,
+                        "reference_type": ref.reference_type,
+                        "context": ref.context,
+                    }
+                    for ref in references_from[:10]  # Limit to 10 for brevity
+                ]
+                dependencies["dependency_count"] = len(references_from)
 
                 return dependencies
 

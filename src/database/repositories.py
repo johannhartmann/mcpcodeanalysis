@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 from src.database.models import (
     Class,
     CodeEmbedding,
+    CodeReference,
     Commit,
     File,
     Function,
@@ -434,3 +435,168 @@ class SearchHistoryRepo:
         )
         self.session.add(search_query)
         await self.session.commit()
+
+
+class CodeReferenceRepo:
+    """Repository for code reference operations."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        """Initialize repository."""
+        self.session = session
+
+    async def create(
+        self,
+        source_type: str,
+        source_id: int,
+        source_file_id: int,
+        target_type: str,
+        target_id: int,
+        target_file_id: int,
+        reference_type: str,
+        source_line: int | None = None,
+        context: str | None = None,
+        is_dynamic: bool = False,
+    ) -> CodeReference:
+        """Create a new code reference."""
+        reference = CodeReference(
+            source_type=source_type,
+            source_id=source_id,
+            source_file_id=source_file_id,
+            source_line=source_line,
+            target_type=target_type,
+            target_id=target_id,
+            target_file_id=target_file_id,
+            reference_type=reference_type,
+            context=context,
+            is_dynamic=is_dynamic,
+        )
+        self.session.add(reference)
+        await self.session.commit()
+        return reference
+
+    async def bulk_create(
+        self,
+        references: list[dict[str, Any]],
+    ) -> list[CodeReference]:
+        """Create multiple references efficiently."""
+        reference_objects = [CodeReference(**ref) for ref in references]
+        self.session.add_all(reference_objects)
+        await self.session.commit()
+        return reference_objects
+
+    async def get_references_to(
+        self,
+        entity_type: str,
+        entity_id: int,
+    ) -> list[CodeReference]:
+        """Get all references TO a specific entity (who uses this)."""
+        result = await self.session.execute(
+            select(CodeReference)
+            .where(
+                CodeReference.target_type == entity_type,
+                CodeReference.target_id == entity_id,
+            )
+            .options(
+                selectinload(CodeReference.source_file),
+                selectinload(CodeReference.target_file),
+            )
+        )
+        return list(result.scalars())
+
+    async def get_references_from(
+        self,
+        entity_type: str,
+        entity_id: int,
+    ) -> list[CodeReference]:
+        """Get all references FROM a specific entity (what this uses)."""
+        result = await self.session.execute(
+            select(CodeReference)
+            .where(
+                CodeReference.source_type == entity_type,
+                CodeReference.source_id == entity_id,
+            )
+            .options(
+                selectinload(CodeReference.source_file),
+                selectinload(CodeReference.target_file),
+            )
+        )
+        return list(result.scalars())
+
+    async def get_references_by_type(
+        self,
+        reference_type: str,
+        limit: int = 100,
+    ) -> list[CodeReference]:
+        """Get references of a specific type."""
+        result = await self.session.execute(
+            select(CodeReference)
+            .where(CodeReference.reference_type == reference_type)
+            .limit(limit)
+            .options(
+                selectinload(CodeReference.source_file),
+                selectinload(CodeReference.target_file),
+            )
+        )
+        return list(result.scalars())
+
+    async def delete_file_references(self, file_id: int) -> int:
+        """Delete all references for a file."""
+        result = await self.session.execute(
+            select(CodeReference).where(
+                (CodeReference.source_file_id == file_id)
+                | (CodeReference.target_file_id == file_id)
+            )
+        )
+        references = result.scalars().all()
+        for ref in references:
+            await self.session.delete(ref)
+        await self.session.commit()
+        return len(references)
+
+    async def find_circular_dependencies(
+        self,
+        entity_type: str = "module",
+    ) -> list[list[str]]:
+        """Find circular dependencies between entities."""
+        # This is a simplified version - for production, use a graph algorithm
+        result = await self.session.execute(
+            select(CodeReference).where(
+                CodeReference.source_type == entity_type,
+                CodeReference.target_type == entity_type,
+            )
+        )
+        references = result.scalars().all()
+
+        # Build adjacency list
+        graph: dict[int, set[int]] = {}
+        for ref in references:
+            if ref.source_id not in graph:
+                graph[ref.source_id] = set()
+            graph[ref.source_id].add(ref.target_id)
+
+        # Simple cycle detection (DFS)
+        cycles = []
+        visited = set()
+        rec_stack = set()
+
+        def dfs(node: int, path: list[int]) -> None:
+            visited.add(node)
+            rec_stack.add(node)
+            path.append(node)
+
+            for neighbor in graph.get(node, []):
+                if neighbor not in visited:
+                    dfs(neighbor, path.copy())
+                elif neighbor in rec_stack and neighbor in path:
+                    # Found a cycle
+                    cycle_start = path.index(neighbor)
+                    cycle = path[cycle_start:]
+                    cycles.append(cycle)
+
+            rec_stack.remove(node)
+
+        for node in graph:
+            if node not in visited:
+                dfs(node, [])
+
+        return cycles

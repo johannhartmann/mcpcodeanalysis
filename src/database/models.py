@@ -285,6 +285,50 @@ class Commit(Base):
     )
 
 
+class CodeReference(Base):
+    """Track references between code entities."""
+
+    __tablename__ = "code_references"
+    __allow_unmapped__ = True
+
+    id = Column(Integer, primary_key=True)
+    # Source entity (the one making the reference)
+    source_type = Column(String(50), nullable=False)  # module, class, function
+    source_id = Column(Integer, nullable=False)
+    source_file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
+    source_line = Column(Integer)  # Line where reference occurs
+
+    # Target entity (the one being referenced)
+    target_type = Column(String(50), nullable=False)  # module, class, function
+    target_id = Column(Integer, nullable=False)
+    target_file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
+
+    # Reference details
+    reference_type = Column(String(50))  # import, call, inherit, instantiate, type_hint
+    context = Column(Text)  # Code context around the reference
+    is_dynamic = Column(Boolean, default=False)  # Dynamic imports/calls
+
+    created_at = Column(DateTime, default=func.now())
+
+    # Relationships
+    source_file: Any = relationship("File", foreign_keys=[source_file_id])
+    target_file: Any = relationship("File", foreign_keys=[target_file_id])
+
+    __table_args__ = (
+        Index("idx_ref_source", "source_type", "source_id"),
+        Index("idx_ref_target", "target_type", "target_id"),
+        Index("idx_ref_files", "source_file_id", "target_file_id"),
+        UniqueConstraint(
+            "source_type",
+            "source_id",
+            "target_type",
+            "target_id",
+            "source_line",
+            name="uq_code_reference",
+        ),
+    )
+
+
 class CodeEmbedding(Base):
     """Code embedding model with pgvector."""
 
