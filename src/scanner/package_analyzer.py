@@ -1,6 +1,5 @@
 """Package structure analyzer for Python projects."""
 
-import os
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -204,7 +203,7 @@ class PackageAnalyzer:
             readme_names = ["README.md", "README.rst", "README.txt", "readme.md"]
             for readme_name in readme_names:
                 readme_path = (
-                    os.path.join(pkg_path, readme_name) if pkg_path else readme_name
+                    str(Path(pkg_path) / readme_name) if pkg_path else readme_name
                 )
                 if readme_path in self._file_cache:
                     package.readme_file_id = self._file_cache[readme_path].id
@@ -238,7 +237,7 @@ class PackageAnalyzer:
                     )
                     module = module_result.scalar_one_or_none()
                     if module:
-                        # TODO: Extract __all__ from module (would need AST analysis)
+                        # TODO(dev): Extract __all__ from module (would need AST analysis)
                         pass
 
                     self.db_session.add(pkg_module)

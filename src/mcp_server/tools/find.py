@@ -86,7 +86,7 @@ class FindTool:
             return definitions
 
         except Exception as e:
-            logger.exception("Error in find_definition: %s", e)
+            logger.exception("Error in find_definition")
             return [{"error": str(e), "name": name, "type": type}]
 
     async def find_usage(
@@ -119,7 +119,7 @@ class FindTool:
             usages = []
 
             # For each definition, find usages
-            for definition in definitions:
+            for _definition in definitions:
                 # Search in imports for this entity
                 import_usages = await self._find_import_usages(
                     function_or_class,
@@ -147,7 +147,7 @@ class FindTool:
             return unique_usages
 
         except Exception as e:
-            logger.exception("Error in find_usage: %s", e)
+            logger.exception("Error in find_usage")
             return [
                 {
                     "error": str(e),

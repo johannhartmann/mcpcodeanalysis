@@ -109,10 +109,9 @@ class ComplexityCalculator:
             elif node.type == "with_statement":
                 # Count number of context managers (comma-separated)
                 count += self._count_with_items(node)
-            elif node.type == "lambda":
-                # Check if lambda contains conditionals
-                if self._lambda_has_conditional(node):
-                    count += 1
+            elif node.type == "lambda" and self._lambda_has_conditional(node):
+                # Lambda contains conditionals
+                count += 1
 
         # Recursively check children
         for child in node.children:
@@ -122,10 +121,7 @@ class ComplexityCalculator:
 
     def _contains_if_statement(self, else_node: tree_sitter.Node) -> bool:
         """Check if an else clause contains an if statement (making it elif-like)."""
-        for child in else_node.children:
-            if child.type == "if_statement":
-                return True
-        return False
+        return any(child.type == "if_statement" for child in else_node.children)
 
     def _count_with_items(self, with_node: tree_sitter.Node) -> int:
         """Count number of context managers in a with statement."""
@@ -152,10 +148,7 @@ class ComplexityCalculator:
         """Recursively check if a node contains any conditional."""
         if node.type == "conditional_expression":
             return True
-        for child in node.children:
-            if self._node_has_conditional(child):
-                return True
-        return False
+        return any(self._node_has_conditional(child) for child in node.children)
 
     def get_complexity_level(self, complexity: int) -> str:
         """

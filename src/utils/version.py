@@ -47,7 +47,7 @@ def get_package_version(package_name: str = "mcp-code-analysis-server") -> str:
 
             return src.__version__
         except (ImportError, AttributeError):
-            logger.error("Cannot determine package version, using fallback")
+            logger.exception("Cannot determine package version, using fallback")
             return "0.1.0"
 
 
