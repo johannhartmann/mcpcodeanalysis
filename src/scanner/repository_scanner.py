@@ -140,10 +140,15 @@ class RepositoryScanner:
         enable_domain = repo_config.enable_domain_analysis or getattr(
             settings, "domain_analysis", {}
         ).get("enabled", False)
+
+        # Enable parallel processing for large file sets
+        enable_parallel = len(scanned_files) > 10
+
         code_processor = CodeProcessor(
             self.db_session,
             repository_path=git_repo.working_dir,
             enable_domain_analysis=enable_domain,
+            enable_parallel=enable_parallel,
         )
         parse_results = await code_processor.process_files(scanned_files)
 

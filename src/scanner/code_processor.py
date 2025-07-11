@@ -29,6 +29,7 @@ class CodeProcessor:
         *,
         repository_path: Path | str | None = None,
         enable_domain_analysis: bool = False,
+        enable_parallel: bool = False,
     ) -> None:
         self.db_session = db_session
         self.repository_path = Path(repository_path) if repository_path else None
@@ -36,6 +37,7 @@ class CodeProcessor:
         self.parser_factory = ParserFactory()
         self.enable_domain_analysis = enable_domain_analysis
         self.domain_indexer = None
+        self._use_parallel = enable_parallel
 
         if enable_domain_analysis:
             self.domain_indexer = DomainIndexer(db_session)
@@ -281,12 +283,8 @@ class CodeProcessor:
         await self.db_session.execute(delete(Module).where(Module.file_id == file_id))
         await self.db_session.commit()
 
-    async def process_files(self, file_records: list[File]) -> dict[str, Any]:
-        """Process multiple files."""
-        logger.info("Processing %s files", len(file_records))
-
-        # Process files sequentially to avoid database session conflicts
-        # TODO(@dev): Implement proper session management for parallel processing
+    async def _process_files_sequential(self, file_records: list[File]) -> list[Any]:
+        """Process files sequentially."""
         results = []
         for file in file_records:
             try:
@@ -295,6 +293,72 @@ class CodeProcessor:
             except Exception as e:
                 logger.exception("Error processing file %s", file.path)
                 results.append(e)
+        return results
+
+    async def _process_files_parallel(self, file_records: list[File]) -> list[Any]:
+        """Process files in parallel using separate sessions."""
+        from sqlalchemy.ext.asyncio import async_sessionmaker
+
+        from src.database.session_manager import ParallelSessionManager
+
+        # Create a session factory from the current session's bind
+        bind = self.db_session.bind
+        session_factory = async_sessionmaker(bind, expire_on_commit=False)
+
+        # Create parallel session manager
+        parallel_manager = ParallelSessionManager(session_factory)
+
+        # Define processing function for parallel execution
+        async def process_file_with_session(
+            file_record: File, session: AsyncSession
+        ) -> dict[str, Any]:
+            # Create a new processor with the session
+            processor = CodeProcessor(
+                session,
+                repository_path=self.repository_path,
+                enable_domain_analysis=self.enable_domain_analysis,
+            )
+            return await processor.process_file(file_record)
+
+        # Process files in parallel
+        batch_size = min(10, max(2, len(file_records) // 4))  # Adaptive batch size
+        logger.info("Processing files in parallel with batch size: %d", batch_size)
+
+        results = await parallel_manager.execute_parallel(
+            file_records, process_file_with_session, batch_size=batch_size
+        )
+
+        # Convert None results to error dictionaries
+        processed_results = []
+        for i, result in enumerate(results):
+            if result is None:
+                processed_results.append(
+                    {
+                        "file_id": file_records[i].id,
+                        "status": "failed",
+                        "reason": "parallel_processing_error",
+                        "error": "Unknown error during parallel processing",
+                    }
+                )
+            else:
+                processed_results.append(result)
+
+        return processed_results
+
+    async def process_files(self, file_records: list[File]) -> dict[str, Any]:
+        """Process multiple files."""
+        logger.info("Processing %s files", len(file_records))
+
+        # Check if we should use parallel processing
+        if (
+            len(file_records) > 5
+            and hasattr(self, "_use_parallel")
+            and self._use_parallel
+        ):
+            results = await self._process_files_parallel(file_records)
+        else:
+            # Process files sequentially for small batches or when parallel is disabled
+            results = await self._process_files_sequential(file_records)
 
         # Aggregate results
         summary = {
@@ -671,3 +735,8 @@ class CodeProcessor:
                     return func.id, module.file_id
 
         return None, None
+
+    def enable_parallel_processing(self, enabled: bool = True) -> None:
+        """Enable or disable parallel processing for multiple files."""
+        self._use_parallel = enabled
+        logger.info("Parallel processing %s", "enabled" if enabled else "disabled")
