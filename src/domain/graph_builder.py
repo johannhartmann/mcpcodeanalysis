@@ -88,7 +88,9 @@ class SemanticGraphBuilder:
                     temperature=settings.llm.temperature,
                 )
             except (AttributeError, KeyError, ValueError) as e:
-                logger.warning("OpenAI API key not found, embedding features disabled: %s", e)
+                logger.warning(
+                    "OpenAI API key not found, embedding features disabled: %s", e
+                )
                 self.embeddings = None
                 self.llm = None
 

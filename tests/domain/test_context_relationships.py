@@ -112,7 +112,9 @@ async def test_save_context_relationships(async_session: AsyncSession):
     mock_embeddings = MagicMock()
     mock_llm = MagicMock()
 
-    graph_builder = SemanticGraphBuilder(async_session, embeddings=mock_embeddings, llm=mock_llm)
+    graph_builder = SemanticGraphBuilder(
+        async_session, embeddings=mock_embeddings, llm=mock_llm
+    )
 
     # Prepare relationship data
     relationships = [
@@ -220,8 +222,8 @@ async def test_analyze_and_save_context_relationships(async_session: AsyncSessio
     saved_contexts = await indexer.graph_builder.save_bounded_contexts(contexts)
 
     # Analyze relationships
-    context_relationships = (
-        await indexer.graph_builder.analyze_context_relationships(graph, contexts)
+    context_relationships = await indexer.graph_builder.analyze_context_relationships(
+        graph, contexts
     )
 
     # Should find at least one cross-context relationship
@@ -278,7 +280,9 @@ async def test_duplicate_context_relationships_not_saved(async_session: AsyncSes
     mock_embeddings = MagicMock()
     mock_llm = MagicMock()
 
-    graph_builder = SemanticGraphBuilder(async_session, embeddings=mock_embeddings, llm=mock_llm)
+    graph_builder = SemanticGraphBuilder(
+        async_session, embeddings=mock_embeddings, llm=mock_llm
+    )
 
     # Try to save duplicate relationship
     relationships = [
@@ -309,6 +313,4 @@ async def test_duplicate_context_relationships_not_saved(async_session: AsyncSes
     )
     all_rels = result.scalars().all()
     assert len(all_rels) == 1
-    assert (
-        all_rels[0].description == "Existing partnership"
-    )  # Original not overwritten
+    assert all_rels[0].description == "Existing partnership"  # Original not overwritten

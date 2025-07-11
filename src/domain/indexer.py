@@ -37,7 +37,9 @@ class DomainIndexer:
 
         # Initialize components
         self.entity_extractor = DomainEntityExtractor(llm=llm)
-        self.graph_builder = SemanticGraphBuilder(db_session, embeddings=embeddings, llm=llm)
+        self.graph_builder = SemanticGraphBuilder(
+            db_session, embeddings=embeddings, llm=llm
+        )
         self.summarizer = HierarchicalSummarizer(db_session, llm=llm)
 
     async def index_file(

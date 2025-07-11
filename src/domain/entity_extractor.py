@@ -19,7 +19,7 @@ class DomainEntityExtractor:
 
     def __init__(self, llm: Any = None) -> None:
         """Initialize the entity extractor.
-        
+
         Args:
             llm: Optional LLM instance (for testing)
         """
