@@ -61,17 +61,15 @@ def serve(host: str, port: int, reload: bool, log_level: str) -> None:  # noqa: 
     if port != DEFAULT_PORT:
         settings.mcp.port = port
 
-    # Import the mcp instance
-    import os
+    # Run the MCP server
+    # Override settings with CLI options if provided
+    from src.config import settings
+    from src.mcp_server.main import mcp
 
-    # FastMCP handles running the server
-    from src.mcp_server.server import mcp
+    settings.mcp.host = host
+    settings.mcp.port = port
 
-    # Set host and port via environment variables for FastMCP
-    os.environ["FASTMCP_HOST"] = host
-    os.environ["FASTMCP_PORT"] = str(port)
-
-    # Run using FastMCP with HTTP transport
+    # Run the MCP server
     mcp.run(transport="http", host=host, port=port)
 
 
