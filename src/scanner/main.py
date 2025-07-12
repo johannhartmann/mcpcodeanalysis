@@ -138,7 +138,7 @@ class ScannerService:
                 # Store commits
                 if self.session_factory is None:
                     msg = "Session factory not initialized"
-                raise RuntimeError(msg)  # noqa: TRY301
+                    raise RuntimeError(msg)  # noqa: TRY301
                 async with self.session_factory() as session:
                     commit_repo = CommitRepo(session)
                     await commit_repo.create_batch(
