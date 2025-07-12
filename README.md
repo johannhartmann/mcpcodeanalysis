@@ -51,7 +51,6 @@ An intelligent MCP (Model Context Protocol) server that provides advanced code a
 - `detect_anti_patterns` - Detect DDD anti-patterns (anemic models, god objects, etc.)
 - `analyze_domain_evolution` - Track domain model changes over time
 - `get_domain_metrics` - Get comprehensive domain health metrics and insights
-
 ## Quick Start
 
 ### Prerequisites
