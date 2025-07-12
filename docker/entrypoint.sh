@@ -49,7 +49,7 @@ if [ "$1" = "server" ]; then
     python -m src.mcp_server init-db || echo "Database already initialized"
 
     echo "Starting MCP server..."
-    exec python -m src.mcp_server serve
+    exec python -m src.mcp_server serve --host 0.0.0.0
 elif [ "$1" = "all" ]; then
     echo "Initializing database..."
     python -m src.mcp_server init-db || echo "Database already initialized"
@@ -59,7 +59,7 @@ elif [ "$1" = "all" ]; then
 
     echo "Starting MCP server..."
     # Use exec to replace the shell with the MCP server process
-    exec python -m src.mcp_server serve
+    exec python -m src.mcp_server serve --host 0.0.0.0
 elif [ "$1" = "scanner" ]; then
     echo "Starting scanner service..."
     exec python -m src.scanner.main
