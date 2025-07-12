@@ -10,7 +10,6 @@ from sqlalchemy import select
 from src.database.init_db import get_session_factory, init_database
 from src.database.models import Repository
 from src.logger import get_logger
-from src.mcp_server.tools.analysis_tools import AnalysisTools
 from src.mcp_server.tools.code_analysis import CodeAnalysisTools
 from src.mcp_server.tools.code_search import CodeSearchTools
 from src.mcp_server.tools.domain_tools import DomainTools
@@ -732,7 +731,6 @@ async def analyze_coupling(
     await initialize_server()
 
     async for session in get_db_session():
-        analysis_tools = AnalysisTools(session, mcp)
         from src.domain.pattern_analyzer import DomainPatternAnalyzer
 
         analyzer = DomainPatternAnalyzer(session)
@@ -821,7 +819,6 @@ async def get_domain_metrics(
     await initialize_server()
 
     async for session in get_db_session():
-        analysis_tools = AnalysisTools(session, mcp)
         from src.domain.pattern_analyzer import DomainPatternAnalyzer
 
         analyzer = DomainPatternAnalyzer(session)
