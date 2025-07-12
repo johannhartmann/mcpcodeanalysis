@@ -53,7 +53,7 @@ def serve(host: str, port: int, reload: bool, log_level: str) -> None:  # noqa: 
         logging.getLogger().setLevel(log_level.upper())
 
     # Import MCP server here to avoid circular imports
-    from src.mcp_server.main import mcp
+    from src.mcp_server.server import mcp
 
     # Override settings with CLI options if provided
     if host != DEFAULT_HOST:

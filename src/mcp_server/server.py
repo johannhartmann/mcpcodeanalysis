@@ -846,6 +846,181 @@ async def get_domain_metrics(
     return {}
 
 
+# Tools from main.py for compatibility
+@mcp.tool(name="search_code", description="Search for code by natural language query")
+async def search_code(
+    query: str = Field(description="Natural language search query"),
+    limit: int = Field(default=10, description="Maximum results to return"),
+) -> list[dict[str, Any]]:
+    """Search for code by natural language query."""
+    await initialize_server()
+
+    # Use the same implementation as semantic_search
+    result = await semantic_search(query=query, repository_id=None, limit=limit)
+    if result.get("success"):
+        return result.get("results", [])
+    return [{"error": result.get("error", "Search failed")}]
+
+
+@mcp.tool(name="explain_code", description="Explain what a code element does")
+async def explain_code(
+    path: str = Field(
+        description="Path to code element (e.g., 'src.utils.helpers.parse_json')"
+    ),
+) -> str:
+    """
+    Explain what a code element does (function, class, module, or package).
+    Returns a hierarchical explanation of the code element.
+    """
+    await initialize_server()
+
+    try:
+        from src.mcp_server.tools.explain import ExplainTool
+
+        tool = ExplainTool()
+        return await tool.explain_code(path)
+    except Exception as e:
+        logger.exception("Error in explain_code")
+        return f"Error explaining code: {e!s}"
+
+
+@mcp.tool(name="find_definition", description="Find where a symbol is defined")
+async def find_definition(
+    name: str = Field(description="Name of the symbol to find"),
+    file_path: str = Field(default=None, description="Optional file path to search in"),
+    entity_type: str = Field(default=None, description="Optional entity type filter"),
+) -> list[dict[str, Any]]:
+    """Find where a symbol is defined."""
+    await initialize_server()
+
+    try:
+        from src.query.symbol_finder import SymbolFinder
+
+        async for session in get_db_session():
+            finder = SymbolFinder(session)
+            return await finder.find_definitions(
+                name=name,
+                file_path=file_path,
+                entity_type=entity_type,
+            )
+    except Exception as e:
+        logger.exception("Error in find_definition")
+        return [{"error": str(e), "name": name}]
+    return []
+
+
+@mcp.tool(
+    name="find_usage", description="Find all places where a function/class is used"
+)
+async def find_usage(
+    function_or_class: str = Field(description="Name of the function or class"),
+    repository: str = Field(
+        default=None, description="Optional repository name filter"
+    ),
+) -> list[dict[str, Any]]:
+    """Find all places where a function/class is used."""
+    await initialize_server()
+
+    try:
+        from src.mcp_server.tools.find import FindTool
+
+        async for session in get_db_session():
+            tool = FindTool(session)
+            return await tool.find_usage(function_or_class, repository)
+    except Exception as e:
+        logger.exception("Error in find_usage")
+        return [{"error": str(e)}]
+    return []
+
+
+@mcp.tool(name="get_code_structure", description="Get the structure of a code file")
+async def get_code_structure(
+    file_path: str = Field(description="Path to the file relative to repository root"),
+) -> dict[str, Any]:
+    """Get the structure of a code file."""
+    await initialize_server()
+
+    try:
+        from sqlalchemy import select
+
+        from src.database.models import File
+
+        async for session in get_db_session():
+            # Get file from database
+            result = await session.execute(select(File).where(File.path == file_path))
+            file = result.scalar_one_or_none()
+
+            if not file:
+                return {"error": f"File not found: {file_path}"}
+
+            # Get code structure using CodeProcessor
+            from src.scanner.code_processor import CodeProcessor
+
+            processor = CodeProcessor(session)
+            return await processor.get_file_structure(file)
+
+    except Exception as e:
+        logger.exception("Error in get_code_structure")
+        return {"error": str(e)}
+    return {}
+
+
+@mcp.tool(name="suggest_refactoring", description="Suggest refactoring opportunities")
+async def suggest_refactoring(
+    file_path: str = Field(description="Path to the file to analyze"),
+    focus_area: str = Field(
+        default=None, description="Optional focus area for suggestions"
+    ),
+) -> list[dict[str, Any]]:
+    """Suggest refactoring opportunities."""
+    await initialize_server()
+
+    try:
+        from src.mcp_server.tools.analyze import AnalyzeTool
+
+        async for session in get_db_session():
+            tool = AnalyzeTool(session)
+            suggestions = await tool.suggest_refactoring(file_path)
+
+            # If focus_area is provided, filter suggestions
+            if focus_area and suggestions:
+                return [
+                    {
+                        "focus_area": focus_area,
+                        "suggestions": suggestions,
+                        "note": f"Focused on {focus_area} improvements",
+                    }
+                ]
+
+            return suggestions
+    except Exception as e:
+        logger.exception("Error in suggest_refactoring")
+        return [{"error": str(e)}]
+    return []
+
+
+@mcp.tool(
+    name="sync_repository",
+    description="Manually trigger sync for a specific repository",
+)
+async def sync_repository(
+    repository_url: str = Field(description="Repository URL to sync"),
+) -> dict[str, Any]:
+    """Manually trigger sync for a specific repository."""
+    await initialize_server()
+
+    try:
+        from src.mcp_server.tools.repository import RepositoryTool
+
+        async for session in get_db_session():
+            tool = RepositoryTool(session)
+            return await tool.sync_repository(repository_url)
+    except Exception as e:
+        logger.exception("Error in sync_repository")
+        return {"error": str(e)}
+    return {}
+
+
 @mcp.tool(name="health_check", description="Check server health status")
 async def health_check() -> dict[str, Any]:
     """Check server health status."""
