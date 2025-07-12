@@ -614,9 +614,52 @@ class CodeProcessor:
         resolved = []
 
         # Build lookup maps for current file entities
-        module_map = {e["name"]: e["id"] for e in entities.get("modules", [])}
-        class_map = {e["name"]: e["id"] for e in entities.get("classes", [])}
-        function_map = {e["name"]: e["id"] for e in entities.get("functions", [])}
+        # Handle both raw entities (no id) and stored entities (with id)
+        module_map = {}
+        for e in entities.get("modules", []):
+            if isinstance(e, dict) and "name" in e:
+                # For stored entities with id
+                if "id" in e:
+                    module_map[e["name"]] = e["id"]
+                # For raw entities, we'll need to look up from DB
+
+        class_map = {}
+        for e in entities.get("classes", []):
+            if isinstance(e, dict) and "name" in e and "id" in e:
+                class_map[e["name"]] = e["id"]
+
+        function_map = {}
+        for e in entities.get("functions", []):
+            if isinstance(e, dict) and "name" in e and "id" in e:
+                function_map[e["name"]] = e["id"]
+
+        # If we don't have IDs, we need to look them up from the database
+        if not module_map and not class_map and not function_map:
+            # Get entities from database
+            from sqlalchemy import select
+
+            from src.database.models import Class, Function, Module
+
+            # Get modules
+            result = await self.db_session.execute(
+                select(Module).where(Module.file_id == file_record.id)
+            )
+            modules = result.scalars().all()
+            module_map = {m.name: m.id for m in modules}
+
+            # Get classes (through modules)
+            result = await self.db_session.execute(
+                select(Class).join(Module).where(Module.file_id == file_record.id)
+            )
+            classes = result.scalars().all()
+            class_map = {c.name: c.id for c in classes}
+
+            # Get functions (through modules)
+            result = await self.db_session.execute(
+                select(Function).join(Module).where(Module.file_id == file_record.id)
+            )
+            functions = result.scalars().all()
+            function_map = {f.name: f.id for f in functions}
 
         for ref in raw_references:
             try:
