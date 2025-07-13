@@ -12,8 +12,8 @@ logger = get_logger(__name__)
 class ComplexityCalculator:
     """Calculate cyclomatic complexity for functions."""
 
-    # Node types that increase complexity
-    COMPLEXITY_NODES: ClassVar[set[str]] = {
+    # Python node types that increase complexity
+    PYTHON_COMPLEXITY_NODES: ClassVar[set[str]] = {
         # Conditionals
         "if_statement",
         "elif_clause",
@@ -37,12 +37,72 @@ class ComplexityCalculator:
         "generator_expression",
     }
 
+    # PHP node types that increase complexity
+    PHP_COMPLEXITY_NODES: ClassVar[set[str]] = {
+        # Conditionals
+        "if_statement",
+        "elseif_clause",
+        "else_clause",
+        "conditional_expression",
+        "switch_statement",
+        "case_statement",
+        # Loops
+        "for_statement",
+        "foreach_statement",
+        "while_statement",
+        "do_statement",
+        # Exception handling
+        "catch_clause",
+        # Boolean operators
+        "binary_expression",  # Will filter for && and ||
+        # Other control flow
+        "match_expression",  # PHP 8 match
+        "match_conditional_expression",
+    }
+
+    # Java node types that increase complexity
+    JAVA_COMPLEXITY_NODES: ClassVar[set[str]] = {
+        # Conditionals
+        "if_statement",
+        "else_clause",
+        "ternary_expression",
+        "switch_expression",
+        "switch_label",
+        # Loops
+        "for_statement",
+        "enhanced_for_statement",
+        "while_statement",
+        "do_statement",
+        # Exception handling
+        "catch_clause",
+        # Boolean operators
+        "binary_expression",  # Will filter for && and ||
+        # Other control flow
+        "throw_statement",
+        "assert_statement",
+    }
+
+    # Default to Python for backward compatibility
+    COMPLEXITY_NODES = PYTHON_COMPLEXITY_NODES
+
     # Nodes that are handled specially
     SPECIAL_NODES: ClassVar[set[str]] = {
         "assert_statement",  # Adds 1 (can fail)
         "with_statement",  # Adds 1 (can fail in __enter__)
         "lambda",  # Lambdas with conditionals
+        "try_statement",  # Try blocks
     }
+
+    def __init__(self, language: str = "python") -> None:
+        """Initialize calculator for specific language."""
+        self.language = language.lower()
+        # Set appropriate complexity nodes based on language
+        if self.language == "php":
+            self.COMPLEXITY_NODES = self.PHP_COMPLEXITY_NODES
+        elif self.language == "java":
+            self.COMPLEXITY_NODES = self.JAVA_COMPLEXITY_NODES
+        else:
+            self.COMPLEXITY_NODES = self.PYTHON_COMPLEXITY_NODES
 
     def calculate_complexity(
         self, function_node: tree_sitter.Node, content: bytes
@@ -99,6 +159,11 @@ class ComplexityCalculator:
             elif node.type in {"and", "or"}:
                 # Boolean operators add complexity
                 count += 1
+            elif node.type == "binary_expression":
+                # For PHP and Java, check if it's a logical operator
+                operator = self._get_binary_operator(node, content)
+                if operator in ["&&", "||", "and", "or"]:
+                    count += 1
             else:
                 count += 1
 
@@ -112,6 +177,9 @@ class ComplexityCalculator:
             elif node.type == "lambda" and self._lambda_has_conditional(node):
                 # Lambda contains conditionals
                 count += 1
+            elif node.type == "try_statement":
+                # Each catch/except clause adds a path
+                count += self._count_exception_handlers(node)
 
         # Recursively check children
         for child in node.children:
@@ -149,6 +217,35 @@ class ComplexityCalculator:
         if node.type == "conditional_expression":
             return True
         return any(self._node_has_conditional(child) for child in node.children)
+
+    def _get_binary_operator(self, node: tree_sitter.Node, content: bytes) -> str:
+        """Extract the operator from a binary expression node."""
+        # Binary expressions typically have structure: left operator right
+        for child in node.children:
+            # The operator is usually a direct child between operands
+            if child.type not in [
+                "identifier",
+                "call_expression",
+                "member_expression",
+                "literal",
+                "string",
+                "integer",
+                "boolean",
+                "parenthesized_expression",
+                "binary_expression",
+            ]:
+                return content[child.start_byte : child.end_byte].decode(
+                    "utf-8", errors="ignore"
+                )
+        return ""
+
+    def _count_exception_handlers(self, try_node: tree_sitter.Node) -> int:
+        """Count the number of exception handlers in a try statement."""
+        count = 0
+        for child in try_node.children:
+            if child.type in ["catch_clause", "except_clause", "finally_clause"]:
+                count += 1
+        return max(count - 1, 0)  # First handler doesn't add complexity
 
     def get_complexity_level(self, complexity: int) -> str:
         """
