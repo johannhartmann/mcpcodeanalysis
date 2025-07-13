@@ -65,8 +65,8 @@ def get_database_url() -> str:
     import os
 
     # Allow override for local testing
-    if os.getenv("DATABASE_URL"):
-        return os.getenv("DATABASE_URL")
+    if database_url := os.getenv("DATABASE_URL"):
+        return database_url
     db = settings.database
     password = db.password
     return (

@@ -1,5 +1,9 @@
 """Database models for package structure analysis."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from sqlalchemy import (
     JSON,
     Boolean,
@@ -16,6 +20,13 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from src.database.models import Base
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Mapped
+
+# Forward declarations for type hints
+Repository = "Repository"
+File = "File"
 
 
 class Package(Base):
@@ -50,18 +61,22 @@ class Package(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
-    repository = relationship("Repository")
-    parent = relationship("Package", remote_side=[id], backref="subpackages")
-    init_file = relationship("File", foreign_keys=[init_file_id])
-    readme_file = relationship("File", foreign_keys=[readme_file_id])
+    repository: Mapped[Repository] = relationship("Repository")
+    parent: Mapped[Package | None] = relationship(
+        "Package", remote_side=[id], backref="subpackages"
+    )
+    init_file: Mapped[File | None] = relationship("File", foreign_keys=[init_file_id])
+    readme_file: Mapped[File | None] = relationship(
+        "File", foreign_keys=[readme_file_id]
+    )
 
     # Modules in this package (direct children only)
-    modules = relationship(
+    modules: Mapped[list[PackageModule]] = relationship(
         "PackageModule", back_populates="package", cascade="all, delete-orphan"
     )
 
     # Dependencies this package has
-    dependencies = relationship(
+    dependencies: Mapped[list[PackageDependency]] = relationship(
         "PackageDependency",
         foreign_keys="PackageDependency.source_package_id",
         back_populates="source_package",
@@ -69,7 +84,7 @@ class Package(Base):
     )
 
     # Other packages that depend on this one
-    dependents = relationship(
+    dependents: Mapped[list[PackageDependency]] = relationship(
         "PackageDependency",
         foreign_keys="PackageDependency.target_package_id",
         back_populates="target_package",
@@ -102,8 +117,8 @@ class PackageModule(Base):
     created_at = Column(DateTime, default=func.now())
 
     # Relationships
-    package = relationship("Package", back_populates="modules")
-    file = relationship("File")
+    package: Mapped[Package] = relationship("Package", back_populates="modules")
+    file: Mapped[File] = relationship("File")
 
     __table_args__ = (
         UniqueConstraint("package_id", "file_id", name="uq_package_module"),
@@ -133,10 +148,10 @@ class PackageDependency(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
-    source_package = relationship(
+    source_package: Mapped[Package] = relationship(
         "Package", foreign_keys=[source_package_id], back_populates="dependencies"
     )
-    target_package = relationship(
+    target_package: Mapped[Package] = relationship(
         "Package", foreign_keys=[target_package_id], back_populates="dependents"
     )
 
@@ -185,6 +200,6 @@ class PackageMetrics(Base):
     calculated_at = Column(DateTime, default=func.now())
 
     # Relationships
-    package = relationship("Package", backref="metrics", uselist=False)
+    package: Mapped[Package] = relationship("Package", backref="metrics", uselist=False)
 
     __table_args__ = (Index("idx_package_metrics_package", "package_id"),)
