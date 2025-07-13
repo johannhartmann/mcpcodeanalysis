@@ -1,7 +1,7 @@
 """Registry for language plugins providing centralized plugin management."""
 
 from pathlib import Path
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from src.logger import get_logger
 from src.parser.language_plugin import LanguagePlugin
