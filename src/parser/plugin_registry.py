@@ -40,9 +40,11 @@ class LanguagePluginRegistry:
 
             # Validate plugin configuration
             if not config.name:
-                raise ValueError("Plugin must have a non-empty name")
+                msg = "Plugin must have a non-empty name"
+                raise ValueError(msg)
             if not config.extensions:
-                raise ValueError("Plugin must support at least one file extension")
+                msg = "Plugin must support at least one file extension"
+                raise ValueError(msg)
 
             # Test parser creation if available
             if config.parser_available:
@@ -54,7 +56,7 @@ class LanguagePluginRegistry:
                             config.display_name,
                         )
                         config.parser_available = False
-                except Exception as e:
+                except (ImportError, AttributeError, TypeError, ValueError) as e:
                     logger.warning(
                         "Plugin %s claims parser_available=True but create_parser() failed: %s",
                         config.display_name,
@@ -85,8 +87,8 @@ class LanguagePluginRegistry:
                 config.parser_available,
             )
 
-        except Exception as e:
-            logger.error("Failed to register plugin %s: %s", type(plugin).__name__, e)
+        except Exception:
+            logger.exception("Failed to register plugin %s", type(plugin).__name__)
             raise
 
     @classmethod
@@ -274,8 +276,8 @@ class LanguagePluginRegistry:
                 logger.warning(
                     "Failed to import %s from %s: %s", plugin_name, module_path, e
                 )
-            except Exception as e:
-                logger.error("Failed to register %s plugin: %s", plugin_name, e)
+            except (AttributeError, TypeError, ValueError):
+                logger.exception("Failed to register %s plugin", plugin_name)
 
     @classmethod
     def auto_discover_plugins(cls) -> None:

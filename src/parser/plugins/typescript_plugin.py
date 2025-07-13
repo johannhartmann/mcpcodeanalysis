@@ -46,7 +46,8 @@ class TypeScriptLanguagePlugin(LanguagePlugin):
             logger.error(
                 "TypeScript parser not available. Install tree-sitter-typescript to enable TypeScript support."
             )
-            raise ImportError("TypeScript parser not available")
+            msg = "TypeScript parser not available"
+            raise ImportError(msg)
         return TypeScriptCodeParser()
 
     def get_complexity_nodes(self) -> set[str]:

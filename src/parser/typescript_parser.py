@@ -26,7 +26,8 @@ class TypeScriptCodeParser(BaseParser):
 
     def __init__(self) -> None:
         if not TYPESCRIPT_AVAILABLE:
-            raise ImportError("tree-sitter-typescript not available")
+            msg = "tree-sitter-typescript not available"
+            raise ImportError(msg)
 
         super().__init__(tree_sitter.Language(tstypescript.language_typescript()))
         self.ts_parser = TreeSitterTypeScriptParser()
@@ -64,7 +65,7 @@ class TypeScriptCodeParser(BaseParser):
             # Extract functions using direct TreeSitter traversal
             self._extract_functions_direct(tree.root_node, content, root)
 
-        except Exception as e:
+        except (AttributeError, ValueError, TypeError) as e:
             logger.warning(
                 "Error extracting TypeScript elements from %s: %s", file_path, e
             )
@@ -82,7 +83,7 @@ class TypeScriptCodeParser(BaseParser):
             # Simple direct extraction of import statements
             self._extract_imports_direct(tree.root_node, content, imports)
 
-        except Exception as e:
+        except (AttributeError, ValueError, TypeError) as e:
             logger.warning("Error extracting TypeScript imports: %s", e)
 
         return imports
@@ -97,7 +98,9 @@ class TypeScriptCodeParser(BaseParser):
         for child in node.children:
             self._extract_imports_direct(child, content, imports)
 
-    def _extract_references(self, tree: Tree, content: str) -> list[dict[str, Any]]:
+    def _extract_references(
+        self, tree: Tree, content: str
+    ) -> list[dict[str, Any]]:  # noqa: ARG002
         """Extract code references from TypeScript parse tree."""
         references = []
 
@@ -109,7 +112,7 @@ class TypeScriptCodeParser(BaseParser):
             # This is a placeholder to avoid errors
             pass
 
-        except Exception as e:
+        except (AttributeError, ValueError, TypeError) as e:
             logger.warning("Error extracting TypeScript references: %s", e)
 
         return references
@@ -274,7 +277,7 @@ class TypeScriptCodeParser(BaseParser):
                         "start_line": parse_result.root_element.start_line,
                         "end_line": parse_result.root_element.end_line,
                         "imports": len(parse_result.imports),
-                        "exports": 0,  # TODO: Extract exports
+                        "exports": 0,  # TODO(parser): Extract exports
                     }
                 ],
                 "classes": [],
@@ -293,7 +296,7 @@ class TypeScriptCodeParser(BaseParser):
                     "base_classes": cls_element.metadata.get("base_classes", []),
                     "interfaces": cls_element.metadata.get("interfaces", []),
                     "methods": len(cls_element.find_children(ElementType.METHOD)),
-                    "properties": 0,  # TODO: Extract properties
+                    "properties": 0,  # TODO(parser): Extract properties
                     "access_modifier": cls_element.metadata.get(
                         "access_modifier", "public"
                     ),
@@ -311,7 +314,7 @@ class TypeScriptCodeParser(BaseParser):
                         "docstring": "",
                         "parameters": method.metadata.get("parameters", []),
                         "return_type": method.metadata.get("return_type", "any"),
-                        "complexity": 1,  # TODO: Calculate complexity
+                        "complexity": 1,  # TODO(parser): Calculate complexity
                         "access_modifier": method.metadata.get(
                             "access_modifier", "public"
                         ),
@@ -331,7 +334,7 @@ class TypeScriptCodeParser(BaseParser):
                     "docstring": "",
                     "parameters": func_element.metadata.get("parameters", []),
                     "return_type": func_element.metadata.get("return_type", "any"),
-                    "complexity": 1,  # TODO: Calculate complexity
+                    "complexity": 1,  # TODO(parser): Calculate complexity
                     "access_modifier": func_element.metadata.get(
                         "access_modifier", "public"
                     ),
@@ -347,7 +350,7 @@ class TypeScriptCodeParser(BaseParser):
                     "module": import_stmt,  # This is the full import statement
                     "file_id": file_id,
                     "line": i + 1,  # Approximate line number
-                    "imported_items": [],  # TODO: Parse import statement
+                    "imported_items": [],  # TODO(parser): Parse import statement
                     "alias": None,
                     "is_default": False,
                     "is_namespace": False,
@@ -356,7 +359,7 @@ class TypeScriptCodeParser(BaseParser):
 
             return entities
 
-        except Exception as e:
+        except (AttributeError, ValueError, TypeError) as e:
             logger.exception(
                 "Error extracting entities from TypeScript file %s", file_path
             )

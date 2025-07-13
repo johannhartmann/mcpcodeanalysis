@@ -26,7 +26,8 @@ class JavaScriptCodeParser(BaseParser):
 
     def __init__(self) -> None:
         if not JAVASCRIPT_AVAILABLE:
-            raise ImportError("tree-sitter-javascript not available")
+            msg = "tree-sitter-javascript not available"
+            raise ImportError(msg)
 
         super().__init__(tree_sitter.Language(tsjavascript.language()))
         self.js_parser = TreeSitterJavaScriptParser()
@@ -113,7 +114,7 @@ class JavaScriptCodeParser(BaseParser):
                 )
                 root.add_child(func_element)
 
-        except Exception as e:
+        except (AttributeError, ValueError, TypeError) as e:
             logger.warning(
                 "Error extracting JavaScript elements from %s: %s", file_path, e
             )
@@ -153,7 +154,7 @@ class JavaScriptCodeParser(BaseParser):
                 else:
                     imports.append(f"import {module_name}")
 
-        except Exception as e:
+        except (AttributeError, ValueError, TypeError) as e:
             logger.warning("Error extracting JavaScript imports: %s", e)
 
         return imports
@@ -186,7 +187,7 @@ class JavaScriptCodeParser(BaseParser):
                 }
                 references.append(reference)
 
-        except Exception as e:
+        except (AttributeError, ValueError, TypeError) as e:
             logger.warning("Error extracting JavaScript references: %s", e)
 
         return references
@@ -214,7 +215,7 @@ class JavaScriptCodeParser(BaseParser):
                         "start_line": parse_result.root_element.start_line,
                         "end_line": parse_result.root_element.end_line,
                         "imports": len(parse_result.imports),
-                        "exports": 0,  # TODO: Extract exports
+                        "exports": 0,  # TODO(parser): Extract exports
                     }
                 ],
                 "classes": [],
@@ -233,7 +234,7 @@ class JavaScriptCodeParser(BaseParser):
                     "base_classes": cls_element.metadata.get("base_classes", []),
                     "interfaces": [],  # JavaScript doesn't have interfaces
                     "methods": len(cls_element.find_children(ElementType.METHOD)),
-                    "properties": 0,  # TODO: Extract properties
+                    "properties": 0,  # TODO(parser): Extract properties
                     "access_modifier": "public",  # JavaScript doesn't have access modifiers
                     "decorators": [],  # JavaScript doesn't have decorators
                 }
@@ -249,7 +250,7 @@ class JavaScriptCodeParser(BaseParser):
                         "docstring": "",
                         "parameters": method.metadata.get("parameters", []),
                         "return_type": None,  # JavaScript doesn't have explicit return types
-                        "complexity": 1,  # TODO: Calculate complexity
+                        "complexity": 1,  # TODO(parser): Calculate complexity
                         "access_modifier": "public",
                         "decorators": [],
                         "is_async": method.metadata.get("is_async", False),
@@ -267,7 +268,7 @@ class JavaScriptCodeParser(BaseParser):
                     "docstring": "",
                     "parameters": func_element.metadata.get("parameters", []),
                     "return_type": None,  # JavaScript doesn't have explicit return types
-                    "complexity": 1,  # TODO: Calculate complexity
+                    "complexity": 1,  # TODO(parser): Calculate complexity
                     "access_modifier": "public",
                     "decorators": [],
                     "is_async": func_element.metadata.get("is_async", False),
@@ -281,7 +282,7 @@ class JavaScriptCodeParser(BaseParser):
                     "module": import_stmt,  # This is the full import statement
                     "file_id": file_id,
                     "line": i + 1,  # Approximate line number
-                    "imported_items": [],  # TODO: Parse import statement
+                    "imported_items": [],  # TODO(parser): Parse import statement
                     "alias": None,
                     "is_default": False,
                     "is_namespace": False,
@@ -290,7 +291,7 @@ class JavaScriptCodeParser(BaseParser):
 
             return entities
 
-        except Exception as e:
+        except (AttributeError, ValueError, TypeError) as e:
             logger.exception(
                 "Error extracting entities from JavaScript file %s", file_path
             )

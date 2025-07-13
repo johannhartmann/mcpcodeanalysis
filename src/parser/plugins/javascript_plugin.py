@@ -46,7 +46,8 @@ class JavaScriptLanguagePlugin(LanguagePlugin):
             logger.error(
                 "JavaScript parser not available. Install tree-sitter-javascript to enable JavaScript support."
             )
-            raise ImportError("JavaScript parser not available")
+            msg = "JavaScript parser not available"
+            raise ImportError(msg)
         return JavaScriptCodeParser()
 
     def get_complexity_nodes(self) -> set[str]:
