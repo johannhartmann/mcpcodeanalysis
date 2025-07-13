@@ -5,6 +5,7 @@ from typing import ClassVar
 import tree_sitter
 
 from src.logger import get_logger
+from src.parser.plugin_registry import LanguagePluginRegistry
 
 logger = get_logger(__name__)
 
@@ -82,6 +83,99 @@ class ComplexityCalculator:
         "assert_statement",
     }
 
+    # TypeScript node types that increase complexity
+    TYPESCRIPT_COMPLEXITY_NODES: ClassVar[set[str]] = {
+        # Conditionals
+        "if_statement",
+        "else_clause",
+        "ternary_expression",
+        "conditional_expression",
+        "switch_statement",
+        "case_clause",
+        # Loops
+        "for_statement",
+        "for_in_statement",
+        "for_of_statement",
+        "while_statement",
+        "do_statement",
+        # Exception handling
+        "catch_clause",
+        "finally_clause",
+        # Boolean operators
+        "binary_expression",  # Will filter for && and ||
+        "logical_expression",
+        # Functions and async
+        "function_declaration",
+        "function_expression",
+        "arrow_function",
+        "method_definition",
+        "generator_function",
+        "async_function",
+        # TypeScript-specific
+        "interface_declaration",
+        "type_alias_declaration",
+        "enum_declaration",
+        "namespace_declaration",
+        "module_declaration",
+        # Control flow
+        "break_statement",
+        "continue_statement",
+        "return_statement",
+        "throw_statement",
+        # Modern JavaScript/TypeScript constructs
+        "await_expression",
+        "yield_expression",
+        "optional_chaining_expression",
+        "nullish_coalescing_expression",
+    }
+
+    # JavaScript node types that increase complexity
+    JAVASCRIPT_COMPLEXITY_NODES: ClassVar[set[str]] = {
+        # Conditionals
+        "if_statement",
+        "else_clause",
+        "ternary_expression",
+        "conditional_expression",
+        "switch_statement",
+        "case_clause",
+        # Loops
+        "for_statement",
+        "for_in_statement",
+        "for_of_statement",
+        "while_statement",
+        "do_statement",
+        # Exception handling
+        "catch_clause",
+        "finally_clause",
+        # Boolean operators
+        "binary_expression",  # Will filter for && and ||
+        "logical_expression",
+        # Functions and async
+        "function_declaration",
+        "function_expression",
+        "arrow_function",
+        "method_definition",
+        "generator_function",
+        "async_function",
+        # Control flow
+        "break_statement",
+        "continue_statement",
+        "return_statement",
+        "throw_statement",
+        # Modern JavaScript constructs
+        "await_expression",
+        "yield_expression",
+        "optional_chaining_expression",  # ?.
+        "nullish_coalescing_expression",  # ??
+        "template_literal",
+        # Class and object patterns
+        "class_declaration",
+        "class_expression",
+        "object_pattern",
+        "array_pattern",
+        "assignment_pattern",
+    }
+
     # Default to Python for backward compatibility
     COMPLEXITY_NODES = PYTHON_COMPLEXITY_NODES
 
@@ -96,12 +190,26 @@ class ComplexityCalculator:
     def __init__(self, language: str = "python") -> None:
         """Initialize calculator for specific language."""
         self.language = language.lower()
-        # Set appropriate complexity nodes based on language
-        if self.language == "php":
+
+        # Get complexity nodes from language plugin
+        plugin = LanguagePluginRegistry.get_plugin(self.language)
+        if plugin:
+            self.COMPLEXITY_NODES = plugin.get_complexity_nodes()
+        # Fallback to language-specific complexity nodes
+        elif self.language == "typescript":
+            self.COMPLEXITY_NODES = self.TYPESCRIPT_COMPLEXITY_NODES
+        elif self.language == "javascript":
+            self.COMPLEXITY_NODES = self.JAVASCRIPT_COMPLEXITY_NODES
+        elif self.language == "php":
             self.COMPLEXITY_NODES = self.PHP_COMPLEXITY_NODES
         elif self.language == "java":
             self.COMPLEXITY_NODES = self.JAVA_COMPLEXITY_NODES
         else:
+            # Final fallback to Python complexity nodes
+            logger.warning(
+                "No plugin found for language %s, using Python complexity nodes",
+                self.language,
+            )
             self.COMPLEXITY_NODES = self.PYTHON_COMPLEXITY_NODES
 
     def calculate_complexity(

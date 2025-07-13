@@ -4,9 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from src.logger import get_logger
-from src.parser.java_parser import JavaCodeParser
-from src.parser.php_parser import PHPCodeParser
-from src.parser.python_parser import PythonCodeParser
+from src.parser.plugin_registry import LanguagePluginRegistry
 
 logger = get_logger(__name__)
 
@@ -20,11 +18,7 @@ class CodeExtractor:
     """Extract and structure code entities for analysis."""
 
     def __init__(self) -> None:
-        self.parsers = {
-            ".py": PythonCodeParser(),
-            ".php": PHPCodeParser(),
-            ".java": JavaCodeParser(),
-        }
+        self.plugin_registry = LanguagePluginRegistry
 
     def extract_from_file(
         self,
@@ -32,15 +26,15 @@ class CodeExtractor:
         file_id: int,
     ) -> dict[str, list[Any]] | None:
         """Extract code entities from a file."""
-        suffix = file_path.suffix
+        # Get language plugin for this file
+        plugin = self.plugin_registry.get_plugin_by_file_path(file_path)
 
-        if suffix not in self.parsers:
-            logger.warning("No parser available for file type: %s", suffix)
+        if plugin is None:
+            logger.warning("No parser available for file type: %s", file_path.suffix)
             return None
 
-        parser = self.parsers[suffix]
-
         try:
+            parser = plugin.create_parser()
             return parser.extract_entities(file_path, file_id)
         except Exception:
             logger.exception("Failed to extract entities from %s", file_path)

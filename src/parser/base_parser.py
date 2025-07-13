@@ -91,6 +91,7 @@ class ParseResult:
     root_element: ParsedElement
     imports: list[str] = field(default_factory=list)
     dependencies: set[str] = field(default_factory=set)
+    references: list[dict[str, Any]] = field(default_factory=list)
     errors: list[dict[str, Any]] = field(default_factory=list)
 
     @property
@@ -125,12 +126,14 @@ class ParseResult:
             "root_element": self.root_element.to_dict(),
             "imports": self.imports,
             "dependencies": list(self.dependencies),
+            "references": self.references,
             "errors": self.errors,
             "statistics": {
                 "total_elements": len(self.all_elements),
                 "classes": len(self.find_elements(ElementType.CLASS)),
                 "functions": len(self.find_elements(ElementType.FUNCTION)),
                 "methods": len(self.find_elements(ElementType.METHOD)),
+                "references": len(self.references),
             },
         }
 
@@ -140,8 +143,7 @@ class BaseParser(ABC):
 
     def __init__(self, language: Language) -> None:
         self.language = language
-        self.parser = Parser()
-        self.parser.set_language(language)
+        self.parser = Parser(language)
 
     @abstractmethod
     def get_language_name(self) -> str:
@@ -169,6 +171,9 @@ class BaseParser(ABC):
             imports = self._extract_imports(tree, content)
             dependencies = self._extract_dependencies(imports)
 
+            # Extract references
+            references = self._extract_references(tree, content)
+
             result = ParseResult(
                 file_path=file_path,
                 language=self.get_language_name(),
@@ -176,6 +181,7 @@ class BaseParser(ABC):
                 root_element=root_element,
                 imports=imports,
                 dependencies=dependencies,
+                references=references,
             )
 
             logger.info(
@@ -219,6 +225,7 @@ class BaseParser(ABC):
         root_element = self._extract_elements(tree, content, Path(filename))
         imports = self._extract_imports(tree, content)
         dependencies = self._extract_dependencies(imports)
+        references = self._extract_references(tree, content)
 
         return ParseResult(
             file_path=Path(filename),
@@ -227,6 +234,7 @@ class BaseParser(ABC):
             root_element=root_element,
             imports=imports,
             dependencies=dependencies,
+            references=references,
         )
 
     @abstractmethod
@@ -241,6 +249,10 @@ class BaseParser(ABC):
     @abstractmethod
     def _extract_imports(self, tree: Tree, content: str) -> list[str]:
         """Extract import statements."""
+
+    @abstractmethod
+    def _extract_references(self, tree: Tree, content: str) -> list[dict[str, Any]]:
+        """Extract code references between entities."""
 
     def _extract_dependencies(self, imports: list[str]) -> set[str]:
         """Extract external dependencies from imports."""

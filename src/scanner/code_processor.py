@@ -86,7 +86,17 @@ class CodeProcessor:
 
             # Run domain analysis if enabled
             domain_stats = {}
-            if self.domain_indexer and file_path.suffix == ".py":
+            # Check if language supports domain analysis (object-oriented languages)
+            from src.parser.plugin_registry import LanguagePluginRegistry
+
+            plugin = LanguagePluginRegistry.get_plugin_by_file_path(file_path)
+            supports_domain_analysis = (
+                plugin
+                and plugin.supports_feature("classes")
+                and plugin.supports_feature("functions")
+            )
+
+            if self.domain_indexer and supports_domain_analysis:
                 try:
                     logger.info("Running domain analysis for %s", file_record.path)
                     domain_result = await self.domain_indexer.index_file(file_record.id)

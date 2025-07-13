@@ -53,7 +53,7 @@ class LanguageRegistry:
             name="javascript",
             display_name="JavaScript",
             extensions=[".js", ".jsx", ".mjs"],
-            parser_available=False,  # Will be True when parser is implemented
+            parser_available=True,  # TreeSitter parser now available
             features={
                 "classes": True,
                 "functions": True,
@@ -67,7 +67,7 @@ class LanguageRegistry:
             name="typescript",
             display_name="TypeScript",
             extensions=[".ts", ".tsx", ".d.ts"],
-            parser_available=False,  # Will be True when parser is implemented
+            parser_available=True,  # TreeSitter parser now available
             features={
                 "classes": True,
                 "functions": True,
@@ -263,3 +263,25 @@ class LanguageRegistry:
     def is_extension_available(cls, extension: str) -> bool:
         """Check if a file extension has an available parser."""
         return extension.lower() in cls.get_available_extensions()
+
+    @classmethod
+    def detect_language(cls, file_path) -> str | None:
+        """Detect language from file path.
+
+        Args:
+            file_path: Path-like object or string path to source file
+
+        Returns:
+            Language name or None if not supported
+        """
+        # Handle both Path objects and strings
+        if hasattr(file_path, "suffix"):
+            extension = file_path.suffix
+        else:
+            # Extract extension from string path
+            import os
+
+            extension = os.path.splitext(str(file_path))[1]
+
+        config = cls.get_language_by_extension(extension)
+        return config.name if config else None

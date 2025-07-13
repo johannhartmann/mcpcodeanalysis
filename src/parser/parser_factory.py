@@ -4,10 +4,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from src.logger import get_logger
-from src.parser.java_parser import JavaCodeParser
-from src.parser.language_config import LanguageRegistry
-from src.parser.php_parser import PHPCodeParser
-from src.parser.python_parser import PythonCodeParser
+from src.parser.plugin_registry import LanguagePluginRegistry
 
 logger = get_logger(__name__)
 
@@ -15,30 +12,26 @@ logger = get_logger(__name__)
 class ParserFactory:
     """Factory for creating language-specific parsers."""
 
-    # Mapping of file extensions to parser classes
-    _parsers: ClassVar[dict[str, type]] = {
-        ".py": PythonCodeParser,
-        ".pyw": PythonCodeParser,
-        ".pyi": PythonCodeParser,
-        ".php": PHPCodeParser,
-        ".java": JavaCodeParser,
-    }
-
-    # Mapping of language names to parser classes
-    _language_parsers: ClassVar[dict[str, type]] = {
-        "python": PythonCodeParser,
-        "php": PHPCodeParser,
-        "java": JavaCodeParser,
-    }
+    # Legacy mappings maintained for backward compatibility
+    _parsers: ClassVar[dict[str, type]] = {}
+    _language_parsers: ClassVar[dict[str, type]] = {}
 
     @classmethod
     def create_parser(cls, file_path: Path) -> object | None:
         """Create a parser for the given file based on its extension."""
-        extension = file_path.suffix.lower()
+        # Use plugin registry for parser creation
+        plugin = LanguagePluginRegistry.get_plugin_by_file_path(file_path)
+        if plugin:
+            logger.debug("Creating parser for %s using %s", file_path, plugin)
+            return plugin.create_parser()
 
+        # Fallback to legacy mapping for backward compatibility
+        extension = file_path.suffix.lower()
         parser_class = cls._parsers.get(extension)
         if parser_class:
-            logger.debug("Creating %s for %s", parser_class.__name__, file_path)
+            logger.debug(
+                "Creating %s for %s (legacy)", parser_class.__name__, file_path
+            )
             return parser_class()
 
         logger.warning("No parser available for extension: %s", extension)
@@ -47,12 +40,18 @@ class ParserFactory:
     @classmethod
     def create_parser_by_language(cls, language: str) -> object | None:
         """Create a parser for the given language."""
-        language_lower = language.lower()
+        # Use plugin registry for parser creation
+        plugin = LanguagePluginRegistry.get_plugin(language)
+        if plugin:
+            logger.debug("Creating parser for language %s using %s", language, plugin)
+            return plugin.create_parser()
 
+        # Fallback to legacy mapping for backward compatibility
+        language_lower = language.lower()
         parser_class = cls._language_parsers.get(language_lower)
         if parser_class:
             logger.debug(
-                "Creating %s for language: %s",
+                "Creating %s for language: %s (legacy)",
                 parser_class.__name__,
                 language,
             )
@@ -64,32 +63,26 @@ class ParserFactory:
     @classmethod
     def is_supported(cls, file_path: Path) -> bool:
         """Check if a file type is supported for parsing."""
-        # First check if parser is registered
-        if file_path.suffix.lower() in cls._parsers:
-            return True
-        # Then check language registry for future languages
-        return LanguageRegistry.is_extension_available(file_path.suffix)
+        # Use plugin registry to check support
+        return LanguagePluginRegistry.is_supported(file_path)
 
     @classmethod
     def is_language_supported(cls, language: str) -> bool:
         """Check if a language is supported for parsing."""
-        return language.lower() in cls._language_parsers
+        # Use plugin registry to check language support
+        return LanguagePluginRegistry.is_language_supported(language)
 
     @classmethod
     def get_supported_extensions(cls) -> list[str]:
         """Get list of supported file extensions."""
-        # Combine registered parsers and available extensions from language registry
-        extensions = set(cls._parsers.keys())
-        extensions.update(LanguageRegistry.get_available_extensions())
-        return sorted(extensions)
+        # Use plugin registry to get supported extensions
+        return LanguagePluginRegistry.get_supported_extensions()
 
     @classmethod
     def get_supported_languages(cls) -> list[str]:
         """Get list of supported languages."""
-        # Combine registered parsers and available languages from registry
-        languages = set(cls._language_parsers.keys())
-        languages.update(LanguageRegistry.get_available_languages())
-        return sorted(languages)
+        # Use plugin registry to get supported languages
+        return LanguagePluginRegistry.get_supported_languages()
 
     @classmethod
     def register_parser(cls, extension: str, parser_class: type) -> None:
