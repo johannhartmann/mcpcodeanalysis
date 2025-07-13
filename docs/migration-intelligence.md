@@ -14,9 +14,10 @@ The MCP Code Analysis Server now includes comprehensive migration intelligence c
 6. [Interface Design](#interface-design)
 7. [Migration Execution](#migration-execution)
 8. [Monitoring & Tracking](#monitoring--tracking)
-9. [Complete Workflow Example](#complete-workflow-example)
-10. [Migration Strategies](#migration-strategies)
-11. [Best Practices](#best-practices)
+9. [Knowledge Management](#knowledge-management)
+10. [Complete Workflow Example](#complete-workflow-example)
+11. [Migration Strategies](#migration-strategies)
+12. [Best Practices](#best-practices)
 
 ## Getting Started
 
@@ -460,6 +461,166 @@ Returns:
 - Phase-wise breakdown
 - Issues encountered
 
+## Knowledge Management
+
+### Extract Migration Patterns
+
+Learn from successful migrations by extracting patterns:
+
+```python
+patterns = extract_migration_patterns(plan_id=plan["plan_id"])
+```
+
+Automatically identifies:
+- Successful step patterns
+- Effective dependency handling
+- Reusable strategies
+
+### Add Custom Patterns
+
+Document your own proven patterns:
+
+```python
+pattern = add_pattern_to_library(
+    name="API Gateway Extraction Pattern",
+    category="extraction",
+    description="Pattern for extracting API gateway from monolith",
+    implementation_steps=[
+        "Identify all external API endpoints",
+        "Create gateway interface definitions",
+        "Implement request routing logic",
+        "Add authentication/authorization layer",
+        "Migrate endpoints incrementally"
+    ],
+    prerequisites=[
+        "Clear API documentation",
+        "Authentication service available",
+        "Load balancer configured"
+    ],
+    best_practices=[
+        "Use API versioning from start",
+        "Implement rate limiting",
+        "Add comprehensive logging"
+    ],
+    avg_effort_hours=40
+)
+```
+
+### Search Pattern Library
+
+Find relevant patterns for your needs:
+
+```python
+# Search by text
+patterns = search_patterns(
+    query="database migration",
+    min_success_rate=0.7
+)
+
+# Search by category
+patterns = search_patterns(
+    category="extraction",
+    applicable_to={
+        "size_category": "large",
+        "complexity_category": "high"
+    }
+)
+```
+
+### Get Pattern Recommendations
+
+Get AI-powered pattern recommendations:
+
+```python
+recommendations = get_pattern_recommendations(
+    repository_url="https://github.com/acme/monolith",
+    context={
+        "team_size": 5,
+        "timeline_weeks": 12,
+        "complexity": "high",
+        "target_architecture": "microservices"
+    }
+)
+```
+
+Returns patterns ranked by:
+- Success rate
+- Applicability to your context
+- Usage frequency
+- Effort estimates adjusted for your codebase
+
+### Update Pattern Statistics
+
+Keep patterns current with execution results:
+
+```python
+update_pattern_from_execution(
+    pattern_id=123,
+    execution_data={
+        "success": True,
+        "actual_hours": 35,
+        "scenario": {
+            "size_category": "large",
+            "complexity_category": "medium"
+        }
+    }
+)
+```
+
+### Learn from Failures
+
+Analyze failed migrations for lessons:
+
+```python
+lessons = learn_from_failures(plan_id=failed_plan["plan_id"])
+```
+
+Returns:
+- Failure analysis by step
+- Root cause identification
+- Prevention strategies
+- Pattern adjustment suggestions
+
+### Generate Pattern Documentation
+
+Create comprehensive pattern guides:
+
+```python
+docs = generate_pattern_documentation(pattern_id=123)
+```
+
+Includes:
+- Implementation guide
+- Prerequisites and risks
+- Real-world usage examples
+- Success metrics
+- Required tools
+
+### Share Migration Knowledge
+
+Export and share knowledge:
+
+```python
+# Share pattern library
+patterns_report = share_migration_knowledge(
+    knowledge_type="patterns",
+    format="markdown",
+    filter_category="extraction"
+)
+
+# Share best practices
+best_practices = share_migration_knowledge(
+    knowledge_type="best_practices",
+    format="json"
+)
+```
+
+Use for:
+- Team training
+- Knowledge transfer
+- Migration playbooks
+- Organizational learning
+
 ## Complete Workflow Example
 
 Here's a complete migration workflow:
@@ -595,6 +756,31 @@ report = generate_status_report(
 )
 print(f"Status: {report['status']}")
 print(f"Next steps: {', '.join(report['next_steps'][:2])}")
+
+# 13. Extract and Share Knowledge
+print("\n🎓 Extracting patterns from successful migration...")
+patterns = extract_migration_patterns(plan_id=plan['plan_id'])
+print(f"Extracted {len(patterns['patterns'])} reusable patterns")
+
+# Get pattern recommendations for next migration
+print("\n💡 Getting pattern recommendations...")
+recommendations = get_pattern_recommendations(
+    repository_url="https://github.com/acme/monolith",
+    context={
+        "team_size": 6,
+        "timeline_weeks": 16,
+        "target_architecture": "modular_monolith"
+    }
+)
+print(f"Top recommendation: {recommendations['top_recommendation']['pattern']['name']}")
+
+# Share knowledge with team
+print("\n📚 Sharing migration knowledge...")
+knowledge = share_migration_knowledge(
+    knowledge_type="patterns",
+    format="markdown"
+)
+print(f"Generated knowledge report with {knowledge['item_count']} patterns")
 ```
 
 ## Migration Strategies

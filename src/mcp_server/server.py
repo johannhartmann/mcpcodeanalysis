@@ -27,6 +27,16 @@ from src.mcp_server.tools.execution_tools import (
     track_migration_progress,
     validate_migration_step,
 )
+from src.mcp_server.tools.knowledge_tools import (
+    add_pattern_to_library,
+    extract_migration_patterns,
+    generate_pattern_documentation,
+    get_pattern_recommendations,
+    learn_from_failures,
+    search_patterns,
+    share_migration_knowledge,
+    update_pattern_from_execution,
+)
 from src.mcp_server.tools.migration_tools import (
     analyze_migration_impact,
     analyze_migration_readiness,
@@ -898,6 +908,16 @@ mcp.add_tool(get_migration_timeline)
 mcp.add_tool(check_migration_health)
 mcp.add_tool(detect_anomalies)
 mcp.add_tool(generate_status_report)
+
+# Register knowledge management tools
+mcp.add_tool(extract_migration_patterns)
+mcp.add_tool(add_pattern_to_library)
+mcp.add_tool(search_patterns)
+mcp.add_tool(get_pattern_recommendations)
+mcp.add_tool(update_pattern_from_execution)
+mcp.add_tool(learn_from_failures)
+mcp.add_tool(generate_pattern_documentation)
+mcp.add_tool(share_migration_knowledge)
 
 
 # Tools from main.py for compatibility
