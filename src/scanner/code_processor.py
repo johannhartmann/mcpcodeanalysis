@@ -627,10 +627,9 @@ class CodeProcessor:
         # Handle both raw entities (no id) and stored entities (with id)
         module_map = {}
         for e in entities.get("modules", []):
-            if isinstance(e, dict) and "name" in e:
+            if isinstance(e, dict) and "name" in e and "id" in e:
                 # For stored entities with id
-                if "id" in e:
-                    module_map[e["name"]] = e["id"]
+                module_map[e["name"]] = e["id"]
                 # For raw entities, we'll need to look up from DB
 
         class_map = {}

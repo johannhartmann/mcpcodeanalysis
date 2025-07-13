@@ -99,8 +99,8 @@ class TypeScriptCodeParser(BaseParser):
             self._extract_imports_direct(child, content, imports)
 
     def _extract_references(
-        self, tree: Tree, content: str
-    ) -> list[dict[str, Any]]:  # noqa: ARG002
+        self, tree: Tree, content: str  # noqa: ARG002
+    ) -> list[dict[str, Any]]:
         """Extract code references from TypeScript parse tree."""
         references = []
 

@@ -2135,15 +2135,17 @@ class TypeScriptParser(TreeSitterParser):
         # Extract type references from interfaces
         for interface in module_info.get("interfaces", []):
             # Interface inheritance references
-            for extended in interface.get("extends", []):
-                references.append(
+            references.extend(
+                [
                     {
                         "type": "interface_extends",
                         "source": interface["name"],
                         "target": extended,
                         "line": interface["start_line"],
                     }
-                )
+                    for extended in interface.get("extends", [])
+                ]
+            )
 
             # Property type references
             for prop in interface.get("properties", []):
@@ -2170,26 +2172,30 @@ class TypeScriptParser(TreeSitterParser):
         # Extract type references from classes
         for cls in module_info.get("classes", []):
             # Class inheritance references
-            for base in cls.get("base_classes", []):
-                references.append(
+            references.extend(
+                [
                     {
                         "type": "inherit",
                         "source": cls["name"],
                         "target": base,
                         "line": cls["start_line"],
                     }
-                )
+                    for base in cls.get("base_classes", [])
+                ]
+            )
 
             # Interface implementation references
-            for impl in cls.get("interfaces", []):
-                references.append(
+            references.extend(
+                [
                     {
                         "type": "implement",
                         "source": cls["name"],
                         "target": impl,
                         "line": cls["start_line"],
                     }
-                )
+                    for impl in cls.get("interfaces", [])
+                ]
+            )
 
         # Extract type references from functions
         for func in module_info.get("functions", []):
@@ -2231,8 +2237,8 @@ class TypeScriptParser(TreeSitterParser):
 
         # Extract import references
         for imp in module_info.get("imports", []):
-            for imported_item in imp.get("imports", []):
-                references.append(
+            references.extend(
+                [
                     {
                         "type": "import",
                         "source": "module",
@@ -2240,7 +2246,9 @@ class TypeScriptParser(TreeSitterParser):
                         "line": imp["line"],
                         "module": imp["module"],
                     }
-                )
+                    for imported_item in imp.get("imports", [])
+                ]
+            )
 
         return references
 
@@ -2250,9 +2258,8 @@ class JavaScriptParser(TreeSitterParser):
 
     def __init__(self) -> None:
         if not JAVASCRIPT_AVAILABLE or tsjavascript is None:
-            raise ImportError(
-                "tree-sitter-javascript not available. Install with: pip install tree-sitter-javascript"
-            )
+            msg = "tree-sitter-javascript not available. Install with: pip install tree-sitter-javascript"
+            raise ImportError(msg)
         super().__init__(tree_sitter.Language(tsjavascript.language()))
 
     def extract_module_info(
@@ -2643,20 +2650,22 @@ class JavaScriptParser(TreeSitterParser):
         # Extract class inheritance references
         for cls in module_info.get("classes", []):
             # Class inheritance references
-            for base in cls.get("base_classes", []):
-                references.append(
+            references.extend(
+                [
                     {
                         "type": "inherit",
                         "source": cls["name"],
                         "target": base,
                         "line": cls["start_line"],
                     }
-                )
+                    for base in cls.get("base_classes", [])
+                ]
+            )
 
         # Extract import references
         for imp in module_info.get("imports", []):
-            for imported_item in imp.get("imports", []):
-                references.append(
+            references.extend(
+                [
                     {
                         "type": "import",
                         "source": "module",
@@ -2664,19 +2673,22 @@ class JavaScriptParser(TreeSitterParser):
                         "line": imp["line"],
                         "module": imp["module"],
                     }
-                )
+                    for imported_item in imp.get("imports", [])
+                ]
+            )
 
         # Extract function call references (simplified)
         # This could be enhanced to analyze function calls within the AST
-        for func in module_info.get("functions", []):
-            # For now, just note that functions exist
-            references.append(
+        references.extend(
+            [
                 {
                     "type": "function_definition",
                     "source": "module",
                     "target": func["name"],
                     "line": func["start_line"],
                 }
-            )
+                for func in module_info.get("functions", [])
+            ]
+        )
 
         return references
