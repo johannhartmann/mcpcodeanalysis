@@ -151,11 +151,11 @@ def search(query: str, repository_id: int, limit: int) -> None:
             click.echo(f"Found {len(results)} results for '{query}':\n")
 
             for i, result in enumerate(results, 1):
-                entity = result["entity"]
-                click.echo(f"{i}. {entity['type']}: {entity['name']}")
-                click.echo(f"   File: {entity['file_path']}")
-                click.echo(f"   Lines: {entity['start_line']}-{entity['end_line']}")
-                click.echo(f"   Similarity: {result['similarity']:.3f}")
+                entity = result["entity"]  # type: ignore[index]
+                click.echo(f"{i}. {entity['type']}: {entity['name']}")  # type: ignore[index]
+                click.echo(f"   File: {entity['file_path']}")  # type: ignore[index]
+                click.echo(f"   Lines: {entity['start_line']}-{entity['end_line']}")  # type: ignore[index]
+                click.echo(f"   Similarity: {result['similarity']:.3f}")  # type: ignore[index]
                 click.echo()
 
         finally:

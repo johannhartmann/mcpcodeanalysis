@@ -34,7 +34,7 @@ from src.utils.version import get_package_version
 logger = get_logger(__name__)
 
 # Create the global FastMCP instance
-mcp = FastMCP("Code Analysis Server")
+mcp: FastMCP = FastMCP("Code Analysis Server")
 
 # Global variables for shared resources
 _engine = None
@@ -125,11 +125,10 @@ async def add_repository(
                 repo_config = RepositoryConfig(
                     url=url,
                     branch=branch,
-                    repository_id=repo.id,
                 )
 
                 scanner = RepositoryScanner(session)
-                scan_result = await scanner.scan_repository(repo_config)
+                scan_result: dict[str, Any] = await scanner.scan_repository(repo_config)
 
                 # Generate embeddings if requested
                 if generate_embeddings:
