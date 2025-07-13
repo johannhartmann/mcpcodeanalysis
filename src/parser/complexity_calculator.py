@@ -259,41 +259,46 @@ class ComplexityCalculator:
 
         # Check if this node adds complexity
         if node.type in self.COMPLEXITY_NODES:
-            # Special handling for certain nodes
-            if node.type == "else_clause":
-                # Only count else if it contains an if (elif)
-                if self._contains_if_statement(node):
-                    count += 1
-            elif node.type in {"and", "or"}:
-                # Boolean operators add complexity
-                count += 1
-            elif node.type == "binary_expression":
-                # For PHP and Java, check if it's a logical operator
-                operator = self._get_binary_operator(node, content)
-                if operator in ["&&", "||", "and", "or"]:
-                    count += 1
-            else:
-                count += 1
+            count += self._handle_complexity_node(node, content)
 
         # Special node handling
         if node.type in self.SPECIAL_NODES:
-            if node.type == "assert_statement":
-                count += 1
-            elif node.type == "with_statement":
-                # Count number of context managers (comma-separated)
-                count += self._count_with_items(node)
-            elif node.type == "lambda" and self._lambda_has_conditional(node):
-                # Lambda contains conditionals
-                count += 1
-            elif node.type == "try_statement":
-                # Each catch/except clause adds a path
-                count += self._count_exception_handlers(node)
+            count += self._handle_special_node(node)
 
         # Recursively check children
         for child in node.children:
             count += self._count_complexity_nodes(child, content)
 
         return count
+
+    def _handle_complexity_node(self, node: tree_sitter.Node, content: bytes) -> int:
+        """Handle nodes that add to complexity."""
+        if node.type == "else_clause":
+            # Only count else if it contains an if (elif)
+            return 1 if self._contains_if_statement(node) else 0
+        if node.type in {"and", "or"}:
+            # Boolean operators add complexity
+            return 1
+        if node.type == "binary_expression":
+            # For PHP and Java, check if it's a logical operator
+            operator = self._get_binary_operator(node, content)
+            return 1 if operator in ["&&", "||", "and", "or"] else 0
+        return 1
+
+    def _handle_special_node(self, node: tree_sitter.Node) -> int:
+        """Handle special nodes that add to complexity."""
+        if node.type == "assert_statement":
+            return 1
+        if node.type == "with_statement":
+            # Count number of context managers (comma-separated)
+            return self._count_with_items(node)
+        if node.type == "lambda" and self._lambda_has_conditional(node):
+            # Lambda contains conditionals
+            return 1
+        if node.type == "try_statement":
+            # Each catch/except clause adds a path
+            return self._count_exception_handlers(node)
+        return 0
 
     def _contains_if_statement(self, else_node: tree_sitter.Node) -> bool:
         """Check if an else clause contains an if statement (making it elif-like)."""

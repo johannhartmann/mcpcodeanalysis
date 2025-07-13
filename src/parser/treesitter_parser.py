@@ -843,41 +843,47 @@ class PHPParser(TreeSitterParser):
         references = []
 
         # Extract import references from use statements
-        for imp in self.extract_imports(tree, content):
-            if imp["imported_from"]:
-                references.append(
-                    {
-                        "type": "import",
-                        "source": "module",
-                        "target": imp["imported_from"],
-                        "line": imp["line_number"],
-                    }
-                )
+        references.extend(
+            [
+                {
+                    "type": "import",
+                    "source": "module",
+                    "target": imp["imported_from"],
+                    "line": imp["line_number"],
+                }
+                for imp in self.extract_imports(tree, content)
+                if imp["imported_from"]
+            ]
+        )
 
         # Extract class inheritance references
         classes = self.extract_classes(tree, content)
         for cls in classes:
             # Base class references
-            for base in cls.get("base_classes", []):
-                references.append(
+            references.extend(
+                [
                     {
                         "type": "inherit",
                         "source": cls["name"],
                         "target": base,
                         "line": cls["start_line"],
                     }
-                )
+                    for base in cls.get("base_classes", [])
+                ]
+            )
 
             # Trait usage references
-            for trait in cls.get("traits", []):
-                references.append(
+            references.extend(
+                [
                     {
                         "type": "trait_use",
                         "source": cls["name"],
                         "target": trait,
                         "line": cls["start_line"],
                     }
-                )
+                    for trait in cls.get("traits", [])
+                ]
+            )
 
         # Extract type references from functions
         functions = self.extract_functions(tree, content)
@@ -902,23 +908,27 @@ class PHPParser(TreeSitterParser):
                 )
 
             # Parameter type references
-            for param in func.get("parameters", []):
-                if param.get("type") and param["type"] not in [
-                    "string",
-                    "int",
-                    "bool",
-                    "float",
-                    "array",
-                    "mixed",
-                ]:
-                    references.append(
-                        {
-                            "type": "type_use",
-                            "source": func["name"],
-                            "target": param["type"].lstrip("?"),
-                            "line": func["start_line"],
-                        }
-                    )
+            references.extend(
+                [
+                    {
+                        "type": "type_use",
+                        "source": func["name"],
+                        "target": param["type"].lstrip("?"),
+                        "line": func["start_line"],
+                    }
+                    for param in func.get("parameters", [])
+                    if param.get("type")
+                    and param["type"]
+                    not in [
+                        "string",
+                        "int",
+                        "bool",
+                        "float",
+                        "array",
+                        "mixed",
+                    ]
+                ]
+            )
 
         return references
 
@@ -1298,16 +1308,18 @@ class JavaParser(TreeSitterParser):
         references = []
 
         # Extract import references
-        for imp in self.extract_imports(tree, content):
-            if imp["imported_from"]:
-                references.append(
-                    {
-                        "type": "import",
-                        "source": "module",
-                        "target": imp["imported_from"],
-                        "line": imp["line_number"],
-                    }
-                )
+        references.extend(
+            [
+                {
+                    "type": "import",
+                    "source": "module",
+                    "target": imp["imported_from"],
+                    "line": imp["line_number"],
+                }
+                for imp in self.extract_imports(tree, content)
+                if imp["imported_from"]
+            ]
+        )
 
         # Extract class inheritance and interface implementation references
         classes = self.extract_classes(tree, content)
@@ -1366,7 +1378,10 @@ class JavaParser(TreeSitterParser):
                     ]:
                         # Handle generic types and arrays
                         param_type = (
-                            param["type"].split("<")[0].split("[")[0].rstrip("...")
+                            param["type"]
+                            .split("<")[0]
+                            .split("[")[0]
+                            .removesuffix("...")
                         )
                         if param_type not in ["String"]:
                             references.append(
@@ -1386,9 +1401,8 @@ class TypeScriptParser(TreeSitterParser):
 
     def __init__(self) -> None:
         if not TYPESCRIPT_AVAILABLE or tstypescript is None:
-            raise ImportError(
-                "tree-sitter-typescript not available. Install with: pip install tree-sitter-typescript"
-            )
+            msg = "tree-sitter-typescript not available. Install with: pip install tree-sitter-typescript"
+            raise ImportError(msg)
         super().__init__(tree_sitter.Language(tstypescript.language_typescript()))
 
     def extract_module_info(
@@ -1879,11 +1893,13 @@ class TypeScriptParser(TreeSitterParser):
             if child.type == "class_heritage":
                 for heritage_child in child.children:
                     if heritage_child.type == "implements_clause":
-                        for impl_child in heritage_child.children:
-                            if impl_child.type == "type_identifier":
-                                interfaces.append(
-                                    self.get_node_text(impl_child, content)
-                                )
+                        interfaces.extend(
+                            [
+                                self.get_node_text(impl_child, content)
+                                for impl_child in heritage_child.children
+                                if impl_child.type == "type_identifier"
+                            ]
+                        )
         return interfaces
 
     def _extract_decorators(self, node, content):
@@ -1900,7 +1916,7 @@ class TypeScriptParser(TreeSitterParser):
                     decorators.append(decorator_name)
         return decorators
 
-    def _extract_class_modifiers(self, node, content):
+    def _extract_class_modifiers(self, node, content):  # noqa: ARG002
         """Extract class access modifiers."""
         for child in node.children:
             if child.type in ["public", "private", "protected"]:
@@ -1914,12 +1930,9 @@ class TypeScriptParser(TreeSitterParser):
                 return self._extract_type_annotation(child, content)
         return "any"
 
-    def _is_async_function(self, func_node, content):
+    def _is_async_function(self, func_node, content):  # noqa: ARG002
         """Check if function is async."""
-        for child in func_node.children:
-            if child.type == "async":
-                return True
-        return False
+        return any(child.type == "async" for child in func_node.children)
 
     def _extract_arrow_parameters(self, arrow_node, content):
         """Extract parameters from arrow function."""
@@ -1963,7 +1976,7 @@ class TypeScriptParser(TreeSitterParser):
                         imports.append(self.get_node_text(clause_child, content))
         return imports
 
-    def _has_default_import(self, import_node, content):
+    def _has_default_import(self, import_node, content):  # noqa: ARG002
         """Check if import has default import."""
         for child in import_node.children:
             if child.type == "import_clause":
@@ -1972,7 +1985,7 @@ class TypeScriptParser(TreeSitterParser):
                         return True
         return False
 
-    def _has_namespace_import(self, import_node, content):
+    def _has_namespace_import(self, import_node, content):  # noqa: ARG002
         """Check if import has namespace import."""
         for child in import_node.children:
             if child.type == "import_clause":
@@ -1981,7 +1994,7 @@ class TypeScriptParser(TreeSitterParser):
                         return True
         return False
 
-    def _get_export_type(self, export_node, content):
+    def _get_export_type(self, export_node, content):  # noqa: ARG002
         """Get export type."""
         for child in export_node.children:
             if child.type == "default":
@@ -2074,9 +2087,13 @@ class TypeScriptParser(TreeSitterParser):
         extends = []
         for child in interface_node.children:
             if child.type == "extends_clause":
-                for extends_child in child.children:
-                    if extends_child.type == "type_identifier":
-                        extends.append(self.get_node_text(extends_child, content))
+                extends.extend(
+                    [
+                        self.get_node_text(extends_child, content)
+                        for extends_child in child.children
+                        if extends_child.type == "type_identifier"
+                    ]
+                )
         return extends
 
     def _extract_type_definition(self, type_node, content):
