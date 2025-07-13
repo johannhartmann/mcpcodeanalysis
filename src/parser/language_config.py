@@ -279,9 +279,9 @@ class LanguageRegistry:
             extension = file_path.suffix
         else:
             # Extract extension from string path
-            import os
+            from pathlib import Path
 
-            extension = os.path.splitext(str(file_path))[1]
+            extension = Path(str(file_path)).suffix
 
         config = cls.get_language_by_extension(extension)
         return config.name if config else None
