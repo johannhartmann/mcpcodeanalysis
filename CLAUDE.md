@@ -402,3 +402,4 @@ database:
 - For every change of the software you have to rebuild the docker container to see the result.
 - Always run python, uv etc in nix develop
 - Never mention claude or anthropic in commit messages.
+- Always use the current versions of packages and apis
