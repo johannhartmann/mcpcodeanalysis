@@ -28,15 +28,7 @@ DEFAULT_MIN_CONFIDENCE = 0.5
 MIN_COMMUNITY_SIZE = 2
 MIN_EDGE_COUNT_FOR_SHARED_KERNEL = 5
 
-# Import leidenalg if available, otherwise use fallback
-try:
-    import igraph
-    import leidenalg
-
-    LEIDEN_AVAILABLE = True
-except ImportError:
-    logger.warning("leidenalg not available, using NetworkX community detection")
-    LEIDEN_AVAILABLE = False
+# Use NetworkX for all community detection (Python 3.12 compatible)
 
 
 class SemanticGraphBuilder:
@@ -191,11 +183,8 @@ class SemanticGraphBuilder:
         if use_embeddings:
             await self._enhance_weights_with_embeddings(graph)
 
-        # Detect communities
-        if LEIDEN_AVAILABLE:
-            communities = self._detect_leiden_communities(graph, resolution)
-        else:
-            communities = self._detect_louvain_communities(graph, resolution)
+        # Detect communities using Louvain algorithm
+        communities = self._detect_louvain_communities(graph, resolution)
 
         # Convert to bounded contexts
         contexts = []
@@ -212,54 +201,6 @@ class SemanticGraphBuilder:
 
         logger.info("Detected %d bounded contexts", len(contexts))
         return contexts
-
-    def _detect_leiden_communities(
-        self,
-        graph: nx.Graph,
-        resolution: float,
-    ) -> list[list[int]]:
-        """Detect communities using Leiden algorithm."""
-        # Convert to igraph
-        ig = igraph.Graph()
-        ig.add_vertices(list(graph.nodes()))
-
-        # Map node IDs to indices
-        node_to_idx = {node: i for i, node in enumerate(graph.nodes())}
-        idx_to_node = {i: node for node, i in node_to_idx.items()}
-
-        # Add edges with weights
-        edges = []
-        weights = []
-        for u, v, data in graph.edges(data=True):
-            edges.append((node_to_idx[u], node_to_idx[v]))
-            weights.append(data.get("weight", 1.0))
-
-        ig.add_edges(edges)
-        ig.es["weight"] = weights
-
-        # Run Leiden algorithm
-        # Use RBConfigurationVertexPartition if resolution != 1.0, otherwise use ModularityVertexPartition
-        if resolution != 1.0:
-            partition = leidenalg.find_partition(
-                ig,
-                leidenalg.RBConfigurationVertexPartition,
-                weights=weights,
-                resolution_parameter=resolution,
-            )
-        else:
-            partition = leidenalg.find_partition(
-                ig,
-                leidenalg.ModularityVertexPartition,
-                weights=weights,
-            )
-
-        # Convert back to node IDs
-        communities = []
-        for community in partition:
-            node_ids = [idx_to_node[idx] for idx in community]
-            communities.append(node_ids)
-
-        return communities
 
     def _detect_louvain_communities(
         self,
