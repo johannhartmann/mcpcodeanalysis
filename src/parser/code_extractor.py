@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import Any
 
 from src.logger import get_logger
+from src.parser.java_parser import JavaCodeParser
+from src.parser.php_parser import PHPCodeParser
 from src.parser.python_parser import PythonCodeParser
 
 logger = get_logger(__name__)
@@ -20,6 +22,8 @@ class CodeExtractor:
     def __init__(self) -> None:
         self.parsers = {
             ".py": PythonCodeParser(),
+            ".php": PHPCodeParser(),
+            ".java": JavaCodeParser(),
         }
 
     def extract_from_file(
@@ -93,7 +97,14 @@ class CodeExtractor:
 
     def _describe_module(self, module_data: dict[str, Any], file_path: Path) -> str:
         """Build description for a module."""
-        parts = [f"Python module '{module_data['name']}' from {file_path}"]
+        # Determine language from file extension
+        language = "Python"
+        if file_path.suffix == ".php":
+            language = "PHP"
+        elif file_path.suffix == ".java":
+            language = "Java"
+
+        parts = [f"{language} module '{module_data['name']}' from {file_path}"]
 
         if module_data.get("docstring"):
             parts.append(f"Purpose: {module_data['docstring'][:200]}")

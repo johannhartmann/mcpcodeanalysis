@@ -81,7 +81,7 @@ class LanguageRegistry:
             name="java",
             display_name="Java",
             extensions=[".java"],
-            parser_available=False,
+            parser_available=True,
             features={
                 "classes": True,
                 "functions": True,  # Methods in Java
@@ -179,7 +179,7 @@ class LanguageRegistry:
             name="php",
             display_name="PHP",
             extensions=[".php"],
-            parser_available=False,
+            parser_available=True,
             features={
                 "classes": True,
                 "functions": True,
