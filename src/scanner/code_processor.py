@@ -657,10 +657,10 @@ class CodeProcessor:
         """Resolve source entity name to ID."""
         if source_type == "module":
             return next(iter(module_map.values())) if module_map else None
-        if source_type == "class":
+        elif source_type == "class":
             class_name = source_name.split(".")[-1]
             return class_map.get(class_name)
-        if source_type == "function":
+        elif source_type == "function":
             func_name = source_name.split(".")[-1]
             return function_map.get(func_name)
         return None
