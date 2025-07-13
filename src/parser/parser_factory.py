@@ -4,7 +4,9 @@ from pathlib import Path
 from typing import ClassVar
 
 from src.logger import get_logger
+from src.parser.java_parser import JavaCodeParser
 from src.parser.language_config import LanguageRegistry
+from src.parser.php_parser import PHPCodeParser
 from src.parser.python_parser import PythonCodeParser
 
 logger = get_logger(__name__)
@@ -18,11 +20,15 @@ class ParserFactory:
         ".py": PythonCodeParser,
         ".pyw": PythonCodeParser,
         ".pyi": PythonCodeParser,
+        ".php": PHPCodeParser,
+        ".java": JavaCodeParser,
     }
 
     # Mapping of language names to parser classes
     _language_parsers: ClassVar[dict[str, type]] = {
         "python": PythonCodeParser,
+        "php": PHPCodeParser,
+        "java": JavaCodeParser,
     }
 
     @classmethod
