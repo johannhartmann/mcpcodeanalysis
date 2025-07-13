@@ -13,6 +13,20 @@ from src.logger import get_logger
 from src.mcp_server.tools.code_analysis import CodeAnalysisTools
 from src.mcp_server.tools.code_search import CodeSearchTools
 from src.mcp_server.tools.domain_tools import DomainTools
+from src.mcp_server.tools.execution_tools import (
+    check_migration_health,
+    complete_migration_step,
+    detect_anomalies,
+    generate_execution_report,
+    generate_status_report,
+    get_migration_dashboard,
+    get_migration_timeline,
+    monitor_step_execution,
+    rollback_migration_step,
+    start_migration_step,
+    track_migration_progress,
+    validate_migration_step,
+)
 from src.mcp_server.tools.migration_tools import (
     analyze_migration_impact,
     analyze_migration_readiness,
@@ -870,6 +884,20 @@ mcp.add_tool(estimate_migration_effort)
 mcp.add_tool(plan_migration_resources)
 mcp.add_tool(design_module_interface)
 mcp.add_tool(generate_interface_documentation)
+
+# Register migration execution tools
+mcp.add_tool(start_migration_step)
+mcp.add_tool(complete_migration_step)
+mcp.add_tool(track_migration_progress)
+mcp.add_tool(validate_migration_step)
+mcp.add_tool(rollback_migration_step)
+mcp.add_tool(generate_execution_report)
+mcp.add_tool(get_migration_dashboard)
+mcp.add_tool(monitor_step_execution)
+mcp.add_tool(get_migration_timeline)
+mcp.add_tool(check_migration_health)
+mcp.add_tool(detect_anomalies)
+mcp.add_tool(generate_status_report)
 
 
 # Tools from main.py for compatibility
