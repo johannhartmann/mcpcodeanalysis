@@ -70,6 +70,11 @@ class Repository(Base):
         back_populates="repository",
         cascade="all, delete-orphan",
     )
+    migration_plans: Any = relationship(
+        "MigrationPlan",
+        back_populates="repository",
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (Index("idx_repository_owner_name", "owner", "name"),)
 

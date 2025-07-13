@@ -13,6 +13,19 @@ from src.logger import get_logger
 from src.mcp_server.tools.code_analysis import CodeAnalysisTools
 from src.mcp_server.tools.code_search import CodeSearchTools
 from src.mcp_server.tools.domain_tools import DomainTools
+from src.mcp_server.tools.migration_tools import (
+    analyze_migration_impact,
+    analyze_migration_readiness,
+    assess_migration_risks,
+    create_migration_plan,
+    design_module_interface,
+    estimate_migration_effort,
+    generate_interface_documentation,
+    generate_migration_roadmap,
+    identify_migration_patterns,
+    optimize_migration_plan,
+    plan_migration_resources,
+)
 from src.mcp_server.tools.package_analysis import (
     AnalyzePackagesRequest,
     FindCircularDependenciesRequest,
@@ -843,6 +856,20 @@ async def get_domain_metrics(
             "recommendations": coupling.get("recommendations", []),
         }
     return {}
+
+
+# Register migration intelligence tools
+mcp.add_tool(analyze_migration_readiness)
+mcp.add_tool(create_migration_plan)
+mcp.add_tool(optimize_migration_plan)
+mcp.add_tool(generate_migration_roadmap)
+mcp.add_tool(identify_migration_patterns)
+mcp.add_tool(assess_migration_risks)
+mcp.add_tool(analyze_migration_impact)
+mcp.add_tool(estimate_migration_effort)
+mcp.add_tool(plan_migration_resources)
+mcp.add_tool(design_module_interface)
+mcp.add_tool(generate_interface_documentation)
 
 
 # Tools from main.py for compatibility

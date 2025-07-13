@@ -222,6 +222,16 @@ class BoundedContext(Base):
     coupling_score = Column(Float)  # External coupling (0-1)
     modularity_score = Column(Float)  # From community detection
 
+    # Migration-specific fields
+    migration_priority = Column(
+        Enum("high", "medium", "low", name="migration_priority_type"),
+        default="medium",
+    )
+    migration_complexity = Column(Float)  # Calculated complexity score
+    migration_readiness = Column(Float)  # Readiness assessment (0-1)
+    extraction_strategy = Column(String(100))  # Preferred extraction approach
+    migration_notes = Column(Text)  # Additional migration considerations
+
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 

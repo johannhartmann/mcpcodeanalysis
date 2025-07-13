@@ -9,6 +9,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -185,6 +186,11 @@ class PackageMetrics(Base):
     public_classes = Column(Integer, default=0)
     public_functions = Column(Integer, default=0)
     public_constants = Column(Integer, default=0)
+
+    # Migration-specific metrics
+    migration_risk_score = Column(Float)  # Risk assessment for migration
+    extraction_difficulty = Column(Float)  # Difficulty of extracting as module
+    interface_complexity = Column(Float)  # Complexity of required interfaces
 
     calculated_at = Column(DateTime, default=func.now())
 

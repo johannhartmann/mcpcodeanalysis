@@ -30,7 +30,11 @@ target_metadata = Base.metadata
 def get_url() -> str:
     """Get database URL from settings."""
     # get_database_url imported globally from src.config
-    return get_database_url()
+    url = get_database_url()
+    # Convert async URL to sync for alembic
+    if "asyncpg" in url:
+        url = url.replace("postgresql+asyncpg://", "postgresql://")
+    return url
 
 
 def run_migrations_offline() -> None:
@@ -80,12 +84,6 @@ def run_migrations_online() -> None:
         )
 
         with context.begin_transaction():
-            # Create custom SQL for pgvector extension and indexes
-            if context.is_offline_mode():
-                context.execute("CREATE EXTENSION IF NOT EXISTS vector")
-            else:
-                connection.execute("CREATE EXTENSION IF NOT EXISTS vector")
-
             context.run_migrations()
 
 
