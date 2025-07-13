@@ -1967,11 +1967,13 @@ class TypeScriptParser(TreeSitterParser):
                     if clause_child.type == "named_imports":
                         for named_child in clause_child.children:
                             if named_child.type == "import_specifier":
-                                for spec_child in named_child.children:
-                                    if spec_child.type == "identifier":
-                                        imports.append(
-                                            self.get_node_text(spec_child, content)
-                                        )
+                                imports.extend(
+                                    [
+                                        self.get_node_text(spec_child, content)
+                                        for spec_child in named_child.children
+                                        if spec_child.type == "identifier"
+                                    ]
+                                )
                     elif clause_child.type == "identifier":
                         imports.append(self.get_node_text(clause_child, content))
         return imports
@@ -2627,11 +2629,13 @@ class JavaScriptParser(TreeSitterParser):
                     if clause_child.type == "named_imports":
                         for named_child in clause_child.children:
                             if named_child.type == "import_specifier":
-                                for spec_child in named_child.children:
-                                    if spec_child.type == "identifier":
-                                        imports.append(
-                                            self.get_node_text(spec_child, content)
-                                        )
+                                imports.extend(
+                                    [
+                                        self.get_node_text(spec_child, content)
+                                        for spec_child in named_child.children
+                                        if spec_child.type == "identifier"
+                                    ]
+                                )
                     elif clause_child.type == "identifier":
                         imports.append(self.get_node_text(clause_child, content))
         return imports

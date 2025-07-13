@@ -25,6 +25,23 @@ class LanguagePluginRegistry:
     _initialized: ClassVar[bool] = False
 
     @classmethod
+    def _validate_plugin_config(cls, config: Any) -> None:
+        """Validate plugin configuration.
+
+        Args:
+            config: Plugin configuration to validate
+
+        Raises:
+            ValueError: If configuration is invalid
+        """
+        if not config.name:
+            msg = "Plugin must have a non-empty name"
+            raise ValueError(msg)
+        if not config.extensions:
+            msg = "Plugin must support at least one file extension"
+            raise ValueError(msg)
+
+    @classmethod
     def register_plugin(cls, plugin: LanguagePlugin) -> None:
         """Register a language plugin.
 
@@ -39,12 +56,7 @@ class LanguagePluginRegistry:
             language_name = config.name.lower()
 
             # Validate plugin configuration
-            if not config.name:
-                msg = "Plugin must have a non-empty name"
-                raise ValueError(msg)
-            if not config.extensions:
-                msg = "Plugin must support at least one file extension"
-                raise ValueError(msg)
+            cls._validate_plugin_config(config)
 
             # Test parser creation if available
             if config.parser_available:
