@@ -281,10 +281,14 @@ class RepositoryScanner:
         """Perform full scan of all repository files."""
         logger.info("Performing full file scan", repo_id=repo_record.id)
 
-        # Get all Python files (will be configurable for other languages later)
+        # Get all supported code files
+        from src.parser.parser_factory import ParserFactory
+
+        supported_extensions = set(ParserFactory.get_supported_extensions())
+
         files_data = await self.git_sync.scan_repository_files(
             git_repo,
-            file_extensions={".py"},
+            file_extensions=supported_extensions,
         )
 
         # Mark all existing files as potentially deleted
@@ -327,12 +331,20 @@ class RepositoryScanner:
         for commit in new_commits:
             changed_files.update(commit.files_changed)
 
-        # Filter for Python files
-        python_files = [f for f in changed_files if f.endswith(".py")]
+        # Filter for supported code files
+        from src.parser.parser_factory import ParserFactory
+
+        supported_extensions = ParserFactory.get_supported_extensions()
+
+        supported_files = [
+            f
+            for f in changed_files
+            if any(f.endswith(ext) for ext in supported_extensions)
+        ]
 
         # Process each changed file
         scanned_files = []
-        for file_path in python_files:
+        for file_path in supported_files:
             # Get current file info
             full_path = git_repo.working_dir / file_path
 
