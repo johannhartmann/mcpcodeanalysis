@@ -605,6 +605,122 @@ class CodeProcessor:
 
         return stats
 
+    def _build_entity_map(
+        self, entities: list[Any], key: str = "name"
+    ) -> dict[str, int]:
+        """Build a mapping of entity names to IDs."""
+        entity_map = {}
+        for e in entities:
+            if isinstance(e, dict) and key in e and "id" in e:
+                entity_map[e[key]] = e["id"]
+        return entity_map
+
+    async def _load_entity_maps_from_db(
+        self, file_id: int
+    ) -> tuple[dict[str, int], dict[str, int], dict[str, int]]:
+        """Load entity maps from database for a file."""
+        from sqlalchemy import select
+
+        from src.database.models import Class, Function, Module
+
+        # Get modules
+        result = await self.db_session.execute(
+            select(Module).where(Module.file_id == file_id)
+        )
+        modules = result.scalars().all()
+        module_map = {m.name: m.id for m in modules}
+
+        # Get classes (through modules)
+        result = await self.db_session.execute(
+            select(Class).join(Module).where(Module.file_id == file_id)
+        )
+        classes = result.scalars().all()
+        class_map = {c.name: c.id for c in classes}
+
+        # Get functions (through modules)
+        result = await self.db_session.execute(
+            select(Function).join(Module).where(Module.file_id == file_id)
+        )
+        functions = result.scalars().all()
+        function_map = {f.name: f.id for f in functions}
+
+        return module_map, class_map, function_map
+
+    def _resolve_source_entity_id(
+        self,
+        source_name: str,
+        source_type: str,
+        module_map: dict[str, int],
+        class_map: dict[str, int],
+        function_map: dict[str, int],
+    ) -> int | None:
+        """Resolve source entity name to ID."""
+        if source_type == "module":
+            return next(iter(module_map.values())) if module_map else None
+        if source_type == "class":
+            class_name = source_name.split(".")[-1]
+            return class_map.get(class_name)
+        if source_type == "function":
+            func_name = source_name.split(".")[-1]
+            return function_map.get(func_name)
+        return None
+
+    async def _process_single_reference(
+        self,
+        ref: dict[str, Any],
+        file_record: File,
+        module_map: dict[str, int],
+        class_map: dict[str, int],
+        function_map: dict[str, int],
+    ) -> dict[str, Any] | None:
+        """Process a single reference and return resolved data."""
+        try:
+            source_id = self._resolve_source_entity_id(
+                ref["source_name"],
+                ref["source_type"],
+                module_map,
+                class_map,
+                function_map,
+            )
+
+            if not source_id:
+                logger.debug(
+                    "Could not resolve source entity: %s (%s)",
+                    ref["source_name"],
+                    ref["source_type"],
+                )
+                return None
+
+            # Resolve target entity
+            target_id, target_file_id = await self._resolve_target_entity(
+                ref["target_name"],
+                ref["target_type"],
+            )
+
+            if not target_id:
+                logger.debug(
+                    "Could not resolve target entity: %s (%s)",
+                    ref["target_name"],
+                    ref["target_type"],
+                )
+                return None
+
+            return {
+                "source_type": ref["source_type"],
+                "source_id": source_id,
+                "source_file_id": file_record.id,
+                "source_line": ref.get("source_line"),
+                "target_type": ref["target_type"],
+                "target_id": target_id,
+                "target_file_id": target_file_id,
+                "reference_type": ref["reference_type"],
+                "context": ref.get("context", "")[:500],
+            }
+
+        except (KeyError, AttributeError, ValueError) as e:
+            logger.debug("Error resolving reference: %s - %s", ref, e)
+            return None
+
     async def _resolve_references(
         self,
         raw_references: list[dict[str, Any]],
@@ -621,112 +737,25 @@ class CodeProcessor:
         Returns:
             List of references ready for database storage
         """
-        resolved = []
-
         # Build lookup maps for current file entities
-        # Handle both raw entities (no id) and stored entities (with id)
-        module_map = {}
-        for e in entities.get("modules", []):
-            if isinstance(e, dict) and "name" in e and "id" in e:
-                # For stored entities with id
-                module_map[e["name"]] = e["id"]
-                # For raw entities, we'll need to look up from DB
+        module_map = self._build_entity_map(entities.get("modules", []))
+        class_map = self._build_entity_map(entities.get("classes", []))
+        function_map = self._build_entity_map(entities.get("functions", []))
 
-        class_map = {}
-        for e in entities.get("classes", []):
-            if isinstance(e, dict) and "name" in e and "id" in e:
-                class_map[e["name"]] = e["id"]
-
-        function_map = {}
-        for e in entities.get("functions", []):
-            if isinstance(e, dict) and "name" in e and "id" in e:
-                function_map[e["name"]] = e["id"]
-
-        # If we don't have IDs, we need to look them up from the database
+        # Load from DB if needed
         if not module_map and not class_map and not function_map:
-            # Get entities from database
-            from sqlalchemy import select
-
-            from src.database.models import Class, Function, Module
-
-            # Get modules
-            result = await self.db_session.execute(
-                select(Module).where(Module.file_id == file_record.id)
+            module_map, class_map, function_map = await self._load_entity_maps_from_db(
+                file_record.id
             )
-            modules = result.scalars().all()
-            module_map = {m.name: m.id for m in modules}
 
-            # Get classes (through modules)
-            result = await self.db_session.execute(
-                select(Class).join(Module).where(Module.file_id == file_record.id)
-            )
-            classes = result.scalars().all()
-            class_map = {c.name: c.id for c in classes}
-
-            # Get functions (through modules)
-            result = await self.db_session.execute(
-                select(Function).join(Module).where(Module.file_id == file_record.id)
-            )
-            functions = result.scalars().all()
-            function_map = {f.name: f.id for f in functions}
-
+        # Process references
+        resolved = []
         for ref in raw_references:
-            try:
-                # Resolve source entity
-                source_id = None
-                source_name = ref["source_name"]
-                source_type = ref["source_type"]
-
-                if source_type == "module":
-                    # For module-level references, use the file's module
-                    source_id = next(iter(module_map.values())) if module_map else None
-                elif source_type == "class":
-                    # Extract class name from full path
-                    class_name = source_name.split(".")[-1]
-                    source_id = class_map.get(class_name)
-                elif source_type == "function":
-                    # Extract function name from full path
-                    func_name = source_name.split(".")[-1]
-                    source_id = function_map.get(func_name)
-
-                if not source_id:
-                    logger.debug(
-                        "Could not resolve source entity: %s (%s)",
-                        source_name,
-                        source_type,
-                    )
-                    continue
-
-                # Resolve target entity - this is more complex as it may be in another file
-                target_id, target_file_id = await self._resolve_target_entity(
-                    ref["target_name"],
-                    ref["target_type"],
-                )
-
-                if not target_id:
-                    logger.debug(
-                        "Could not resolve target entity: %s (%s)",
-                        ref["target_name"],
-                        ref["target_type"],
-                    )
-                    continue
-
-                resolved.append(
-                    {
-                        "source_type": source_type,
-                        "source_id": source_id,
-                        "source_file_id": file_record.id,
-                        "source_line": ref.get("source_line"),
-                        "target_type": ref["target_type"],
-                        "target_id": target_id,
-                        "target_file_id": target_file_id,
-                        "reference_type": ref["reference_type"],
-                        "context": ref.get("context", "")[:500],  # Limit context length
-                    }
-                )
-
-            except (KeyError, AttributeError, ValueError) as e:
-                logger.debug("Error resolving reference: %s - %s", ref, e)
+            resolved_ref = await self._process_single_reference(
+                ref, file_record, module_map, class_map, function_map
+            )
+            if resolved_ref:
+                resolved.append(resolved_ref)
 
         return resolved
 

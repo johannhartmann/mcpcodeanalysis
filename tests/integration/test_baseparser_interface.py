@@ -131,7 +131,7 @@ export default processApiResponse;
 
             # Verify imports are extracted
             assert len(result.imports) > 0
-            import_strings = [imp for imp in result.imports]
+            import_strings = list(result.imports)
             assert any("EventEmitter" in imp for imp in import_strings)
             assert any("axios" in imp for imp in import_strings)
 
@@ -283,7 +283,7 @@ module.exports = { UserService, processApiResponse, filterUsersByRole, fetchAllU
 
             # Verify imports are extracted
             assert len(result.imports) > 0
-            import_strings = [imp for imp in result.imports]
+            import_strings = list(result.imports)
             assert any("events" in imp for imp in import_strings)
             assert any("axios" in imp for imp in import_strings)
 

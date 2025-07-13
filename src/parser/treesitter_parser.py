@@ -622,6 +622,44 @@ class PHPParser(TreeSitterParser):
 
         return functions
 
+    def _extract_base_classes(
+        self, node: tree_sitter.Node, content: bytes
+    ) -> list[str]:
+        """Extract base classes from base_clause node."""
+        return [
+            self.get_node_text(child, content)
+            for child in node.children
+            if child.type == "name"
+        ]
+
+    def _extract_interfaces(self, node: tree_sitter.Node, content: bytes) -> list[str]:
+        """Extract interfaces from class_interface_clause node."""
+        return [
+            self.get_node_text(child, content)
+            for child in node.children
+            if child.type == "name"
+        ]
+
+    def _extract_class_traits(
+        self, node: tree_sitter.Node, content: bytes
+    ) -> list[str]:
+        """Extract traits used by the class."""
+        use_nodes = self.find_nodes_by_type(node, "use_declaration")
+        return [
+            self.get_node_text(child, content)
+            for use_node in use_nodes
+            for child in use_node.children
+            if child.type == "name"
+        ]
+
+    def _process_class_modifiers(
+        self, node: tree_sitter.Node, content: bytes, class_data: dict[str, Any]
+    ) -> None:
+        """Process class modifiers (abstract, final)."""
+        modifier = self.get_node_text(node, content)
+        if modifier == "abstract":
+            class_data["is_abstract"] = True
+
     def extract_classes(
         self,
         tree: tree_sitter.Tree,
@@ -629,7 +667,6 @@ class PHPParser(TreeSitterParser):
     ) -> list[dict[str, Any]]:
         """Extract class definitions."""
         classes = []
-
         class_nodes = self.find_nodes_by_type(tree.root_node, "class_declaration")
 
         for node in class_nodes:
@@ -642,50 +679,29 @@ class PHPParser(TreeSitterParser):
                 "end_line": node.end_point[0] + 1,
                 "is_abstract": False,
                 "methods": [],
+                "traits": [],
             }
 
-            # Extract class details
+            # Process child nodes using a dispatch approach
             for child in node.children:
                 if child.type == "name":
                     class_data["name"] = self.get_node_text(child, content)
                 elif child.type == "base_clause":
-                    # Extract base class
-                    for base_child in child.children:
-                        if base_child.type == "name":
-                            class_data["base_classes"].append(
-                                self.get_node_text(base_child, content),
-                            )
+                    class_data["base_classes"].extend(
+                        self._extract_base_classes(child, content)
+                    )
                 elif child.type == "class_interface_clause":
-                    # Extract implemented interfaces
-                    for interface_child in child.children:
-                        if interface_child.type == "name":
-                            class_data["base_classes"].append(
-                                self.get_node_text(interface_child, content),
-                            )
+                    class_data["base_classes"].extend(
+                        self._extract_interfaces(child, content)
+                    )
                 elif child.type in ["abstract_modifier", "final_modifier"]:
-                    # Check for abstract/final classes
-                    modifier = self.get_node_text(child, content)
-                    if modifier == "abstract":
-                        class_data["is_abstract"] = True
+                    self._process_class_modifiers(child, content, class_data)
+                elif child.type == "declaration_list":
+                    class_data["traits"] = self._extract_class_traits(child, content)
 
-            # Extract docstring
+            # Extract docstring and methods
             class_data["docstring"] = self._get_php_docstring(node, content)
-
-            # Extract methods
             class_data["methods"] = self.extract_functions(tree, content, node)
-
-            # Extract traits used by this class
-            class_data["traits"] = []
-            for child in node.children:
-                if child.type == "declaration_list":
-                    # Look for use declarations inside the class body
-                    use_nodes = self.find_nodes_by_type(child, "use_declaration")
-                    for use_node in use_nodes:
-                        # Extract trait names from use declaration
-                        for use_child in use_node.children:
-                            if use_child.type == "name":
-                                trait_name = self.get_node_text(use_child, content)
-                                class_data["traits"].append(trait_name)
 
             classes.append(class_data)
 
@@ -982,6 +998,83 @@ class JavaParser(TreeSitterParser):
 
         return imports
 
+    def _extract_method_modifiers(
+        self, node: tree_sitter.Node, content: bytes
+    ) -> tuple[bool, list[str]]:
+        """Extract method modifiers and annotations."""
+        is_static = False
+        decorators = []
+
+        for child in node.children:
+            if child.type == "modifiers":
+                modifiers_text = self.get_node_text(child, content)
+                if "static" in modifiers_text:
+                    is_static = True
+
+                # Extract annotations
+                for mod_child in child.children:
+                    if mod_child.type == "marker_annotation":
+                        annotation_text = self.get_node_text(mod_child, content)
+                        decorators.append(annotation_text.lstrip("@"))
+                    elif mod_child.type == "annotation":
+                        annotation_text = self.get_node_text(mod_child, content)
+                        if annotation_text.startswith("@"):
+                            annotation_name = annotation_text[1:].split("(")[0]
+                            decorators.append(annotation_name)
+                break
+
+        return is_static, decorators
+
+    def _extract_method_signature(
+        self, node: tree_sitter.Node, content: bytes
+    ) -> tuple[str | None, str | None, list[Any]]:
+        """Extract method name, return type, and parameters."""
+        name = None
+        return_type = None
+        parameters = []
+
+        # Java return types for method signature
+        return_type_nodes = {
+            "type_identifier",
+            "primitive_type",
+            "integral_type",
+            "floating_point_type",
+            "boolean_type",
+            "void_type",
+            "generic_type",
+            "array_type",
+        }
+
+        found_identifier = False
+        for i, child in enumerate(node.children):
+            if child.type == "identifier":
+                name = self.get_node_text(child, content)
+                found_identifier = True
+                # Look for return type in previous siblings
+                if i > 0 and node.children[i - 1].type in return_type_nodes:
+                    return_type = self.get_node_text(node.children[i - 1], content)
+            elif child.type == "formal_parameters" and found_identifier:
+                parameters = self._extract_parameters(child, content)
+
+        return name, return_type, parameters
+
+    def _resolve_constructor_name(
+        self, node: tree_sitter.Node, content: bytes
+    ) -> str | None:
+        """Resolve constructor name from parent class."""
+        parent = node.parent
+        class_types = {"class_declaration", "interface_declaration", "enum_declaration"}
+
+        while parent and parent.type not in class_types:
+            parent = parent.parent
+
+        if parent:
+            for child in parent.children:
+                if child.type == "identifier":
+                    return self.get_node_text(child, content)
+
+        return None
+
     def extract_functions(
         self,
         tree: tree_sitter.Tree,
@@ -1017,72 +1110,25 @@ class JavaParser(TreeSitterParser):
                 "end_line": node.end_point[0] + 1,
             }
 
-            # Extract method annotations from modifiers
-            for child in node.children:
-                if child.type == "modifiers":
-                    # Check for static methods
-                    modifiers_text = self.get_node_text(child, content)
-                    if "static" in modifiers_text:
-                        func_data["is_staticmethod"] = True
-                    # Extract annotations from modifiers
-                    for mod_child in child.children:
-                        if mod_child.type == "marker_annotation":
-                            annotation_text = self.get_node_text(mod_child, content)
-                            func_data["decorators"].append(annotation_text.lstrip("@"))
-                        elif mod_child.type == "annotation":
-                            annotation_text = self.get_node_text(mod_child, content)
-                            # Extract just the annotation name
-                            if annotation_text.startswith("@"):
-                                annotation_name = annotation_text[1:].split("(")[0]
-                                func_data["decorators"].append(annotation_name)
-                    break
+            # Extract modifiers and annotations
+            is_static, decorators = self._extract_method_modifiers(node, content)
+            func_data["is_staticmethod"] = is_static
+            func_data["decorators"] = decorators
 
-            # Extract return type (comes before identifier as a sibling)
-            found_identifier = False
-            for i, child in enumerate(node.children):
-                if child.type == "identifier":
-                    func_data["name"] = self.get_node_text(child, content)
-                    found_identifier = True
-                    # Look for return type in previous siblings
-                    if i > 0:
-                        prev_child = node.children[i - 1]
-                        if prev_child.type in (
-                            "type_identifier",
-                            "primitive_type",
-                            "integral_type",
-                            "floating_point_type",
-                            "boolean_type",
-                            "void_type",
-                            "generic_type",
-                            "array_type",
-                        ):
-                            func_data["return_type"] = self.get_node_text(
-                                prev_child, content
-                            )
-                elif child.type == "formal_parameters" and found_identifier:
-                    func_data["parameters"] = self._extract_parameters(child, content)
+            # Extract method signature
+            name, return_type, parameters = self._extract_method_signature(
+                node, content
+            )
+            func_data["name"] = name
+            func_data["return_type"] = return_type
+            func_data["parameters"] = parameters
 
-            # For constructors, set the name if not found
+            # For constructors, resolve name from parent class
             if node.type == "constructor_declaration" and not func_data["name"]:
-                # Constructor name should be the class name
-                # Try to get it from the parent class node
-                parent = node.parent
-                while parent and parent.type not in (
-                    "class_declaration",
-                    "interface_declaration",
-                    "enum_declaration",
-                ):
-                    parent = parent.parent
-                if parent:
-                    for child in parent.children:
-                        if child.type == "identifier":
-                            func_data["name"] = self.get_node_text(child, content)
-                            break
+                func_data["name"] = self._resolve_constructor_name(node, content)
 
-            # Extract docstring (JavaDoc)
+            # Extract docstring and complexity
             func_data["docstring"] = self._get_javadoc(node, content)
-
-            # Calculate cyclomatic complexity
             func_data["complexity"] = self.complexity_calculator.calculate_complexity(
                 node, content
             )
@@ -1091,6 +1137,55 @@ class JavaParser(TreeSitterParser):
 
         return functions
 
+    def _extract_superclass(self, node: tree_sitter.Node, content: bytes) -> list[str]:
+        """Extract superclass from superclass node."""
+        return [
+            self.get_node_text(child, content)
+            for child in node.children
+            if child.type == "type_identifier"
+        ]
+
+    def _extract_java_interfaces(
+        self, node: tree_sitter.Node, content: bytes
+    ) -> list[str]:
+        """Extract interfaces from interfaces node."""
+        return [
+            self.get_node_text(type_child, content)
+            for child in node.children
+            if child.type == "type_list"
+            for type_child in child.children
+            if type_child.type == "type_identifier"
+        ]
+
+    def _process_java_modifiers(
+        self, node: tree_sitter.Node, content: bytes
+    ) -> tuple[bool, list[str]]:
+        """Process Java class modifiers and annotations."""
+        is_abstract = False
+        decorators = []
+
+        modifiers_text = self.get_node_text(node, content)
+        if "abstract" in modifiers_text:
+            is_abstract = True
+
+        # Extract annotations line by line
+        for line in modifiers_text.split("\n"):
+            stripped_line = line.strip()
+            if stripped_line.startswith("@"):
+                annotation = stripped_line[1:].split("(")[0]
+                decorators.append(annotation)
+
+        return is_abstract, decorators
+
+    def _collect_class_nodes(self, tree: tree_sitter.Tree) -> list[tree_sitter.Node]:
+        """Collect all class-like nodes (classes, interfaces, enums)."""
+        class_nodes = self.find_nodes_by_type(tree.root_node, "class_declaration")
+        interface_nodes = self.find_nodes_by_type(
+            tree.root_node, "interface_declaration"
+        )
+        enum_nodes = self.find_nodes_by_type(tree.root_node, "enum_declaration")
+        return class_nodes + interface_nodes + enum_nodes
+
     def extract_classes(
         self,
         tree: tree_sitter.Tree,
@@ -1098,19 +1193,7 @@ class JavaParser(TreeSitterParser):
     ) -> list[dict[str, Any]]:
         """Extract class definitions."""
         classes = []
-
-        # Find class declarations
-        class_nodes = self.find_nodes_by_type(tree.root_node, "class_declaration")
-
-        # Also find interface declarations
-        interface_nodes = self.find_nodes_by_type(
-            tree.root_node, "interface_declaration"
-        )
-
-        # Also find enum declarations
-        enum_nodes = self.find_nodes_by_type(tree.root_node, "enum_declaration")
-
-        all_class_nodes = class_nodes + interface_nodes + enum_nodes
+        all_class_nodes = self._collect_class_nodes(tree)
 
         for node in all_class_nodes:
             class_data = {
@@ -1124,43 +1207,27 @@ class JavaParser(TreeSitterParser):
                 "methods": [],
             }
 
-            # Extract class details
+            # Process child nodes
             for child in node.children:
                 if child.type == "identifier":
                     class_data["name"] = self.get_node_text(child, content)
                 elif child.type == "superclass":
-                    # Extract extended class
-                    for super_child in child.children:
-                        if super_child.type == "type_identifier":
-                            class_data["base_classes"].append(
-                                self.get_node_text(super_child, content),
-                            )
+                    class_data["base_classes"].extend(
+                        self._extract_superclass(child, content)
+                    )
                 elif child.type == "interfaces":
-                    # Extract implemented interfaces
-                    for interface_child in child.children:
-                        if interface_child.type == "type_list":
-                            for type_child in interface_child.children:
-                                if type_child.type == "type_identifier":
-                                    class_data["base_classes"].append(
-                                        self.get_node_text(type_child, content),
-                                    )
+                    class_data["base_classes"].extend(
+                        self._extract_java_interfaces(child, content)
+                    )
                 elif child.type == "modifiers":
-                    # Check for abstract classes and annotations
-                    modifiers_text = self.get_node_text(child, content)
-                    if "abstract" in modifiers_text:
-                        class_data["is_abstract"] = True
-                    # Extract annotations from modifiers
-                    for line in modifiers_text.split("\n"):
-                        stripped_line = line.strip()
-                        if stripped_line.startswith("@"):
-                            # Extract annotation name
-                            annotation = stripped_line[1:].split("(")[0]
-                            class_data["decorators"].append(annotation)
+                    is_abstract, decorators = self._process_java_modifiers(
+                        child, content
+                    )
+                    class_data["is_abstract"] = is_abstract
+                    class_data["decorators"] = decorators
 
-            # Extract docstring
+            # Extract docstring and methods
             class_data["docstring"] = self._get_javadoc(node, content)
-
-            # Extract methods
             class_data["methods"] = self.extract_functions(tree, content, node)
 
             classes.append(class_data)

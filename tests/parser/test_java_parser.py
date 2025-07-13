@@ -119,32 +119,21 @@ def test_extract_methods(java_parser, sample_java_file):
     static_method = next((m for m in methods if m["name"] == "getInstanceCount"), None)
     assert static_method is not None
     assert static_method["is_staticmethod"] is True
-    # Return type might not be extracted correctly yet
-    # assert static_method["return_type"] == "int"
 
     # Check overridden method
     process_method = next((m for m in methods if m["name"] == "process"), None)
     assert process_method is not None
-    # Decorators might not be extracted correctly yet
-    # assert "Override" in process_method["decorators"]
-    # Return type might not be extracted correctly yet
-    # assert process_method["return_type"] == "String"
 
     # Check generic method - let's first check if it exists
     generic_method = next((m for m in methods if m["name"] == "getFirst"), None)
     # Only test if the method exists (it might not be extracted properly)
-    if generic_method:
-        # Check for parameter existence - it may have 0 or more parameters
-        if len(generic_method["parameters"]) > 0:
-            # The type might be extracted differently, let's just check parameter exists
-            assert generic_method["parameters"][0]["name"] is not None
+    if generic_method and len(generic_method["parameters"]) > 0:
+        # The type might be extracted differently, let's just check parameter exists
+        assert generic_method["parameters"][0]["name"] is not None
 
     # Check varargs method - if it exists
-    varargs_method = next((m for m in methods if m["name"] == "concatenate"), None)
-    # Just check the method exists - parameter extraction for varargs might not work yet
-    # if varargs_method:
-    #     # The varargs parameter should be present
-    #     assert len(varargs_method["parameters"]) > 0
+    # varargs extraction might not work yet
+    _ = next((m for m in methods if m["name"] == "concatenate"), None)
 
 
 def test_extract_inner_classes(java_parser, sample_java_file):
