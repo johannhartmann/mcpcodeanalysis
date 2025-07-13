@@ -28,7 +28,14 @@ DEFAULT_MIN_CONFIDENCE = 0.5
 MIN_COMMUNITY_SIZE = 2
 MIN_EDGE_COUNT_FOR_SHARED_KERNEL = 5
 
-# Use NetworkX for all community detection (Python 3.12 compatible)
+# Community detection: prefer Leiden (igraph) over Louvain (NetworkX)
+try:
+    import igraph
+
+    LEIDEN_AVAILABLE = True
+except ImportError:
+    logger.warning("igraph not available, falling back to NetworkX Louvain algorithm")
+    LEIDEN_AVAILABLE = False
 
 
 class SemanticGraphBuilder:
@@ -183,8 +190,11 @@ class SemanticGraphBuilder:
         if use_embeddings:
             await self._enhance_weights_with_embeddings(graph)
 
-        # Detect communities using Louvain algorithm
-        communities = self._detect_louvain_communities(graph, resolution)
+        # Detect communities: prefer Leiden over Louvain
+        if LEIDEN_AVAILABLE:
+            communities = self._detect_leiden_communities(graph, resolution)
+        else:
+            communities = self._detect_louvain_communities(graph, resolution)
 
         # Convert to bounded contexts
         contexts = []
@@ -201,6 +211,52 @@ class SemanticGraphBuilder:
 
         logger.info("Detected %d bounded contexts", len(contexts))
         return contexts
+
+    def _detect_leiden_communities(
+        self,
+        graph: nx.Graph,
+        resolution: float,
+    ) -> list[list[int]]:
+        """Detect communities using Leiden algorithm (preferred method)."""
+        # Convert NetworkX graph to igraph
+        ig = igraph.Graph()
+        ig.add_vertices(list(graph.nodes()))
+
+        # Map node IDs to indices
+        node_to_idx = {node: i for i, node in enumerate(graph.nodes())}
+        idx_to_node = {i: node for node, i in node_to_idx.items()}
+
+        # Add edges with weights
+        edges = []
+        weights = []
+        for u, v, data in graph.edges(data=True):
+            edges.append((node_to_idx[u], node_to_idx[v]))
+            weights.append(data.get("weight", 1.0))
+
+        ig.add_edges(edges)
+
+        # Run Leiden algorithm
+        if weights:
+            # Use weights if available
+            partition = ig.community_leiden(
+                weights=weights,
+                resolution=resolution,
+                n_iterations=10,  # Reasonable number of iterations
+            )
+        else:
+            # Unweighted graph
+            partition = ig.community_leiden(
+                resolution=resolution,
+                n_iterations=10,
+            )
+
+        # Convert back to node IDs
+        communities = []
+        for community in partition:
+            node_ids = [idx_to_node[idx] for idx in community]
+            communities.append(node_ids)
+
+        return communities
 
     def _detect_louvain_communities(
         self,
