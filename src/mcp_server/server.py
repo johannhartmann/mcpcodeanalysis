@@ -7,7 +7,7 @@ from fastmcp import FastMCP
 from pydantic import Field
 from sqlalchemy import select
 
-from src.database.init_db import init_database
+from src.database.init_db import get_session_factory, init_database
 from src.database.models import Repository
 from src.logger import get_logger
 
@@ -37,8 +37,8 @@ async def initialize_server() -> None:
     logger.info("Initializing server...")
 
     # Initialize database
-    session_factory = await init_database()
-    _session_factory = session_factory
+    engine = await init_database()
+    _session_factory = get_session_factory(engine)
 
     logger.info("Server initialized successfully")
 
