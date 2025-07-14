@@ -331,6 +331,269 @@ async def create_migration_plan(
     return {}
 
 
+# Migration execution and monitoring tools
+@mcp.tool(
+    name="start_migration_step", description="Start execution of a migration step"
+)
+async def start_migration_step(
+    step_id: int = Field(description="ID of the migration step to start"),
+    executor_id: str | None = Field(
+        description="ID of the person or system executing the step", default=None
+    ),
+) -> dict[str, Any]:
+    """Start execution of a migration step."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        try:
+            from src.services.migration_executor import MigrationExecutor
+
+            executor = MigrationExecutor(session)
+            result = await executor.start_migration_step(step_id, executor_id)
+
+            if result["success"]:
+                return {
+                    "success": True,
+                    "message": f"Started migration step: {result['step_name']}",
+                    "data": result,
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": result.get("error", "Failed to start migration step"),
+                }
+        except Exception as e:
+            logger.exception("Failed to start migration step")
+            return {"success": False, "error": str(e)}
+    return {}
+
+
+@mcp.tool(
+    name="complete_migration_step", description="Mark a migration step as completed"
+)
+async def complete_migration_step(
+    step_id: int = Field(description="ID of the migration step to complete"),
+    success: bool = Field(
+        description="Whether the step completed successfully", default=True
+    ),
+    notes: str | None = Field(
+        description="Completion notes or failure reason", default=None
+    ),
+    validation_results: dict[str, Any] | None = Field(
+        description="Optional validation results", default=None
+    ),
+) -> dict[str, Any]:
+    """Mark a migration step as completed."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        try:
+            from src.services.migration_executor import MigrationExecutor
+
+            executor = MigrationExecutor(session)
+            result = await executor.complete_migration_step(
+                step_id, success, notes, validation_results
+            )
+
+            if result["success"]:
+                status = "successfully" if success else "with failure"
+                return {
+                    "success": True,
+                    "message": f"Completed migration step {status}",
+                    "data": result,
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": result.get("error", "Failed to complete migration step"),
+                }
+        except Exception as e:
+            logger.exception("Failed to complete migration step")
+            return {"success": False, "error": str(e)}
+    return {}
+
+
+@mcp.tool(
+    name="track_migration_progress",
+    description="Track overall progress of a migration plan",
+)
+async def track_migration_progress(
+    plan_id: int = Field(description="ID of the migration plan to track"),
+) -> dict[str, Any]:
+    """Track overall progress of a migration plan."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        try:
+            from src.services.migration_monitor import MigrationMonitor
+
+            monitor = MigrationMonitor(session)
+            progress = await monitor.track_migration_progress(plan_id)
+
+            return {
+                "success": True,
+                "message": f"Migration plan is {progress['completion_percentage']:.1f}% complete",
+                "data": progress,
+            }
+        except Exception as e:
+            logger.exception("Failed to track migration progress")
+            return {"success": False, "error": str(e)}
+    return {}
+
+
+@mcp.tool(
+    name="get_migration_dashboard",
+    description="Get migration dashboard with summary metrics",
+)
+async def get_migration_dashboard(
+    repository_url: str | None = Field(
+        description="Optional repository URL to filter by", default=None
+    ),
+) -> dict[str, Any]:
+    """Get migration dashboard with summary metrics."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        try:
+            # Get repository ID if URL provided
+            repository_id = None
+            if repository_url:
+                result = await session.execute(
+                    select(Repository).where(Repository.github_url == repository_url)
+                )
+                repository = result.scalar_one_or_none()
+                if repository:
+                    repository_id = repository.id
+
+            from src.services.migration_monitor import MigrationMonitor
+
+            monitor = MigrationMonitor(session)
+            dashboard = await monitor.get_migration_dashboard(repository_id)
+
+            return {
+                "success": True,
+                "message": f"Dashboard shows {dashboard['summary']['active_plans']} active migration plans",
+                "data": dashboard,
+            }
+        except Exception as e:
+            logger.exception("Failed to get migration dashboard")
+            return {"success": False, "error": str(e)}
+    return {}
+
+
+# Migration knowledge management tools
+@mcp.tool(
+    name="extract_migration_patterns",
+    description="Extract reusable patterns from completed migration plans",
+)
+async def extract_migration_patterns(
+    plan_id: int = Field(
+        description="ID of completed migration plan to extract patterns from"
+    ),
+) -> dict[str, Any]:
+    """Extract reusable patterns from completed migration plans."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        try:
+            from src.services.pattern_library import PatternLibrary
+
+            library = PatternLibrary(session)
+            patterns = await library.extract_patterns_from_execution(plan_id)
+
+            return {
+                "success": True,
+                "message": f"Extracted {len(patterns)} patterns from migration plan",
+                "data": {
+                    "plan_id": plan_id,
+                    "patterns_extracted": len(patterns),
+                    "patterns": patterns,
+                },
+            }
+        except Exception as e:
+            logger.exception("Failed to extract patterns")
+            return {"success": False, "error": str(e)}
+    return {}
+
+
+@mcp.tool(
+    name="search_migration_patterns",
+    description="Search the pattern library for migration patterns",
+)
+async def search_migration_patterns(
+    category: str | None = Field(
+        description="Pattern category to filter by", default=None
+    ),
+    context_type: str | None = Field(
+        description="Context type to filter by", default=None
+    ),
+    keywords: str | None = Field(
+        description="Keywords to search in name and description", default=None
+    ),
+    min_success_rate: float = Field(
+        description="Minimum success rate (0.0 to 1.0)", default=0.7
+    ),
+) -> dict[str, Any]:
+    """Search the pattern library for migration patterns."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        try:
+            from src.services.pattern_library import PatternLibrary
+
+            library = PatternLibrary(session)
+            patterns = await library.search_patterns(
+                category=category,
+                context_type=context_type,
+                keywords=keywords,
+                min_success_rate=min_success_rate,
+            )
+
+            return {
+                "success": True,
+                "message": f"Found {len(patterns)} matching patterns",
+                "data": {
+                    "patterns": patterns,
+                    "search_criteria": {
+                        "category": category,
+                        "context_type": context_type,
+                        "keywords": keywords,
+                        "min_success_rate": min_success_rate,
+                    },
+                },
+            }
+        except Exception as e:
+            logger.exception("Failed to search patterns")
+            return {"success": False, "error": str(e)}
+    return {}
+
+
+@mcp.tool(
+    name="get_pattern_library_stats",
+    description="Get statistics about the pattern library",
+)
+async def get_pattern_library_stats() -> dict[str, Any]:
+    """Get statistics about the pattern library."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        try:
+            from src.services.pattern_library import PatternLibrary
+
+            library = PatternLibrary(session)
+            stats = await library.get_library_statistics()
+
+            return {
+                "success": True,
+                "message": "Retrieved pattern library statistics",
+                "data": stats,
+            }
+        except Exception as e:
+            logger.exception("Failed to get library stats")
+            return {"success": False, "error": str(e)}
+    return {}
+
+
 # Register package analysis tools
 # TODO: These need to be converted to @mcp.tool decorators
 # mcp.add_tool(analyze_packages)
