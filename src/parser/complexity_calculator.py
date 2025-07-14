@@ -5,7 +5,6 @@ from typing import ClassVar
 import tree_sitter
 
 from src.logger import get_logger
-from src.parser.plugin_registry import LanguagePluginRegistry
 
 logger = get_logger(__name__)
 
@@ -191,12 +190,9 @@ class ComplexityCalculator:
         """Initialize calculator for specific language."""
         self.language = language.lower()
 
-        # Get complexity nodes from language plugin
-        plugin = LanguagePluginRegistry.get_plugin(self.language)
-        if plugin:
-            self.COMPLEXITY_NODES = plugin.get_complexity_nodes()
-        # Fallback to language-specific complexity nodes
-        elif self.language == "typescript":
+        # Use direct fallback to avoid circular imports during initialization
+        # Plugin registry access will be deferred to runtime if needed
+        if self.language == "typescript":
             self.COMPLEXITY_NODES = self.TYPESCRIPT_COMPLEXITY_NODES
         elif self.language == "javascript":
             self.COMPLEXITY_NODES = self.JAVASCRIPT_COMPLEXITY_NODES
@@ -205,11 +201,7 @@ class ComplexityCalculator:
         elif self.language == "java":
             self.COMPLEXITY_NODES = self.JAVA_COMPLEXITY_NODES
         else:
-            # Final fallback to Python complexity nodes
-            logger.warning(
-                "No plugin found for language %s, using Python complexity nodes",
-                self.language,
-            )
+            # Default to Python complexity nodes
             self.COMPLEXITY_NODES = self.PYTHON_COMPLEXITY_NODES
 
     def calculate_complexity(
