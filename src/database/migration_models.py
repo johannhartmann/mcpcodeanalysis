@@ -103,6 +103,7 @@ class MigrationPlan(Base):
     # Status tracking
     current_phase = Column(String(20), default=MigrationPhase.PLANNING.value)
     progress_percentage = Column(Float, default=0.0)
+    created_by = Column(String(255))  # User or system that created the plan
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -338,6 +339,9 @@ class MigrationPattern(Base):
     context = Column(JSON)  # When to use this pattern
     solution = Column(JSON)  # How to apply the pattern
     consequences = Column(JSON)  # Trade-offs and impacts
+    implementation_steps = Column(JSON)  # Step-by-step implementation
+    prerequisites = Column(JSON)  # Prerequisites for using this pattern
+    best_practices = Column(JSON)  # Best practices when applying pattern
 
     # Success metrics
     success_rate = Column(Float)  # Historical success rate
@@ -496,3 +500,82 @@ class MigrationQualityMetric(Base):
     # Relationships
     plan = relationship("MigrationPlan")
     step = relationship("MigrationStep")
+
+
+class ValidationStatus(str, Enum):
+    """Validation status types."""
+
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    PASSED = "passed"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+
+
+class MigrationExecution(Base):
+    """Track execution attempts of migration steps."""
+
+    __tablename__ = "migration_executions"
+
+    id = Column(Integer, primary_key=True)
+    step_id = Column(
+        Integer, ForeignKey("migration_steps.id", ondelete="CASCADE"), nullable=False
+    )
+
+    # Execution details
+    execution_number = Column(Integer, nullable=False)  # Attempt number
+    executor_id = Column(String(255))  # Who/what executed
+    status = Column(String(20), nullable=False)  # started, completed, failed
+
+    # Timing
+    started_at = Column(DateTime(timezone=True), server_default=func.now())
+    completed_at = Column(DateTime(timezone=True))
+    duration_minutes = Column(Float)
+
+    # Results
+    success = Column(Integer)  # 1 for success, 0 for failure
+    error_message = Column(Text)
+    rollback_executed = Column(Integer, default=0)
+
+    # Logs and artifacts
+    execution_logs = Column(JSON)  # Structured logs
+    artifacts_produced = Column(JSON)  # Files, configs, etc.
+
+    # Relationships
+    step = relationship("MigrationStep")
+
+
+class MigrationValidation(Base):
+    """Track validation results for migration steps."""
+
+    __tablename__ = "migration_validations"
+
+    id = Column(Integer, primary_key=True)
+    step_id = Column(
+        Integer, ForeignKey("migration_steps.id", ondelete="CASCADE"), nullable=False
+    )
+    execution_id = Column(
+        Integer, ForeignKey("migration_executions.id", ondelete="CASCADE")
+    )
+
+    # Validation details
+    validation_type = Column(
+        String(50), nullable=False
+    )  # automated, manual, performance
+    status = Column(String(20), nullable=False, default=ValidationStatus.PENDING.value)
+
+    # Criteria and results
+    criteria = Column(JSON, nullable=False)  # What to validate
+    results = Column(JSON)  # Validation results
+    passed = Column(Integer)  # 1 for pass, 0 for fail
+
+    # Timing
+    validated_at = Column(DateTime(timezone=True), server_default=func.now())
+    validated_by = Column(String(255))
+
+    # Notes
+    notes = Column(Text)
+
+    # Relationships
+    step = relationship("MigrationStep")
+    execution = relationship("MigrationExecution")
