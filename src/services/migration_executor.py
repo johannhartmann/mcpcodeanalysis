@@ -8,11 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.database.migration_models import (
-    ExecutionStatus,
     MigrationDependency,
     MigrationExecution,
     MigrationPlan,
     MigrationStep,
+    MigrationStepStatus,
     MigrationValidation,
     ValidationStatus,
 )
@@ -61,7 +61,7 @@ class MigrationExecutor:
             raise ValueError(f"Migration step {step_id} not found")
 
         # Check if already executing
-        if step.status == ExecutionStatus.IN_PROGRESS:
+        if step.status == MigrationStepStatus.IN_PROGRESS:
             return {
                 "success": False,
                 "error": "Step is already in progress",
@@ -82,13 +82,13 @@ class MigrationExecutor:
         execution = MigrationExecution(
             step_id=step_id,
             started_at=datetime.now(UTC),
-            status=ExecutionStatus.IN_PROGRESS,
+            status=MigrationStepStatus.IN_PROGRESS,
             executor_id=executor_id,
             logs=["Execution started"],
         )
 
         # Update step status
-        step.status = ExecutionStatus.IN_PROGRESS
+        step.status = MigrationStepStatus.IN_PROGRESS
         step.actual_start_date = datetime.now(UTC)
 
         self.session.add(execution)
@@ -137,7 +137,7 @@ class MigrationExecutor:
         # Find current execution
         current_execution = None
         for execution in step.executions:
-            if execution.status == ExecutionStatus.IN_PROGRESS:
+            if execution.status == MigrationStepStatus.IN_PROGRESS:
                 current_execution = execution
                 break
 
@@ -151,13 +151,15 @@ class MigrationExecutor:
         # Update execution
         current_execution.completed_at = datetime.now(UTC)
         current_execution.status = (
-            ExecutionStatus.COMPLETED if success else ExecutionStatus.FAILED
+            MigrationStepStatus.COMPLETED if success else MigrationStepStatus.FAILED
         )
         current_execution.success = success
         current_execution.notes = notes
 
         # Update step status
-        step.status = ExecutionStatus.COMPLETED if success else ExecutionStatus.FAILED
+        step.status = (
+            MigrationStepStatus.COMPLETED if success else MigrationStepStatus.FAILED
+        )
         step.actual_completion_date = datetime.now(UTC)
         step.actual_hours = (
             current_execution.completed_at - current_execution.started_at
@@ -217,14 +219,16 @@ class MigrationExecutor:
         # Calculate progress
         total_steps = len(plan.steps)
         completed_steps = sum(
-            1 for s in plan.steps if s.status == ExecutionStatus.COMPLETED
+            1 for s in plan.steps if s.status == MigrationStepStatus.COMPLETED
         )
-        failed_steps = sum(1 for s in plan.steps if s.status == ExecutionStatus.FAILED)
+        failed_steps = sum(
+            1 for s in plan.steps if s.status == MigrationStepStatus.FAILED
+        )
         in_progress_steps = sum(
-            1 for s in plan.steps if s.status == ExecutionStatus.IN_PROGRESS
+            1 for s in plan.steps if s.status == MigrationStepStatus.IN_PROGRESS
         )
         pending_steps = sum(
-            1 for s in plan.steps if s.status == ExecutionStatus.PENDING
+            1 for s in plan.steps if s.status == MigrationStepStatus.PENDING
         )
 
         # Calculate time progress
@@ -235,13 +239,14 @@ class MigrationExecutor:
         remaining_hours = sum(
             s.estimated_hours or 0
             for s in plan.steps
-            if s.status in [ExecutionStatus.PENDING, ExecutionStatus.IN_PROGRESS]
+            if s.status
+            in [MigrationStepStatus.PENDING, MigrationStepStatus.IN_PROGRESS]
         )
 
         # Get current phase
         current_phase = None
         for step in plan.steps:
-            if step.status == ExecutionStatus.IN_PROGRESS:
+            if step.status == MigrationStepStatus.IN_PROGRESS:
                 current_phase = step.phase
                 break
 
@@ -372,7 +377,7 @@ class MigrationExecutor:
             raise ValueError(f"Migration step {step_id} not found")
 
         # Check if step can be rolled back
-        if not step.rollback_strategy:
+        if not step.rollback_procedure:
             return {
                 "success": False,
                 "error": "No rollback strategy defined for step",
@@ -383,14 +388,14 @@ class MigrationExecutor:
         rollback_execution = MigrationExecution(
             step_id=step_id,
             started_at=datetime.now(UTC),
-            status=ExecutionStatus.IN_PROGRESS,
+            status=MigrationStepStatus.IN_PROGRESS,
             is_rollback=True,
             rollback_reason=reason,
             logs=[f"Rollback initiated: {reason}"],
         )
 
         # Update step status
-        step.status = ExecutionStatus.ROLLING_BACK
+        step.status = MigrationStepStatus.ROLLING_BACK
 
         self.session.add(rollback_execution)
         await self.session.commit()
@@ -400,7 +405,7 @@ class MigrationExecutor:
             "success": True,
             "rollback_execution_id": rollback_execution.id,
             "step_id": step_id,
-            "rollback_strategy": step.rollback_strategy,
+            "rollback_procedure": step.rollback_procedure,
             "estimated_rollback_time": "Based on original execution time",
         }
 
@@ -473,7 +478,7 @@ class MigrationExecutor:
                     )
 
                 # Collect issues
-                if execution.status == ExecutionStatus.FAILED:
+                if execution.status == MigrationStepStatus.FAILED:
                     issues.append(
                         {
                             "step_name": step.name,
@@ -507,9 +512,9 @@ class MigrationExecutor:
                 }
 
             phase_metrics[phase]["total_steps"] += 1
-            if step.status == ExecutionStatus.COMPLETED:
+            if step.status == MigrationStepStatus.COMPLETED:
                 phase_metrics[phase]["completed_steps"] += 1
-            elif step.status == ExecutionStatus.FAILED:
+            elif step.status == MigrationStepStatus.FAILED:
                 phase_metrics[phase]["failed_steps"] += 1
 
             phase_metrics[phase]["estimated_hours"] += step.estimated_hours or 0
@@ -559,10 +564,10 @@ class MigrationExecutor:
         for dependency in step.dependencies:
             # Get dependency step
             dep_step = await self.session.get(
-                MigrationStep, dependency.depends_on_step_id
+                MigrationStep, dependency.prerequisite_step_id
             )
 
-            if dep_step and dep_step.status != ExecutionStatus.COMPLETED:
+            if dep_step and dep_step.status != MigrationStepStatus.COMPLETED:
                 blocked_by.append(
                     {
                         "step_id": dep_step.id,
@@ -597,8 +602,8 @@ class MigrationExecutor:
             )
             .where(
                 and_(
-                    MigrationDependency.depends_on_step_id == completed_step.id,
-                    MigrationStep.status == ExecutionStatus.PENDING,
+                    MigrationDependency.prerequisite_step_id == completed_step.id,
+                    MigrationStep.status == MigrationStepStatus.PENDING,
                 )
             )
         )
@@ -635,7 +640,7 @@ class MigrationExecutor:
 
         # Check for failed steps
         for step in plan.steps:
-            if step.status == ExecutionStatus.FAILED:
+            if step.status == MigrationStepStatus.FAILED:
                 blockers.append(
                     {
                         "type": "failed_step",
@@ -649,7 +654,7 @@ class MigrationExecutor:
         # Check for overdue steps
         for step in plan.steps:
             if (
-                step.status == ExecutionStatus.IN_PROGRESS
+                step.status == MigrationStepStatus.IN_PROGRESS
                 and step.actual_start_date
                 and step.estimated_hours
             ):

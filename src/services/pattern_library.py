@@ -8,11 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.database.migration_models import (
-    ExecutionStatus,
     MigrationExecution,
     MigrationPattern,
     MigrationPlan,
     MigrationStep,
+    MigrationStepStatus,
 )
 from src.database.models import Repository
 from src.llm.client import LLMClient
@@ -64,7 +64,7 @@ class PatternLibrary:
 
         # Analyze successful steps
         successful_steps = [
-            step for step in plan.steps if step.status == ExecutionStatus.COMPLETED
+            step for step in plan.steps if step.status == MigrationStepStatus.COMPLETED
         ]
 
         patterns = []
@@ -1210,7 +1210,7 @@ class PatternLibrary:
                 independent = []
                 for step in phase_steps:
                     depends_on_same_phase = any(
-                        dep.depends_on_step_id in [s.id for s in phase_steps]
+                        dep.prerequisite_step_id in [s.id for s in phase_steps]
                         for dep in step.dependencies
                     )
                     if not depends_on_same_phase:

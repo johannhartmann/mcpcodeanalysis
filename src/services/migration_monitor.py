@@ -9,11 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.database.migration_models import (
-    ExecutionStatus,
     MigrationExecution,
     MigrationPlan,
     MigrationRisk,
     MigrationStep,
+    MigrationStepStatus,
     MigrationValidation,
     RiskLevel,
     ValidationStatus,
@@ -51,8 +51,8 @@ class MigrationMonitor:
         stmt = select(MigrationPlan).where(
             MigrationPlan.status.in_(
                 [
-                    ExecutionStatus.IN_PROGRESS,
-                    ExecutionStatus.PENDING,
+                    MigrationStepStatus.IN_PROGRESS,
+                    MigrationStepStatus.PENDING,
                 ]
             )
         )
@@ -107,7 +107,7 @@ class MigrationMonitor:
         # Find current execution
         current_execution = None
         for execution in step.executions:
-            if execution.status == ExecutionStatus.IN_PROGRESS:
+            if execution.status == MigrationStepStatus.IN_PROGRESS:
                 current_execution = execution
                 break
 
@@ -336,7 +336,7 @@ class MigrationMonitor:
             failed_count = sum(
                 1
                 for e in step.executions
-                if e.status == ExecutionStatus.FAILED and not e.is_rollback
+                if e.status == MigrationStepStatus.FAILED and not e.is_rollback
             )
             if failed_count >= 2:
                 anomalies.append(
@@ -472,9 +472,9 @@ class MigrationMonitor:
 
         return {
             "total_plans": sum(status_counts.values()),
-            "active_plans": status_counts.get(ExecutionStatus.IN_PROGRESS, 0),
-            "completed_plans": status_counts.get(ExecutionStatus.COMPLETED, 0),
-            "failed_plans": status_counts.get(ExecutionStatus.FAILED, 0),
+            "active_plans": status_counts.get(MigrationStepStatus.IN_PROGRESS, 0),
+            "completed_plans": status_counts.get(MigrationStepStatus.COMPLETED, 0),
+            "failed_plans": status_counts.get(MigrationStepStatus.FAILED, 0),
             "total_steps": total_steps,
         }
 
@@ -535,7 +535,7 @@ class MigrationMonitor:
 
         # Check for failed steps
         failed_stmt = select(MigrationStep).where(
-            MigrationStep.status == ExecutionStatus.FAILED
+            MigrationStep.status == MigrationStepStatus.FAILED
         )
         failed_result = await self.session.execute(failed_stmt)
         failed_steps = failed_result.scalars().all()
@@ -554,7 +554,7 @@ class MigrationMonitor:
         # Check for overdue steps
         overdue_stmt = select(MigrationStep).where(
             and_(
-                MigrationStep.status == ExecutionStatus.IN_PROGRESS,
+                MigrationStep.status == MigrationStepStatus.IN_PROGRESS,
                 MigrationStep.estimated_completion_date < datetime.now(UTC),
             )
         )
@@ -685,10 +685,10 @@ class MigrationMonitor:
 
         total_steps = len(plan.steps)
         completed_steps = sum(
-            1 for s in plan.steps if s.status == ExecutionStatus.COMPLETED
+            1 for s in plan.steps if s.status == MigrationStepStatus.COMPLETED
         )
         in_progress_steps = sum(
-            1 for s in plan.steps if s.status == ExecutionStatus.IN_PROGRESS
+            1 for s in plan.steps if s.status == MigrationStepStatus.IN_PROGRESS
         )
 
         return {
@@ -722,7 +722,7 @@ class MigrationMonitor:
             # Check if step has dependents
             dependent_stmt = select(func.count(MigrationStep.id)).where(
                 MigrationStep.dependencies.any(
-                    MigrationDependency.depends_on_step_id == step.id
+                    MigrationDependency.prerequisite_step_id == step.id
                 )
             )
             dependent_result = await self.session.execute(dependent_stmt)
@@ -757,7 +757,8 @@ class MigrationMonitor:
         remaining_hours = sum(
             s.estimated_hours or 0
             for s in plan.steps
-            if s.status in [ExecutionStatus.PENDING, ExecutionStatus.IN_PROGRESS]
+            if s.status
+            in [MigrationStepStatus.PENDING, MigrationStepStatus.IN_PROGRESS]
         )
 
         if remaining_hours == 0:
@@ -777,12 +778,12 @@ class MigrationMonitor:
             Current phase
         """
         for step in plan.steps:
-            if step.status == ExecutionStatus.IN_PROGRESS:
+            if step.status == MigrationStepStatus.IN_PROGRESS:
                 return step.phase
 
         # Find next pending step
         for step in plan.steps:
-            if step.status == ExecutionStatus.PENDING:
+            if step.status == MigrationStepStatus.PENDING:
                 return step.phase
 
         return None
@@ -803,7 +804,7 @@ class MigrationMonitor:
         for step in plan.steps:
             if (
                 step.estimated_completion_date
-                and step.status != ExecutionStatus.COMPLETED
+                and step.status != MigrationStepStatus.COMPLETED
                 and step.estimated_completion_date < datetime.now(UTC)
             ):
                 overdue_count += 1
@@ -817,7 +818,7 @@ class MigrationMonitor:
 
         # Calculate schedule variance
         completed_steps = [
-            s for s in plan.steps if s.status == ExecutionStatus.COMPLETED
+            s for s in plan.steps if s.status == MigrationStepStatus.COMPLETED
         ]
         if completed_steps:
             total_variance = sum(
