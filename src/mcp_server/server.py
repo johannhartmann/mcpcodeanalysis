@@ -614,10 +614,10 @@ async def search_code(
     await initialize_server()
 
     try:
-        from src.query.semantic_search import SemanticSearch
+        from src.query.search_engine import SearchEngine
 
         async for session in get_db_session():
-            search = SemanticSearch(session)
+            search = SearchEngine(session)
             return await search.search(query, limit=limit)
     except Exception as e:
         logger.exception("Error in search_code")
@@ -736,10 +736,10 @@ async def suggest_refactoring(
     await initialize_server()
 
     try:
-        from src.mcp_server.tools.refactor import RefactorTool
+        from src.mcp_server.tools.analyze import AnalyzeTool
 
         async for session in get_db_session():
-            tool = RefactorTool(session)
+            tool = AnalyzeTool(session)
             return await tool.suggest_refactoring(file_path, focus_area)
     except Exception as e:
         logger.exception("Error in suggest_refactoring")
@@ -759,11 +759,11 @@ async def find_similar_code(
     await initialize_server()
 
     try:
-        from src.mcp_server.tools.similarity import SimilarityTool
+        from src.query.search_engine import SearchEngine
 
         async for session in get_db_session():
-            tool = SimilarityTool(session)
-            return await tool.find_similar_code(code_snippet, repository, limit)
+            search = SearchEngine(session)
+            return await search.search_similar_code(code_snippet, limit=limit)
     except Exception as e:
         logger.exception("Error in find_similar_code")
         return [{"error": str(e)}]
