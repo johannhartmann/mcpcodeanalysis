@@ -408,3 +408,47 @@ def parse_code_location(location: str) -> tuple[str | None, int | None, int | No
             return None, None, None
     else:
         return None, None, None
+
+
+# Migration tool-specific utilities
+from typing import TypedDict
+
+from src.database.init_db import get_session_factory as _get_session_factory
+from src.database.models import Repository
+
+
+class ToolResult(TypedDict):
+    """Standard result format for migration tools."""
+
+    success: bool
+    message: str
+    data: dict[str, Any] | None
+    error: str | None
+
+
+def create_success_result(data: dict[str, Any], message: str = "Success") -> ToolResult:
+    """Create a successful tool result."""
+    return ToolResult(success=True, message=message, data=data, error=None)
+
+
+def create_error_result(error: str) -> ToolResult:
+    """Create an error tool result."""
+    return ToolResult(success=False, message="Error", data=None, error=error)
+
+
+async def get_repository_id(session: AsyncSession, repository_url: str) -> int | None:
+    """Get repository ID from URL."""
+    try:
+        result = await session.execute(
+            select(Repository).where(Repository.github_url == repository_url)
+        )
+        repo = result.scalar_one_or_none()
+        return repo.id if repo else None
+    except Exception:
+        logger.exception("Failed to get repository ID for %s", repository_url)
+        return None
+
+
+async def get_session_factory():
+    """Get the database session factory."""
+    return await _get_session_factory()
