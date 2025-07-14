@@ -25,6 +25,15 @@ class EmbeddingGenerator:
             model=settings.embeddings.model,
         )
         self.code_extractor = CodeExtractor()
+        self.code_interpreter = None  # Lazy loaded
+
+    def _get_code_interpreter(self):
+        """Get code interpreter instance (lazy loaded)."""
+        if self.code_interpreter is None:
+            from src.embeddings.code_interpreter import CodeInterpreter
+
+            self.code_interpreter = CodeInterpreter()
+        return self.code_interpreter
 
     def prepare_function_text(
         self,
@@ -527,4 +536,222 @@ class EmbeddingGenerator:
             "embedding": embedding,
             "metadata": metadata,
             "tokens": int(tokens),
+        }
+
+    async def generate_interpreted_function_embedding(
+        self,
+        function_data: dict[str, Any],
+        code: str,
+        file_path: str,
+    ) -> dict[str, Any]:
+        """Generate embedding for a function using LLM interpretation.
+
+        Args:
+            function_data: Function metadata
+            code: Function source code
+            file_path: Path to the source file
+
+        Returns:
+            Embedding result with interpreted text
+        """
+        logger.info(
+            "Generating interpreted embedding for function: %s", function_data["name"]
+        )
+
+        # Build context for interpreter
+        context = {
+            "file_path": file_path,
+            "class_name": function_data.get("class_name"),
+        }
+
+        # Get LLM interpretation
+        code_interpreter = self._get_code_interpreter()
+        interpretation = await code_interpreter.interpret_function(
+            code=code,
+            function_name=function_data["name"],
+            docstring=function_data.get("docstring"),
+            context=context,
+        )
+
+        # Build signature for metadata
+        params = function_data.get("parameters", [])
+        param_strs = []
+        for param in params:
+            param_str = param["name"]
+            if param.get("type"):
+                param_str += f": {param['type']}"
+            if param.get("default"):
+                param_str += f" = {param['default']}"
+            param_strs.append(param_str)
+
+        signature = f"{function_data['name']}({', '.join(param_strs)})"
+        if function_data.get("return_type"):
+            signature += f" -> {function_data['return_type']}"
+
+        # Create search-optimized text
+        metadata = {
+            "signature": signature,
+            "file_path": file_path,
+        }
+
+        text = await code_interpreter.create_search_optimized_text(
+            entity_type="function",
+            entity_name=function_data["name"],
+            code=code if len(code) < 1000 else None,  # Include short code only
+            interpretation=interpretation,
+            metadata=metadata,
+        )
+
+        # Generate embedding
+        embedding = await self.embeddings.aembed_query(text)
+
+        return {
+            "text": text,
+            "embedding": embedding,
+            "metadata": {
+                "entity_type": "function",
+                "entity_name": function_data["name"],
+                "file_path": file_path,
+                "start_line": function_data.get("start_line"),
+                "end_line": function_data.get("end_line"),
+                "is_method": function_data.get("class_name") is not None,
+                "class_name": function_data.get("class_name"),
+                "has_interpretation": True,
+            },
+            "tokens": len(text.split()) * 1.3,
+        }
+
+    async def generate_interpreted_class_embedding(
+        self,
+        class_data: dict[str, Any],
+        code: str,
+        file_path: str,
+    ) -> dict[str, Any]:
+        """Generate embedding for a class using LLM interpretation.
+
+        Args:
+            class_data: Class metadata
+            code: Class source code
+            file_path: Path to the source file
+
+        Returns:
+            Embedding result with interpreted text
+        """
+        logger.info(
+            "Generating interpreted embedding for class: %s", class_data["name"]
+        )
+
+        # Build context
+        context = {
+            "file_path": file_path,
+        }
+
+        # Get methods summary
+        methods_summary = class_data.get("methods", [])
+
+        # Get LLM interpretation
+        code_interpreter = self._get_code_interpreter()
+        interpretation = await code_interpreter.interpret_class(
+            code=code,
+            class_name=class_data["name"],
+            docstring=class_data.get("docstring"),
+            methods_summary=methods_summary,
+            context=context,
+        )
+
+        # Create search-optimized text
+        metadata = {
+            "file_path": file_path,
+            "base_classes": class_data.get("base_classes", []),
+        }
+
+        text = await code_interpreter.create_search_optimized_text(
+            entity_type="class",
+            entity_name=class_data["name"],
+            code=code if len(code) < 2000 else None,  # Include moderately sized classes
+            interpretation=interpretation,
+            metadata=metadata,
+        )
+
+        # Generate embedding
+        embedding = await self.embeddings.aembed_query(text)
+
+        return {
+            "text": text,
+            "embedding": embedding,
+            "metadata": {
+                "entity_type": "class",
+                "entity_name": class_data["name"],
+                "file_path": file_path,
+                "start_line": class_data.get("start_line"),
+                "end_line": class_data.get("end_line"),
+                "is_abstract": class_data.get("is_abstract", False),
+                "has_interpretation": True,
+            },
+            "tokens": len(text.split()) * 1.3,
+        }
+
+    async def generate_interpreted_module_embedding(
+        self,
+        module_data: dict[str, Any],
+        file_path: str,
+        imports: list[str] | None = None,
+        classes: list[dict[str, Any]] | None = None,
+        functions: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Generate embedding for a module using LLM interpretation.
+
+        Args:
+            module_data: Module metadata
+            file_path: Path to the source file
+            imports: List of import statements
+            classes: Summary of classes in module
+            functions: Summary of functions in module
+
+        Returns:
+            Embedding result with interpreted text
+        """
+        logger.info(
+            "Generating interpreted embedding for module: %s", module_data["name"]
+        )
+
+        # Get LLM interpretation
+        code_interpreter = self._get_code_interpreter()
+        interpretation = await code_interpreter.interpret_module(
+            module_name=module_data["name"],
+            file_path=file_path,
+            docstring=module_data.get("docstring"),
+            imports=imports,
+            classes=classes,
+            functions=functions,
+        )
+
+        # Create search-optimized text
+        metadata = {
+            "file_path": file_path,
+        }
+
+        text = await code_interpreter.create_search_optimized_text(
+            entity_type="module",
+            entity_name=module_data["name"],
+            code=None,  # Module code usually too large
+            interpretation=interpretation,
+            metadata=metadata,
+        )
+
+        # Generate embedding
+        embedding = await self.embeddings.aembed_query(text)
+
+        return {
+            "text": text,
+            "embedding": embedding,
+            "metadata": {
+                "entity_type": "module",
+                "entity_name": module_data["name"],
+                "file_path": file_path,
+                "start_line": module_data.get("start_line", 1),
+                "end_line": module_data.get("end_line"),
+                "has_interpretation": True,
+            },
+            "tokens": len(text.split()) * 1.3,
         }

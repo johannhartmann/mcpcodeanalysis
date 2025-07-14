@@ -60,7 +60,8 @@ class PatternLibrary:
         )
 
         if not plan:
-            raise ValueError(f"Migration plan {plan_id} not found")
+            msg = f"Migration plan {plan_id} not found"
+            raise ValueError(msg)
 
         # Analyze successful steps
         successful_steps = [
@@ -303,7 +304,8 @@ class PatternLibrary:
 
         pattern = await self.session.get(MigrationPattern, pattern_id)
         if not pattern:
-            raise ValueError(f"Pattern {pattern_id} not found")
+            msg = f"Pattern {pattern_id} not found"
+            raise ValueError(msg)
 
         # Get usage examples
         usage_examples = await self._get_pattern_usage_examples(pattern_id)
@@ -329,8 +331,7 @@ class PatternLibrary:
                     "",
                 ]
             )
-            for prereq in pattern.prerequisites:
-                doc_lines.append(f"- {prereq}")
+            doc_lines.extend(f"- {prereq}" for prereq in pattern.prerequisites)
             doc_lines.append("")
 
         # Implementation steps
@@ -353,8 +354,7 @@ class PatternLibrary:
                     "",
                 ]
             )
-            for practice in pattern.best_practices:
-                doc_lines.append(f"- {practice}")
+            doc_lines.extend(f"- {practice}" for practice in pattern.best_practices)
             doc_lines.append("")
 
         # Anti-patterns
@@ -365,8 +365,7 @@ class PatternLibrary:
                     "",
                 ]
             )
-            for anti in pattern.anti_patterns:
-                doc_lines.append(f"- {anti}")
+            doc_lines.extend(f"- {anti}" for anti in pattern.anti_patterns)
             doc_lines.append("")
 
         # Risks
@@ -377,8 +376,7 @@ class PatternLibrary:
                     "",
                 ]
             )
-            for risk in pattern.risks:
-                doc_lines.append(f"- {risk}")
+            doc_lines.extend(f"- {risk}" for risk in pattern.risks)
             doc_lines.append("")
 
         # Example code
@@ -432,8 +430,7 @@ class PatternLibrary:
                     "",
                 ]
             )
-            for tool in pattern.tools_required:
-                doc_lines.append(f"- {tool}")
+            doc_lines.extend(f"- {tool}" for tool in pattern.tools_required)
 
         return "\n".join(doc_lines)
 
@@ -461,11 +458,12 @@ class PatternLibrary:
         )
 
         if not plan:
-            raise ValueError(f"Migration plan {plan_id} not found")
+            msg = f"Migration plan {plan_id} not found"
+            raise ValueError(msg)
 
         # Analyze failed steps
         failed_steps = [
-            step for step in plan.steps if step.status == ExecutionStatus.FAILED
+            step for step in plan.steps if step.status == MigrationStepStatus.FAILED
         ]
 
         lessons = {
@@ -501,7 +499,7 @@ class PatternLibrary:
         return lessons
 
     async def _extract_step_pattern(
-        self, step: MigrationStep, plan: MigrationPlan
+        self, step: MigrationStep, _plan: MigrationPlan
     ) -> dict[str, Any] | None:
         """Extract pattern from a successful step.
 
@@ -519,27 +517,15 @@ class PatternLibrary:
         # Use LLM if available to extract pattern
         if self.llm_client and step.description:
             try:
-                prompt = f"""
-                Extract a reusable migration pattern from this successful step:
-                Step: {step.name}
-                Description: {step.description}
-                Task Type: {step.task_type}
-                Strategy: {plan.strategy}
-
-                Provide:
-                1. Pattern name
-                2. When to use it
-                3. Key implementation steps
-                4. Prerequisites
-                """
+                pass
 
                 # This would use the LLM to extract pattern
                 # For now, use rule-based extraction
-            except Exception as e:
-                logger.error("Failed to extract pattern with LLM: %s", e)
+            except Exception:
+                logger.exception("Failed to extract pattern with LLM")
 
         # Rule-based pattern extraction
-        pattern = {
+        return {
             "name": f"{step.task_type.replace('_', ' ').title()} Pattern",
             "category": self._categorize_step(step),
             "description": f"Pattern for {step.task_type} based on successful execution",
@@ -553,8 +539,6 @@ class PatternLibrary:
             "success_rate": 1.0,  # Since it succeeded
         }
 
-        return pattern
-
     async def _extract_plan_pattern(self, plan: MigrationPlan) -> dict[str, Any] | None:
         """Extract pattern from overall plan.
 
@@ -564,7 +548,7 @@ class PatternLibrary:
         Returns:
             Extracted pattern or None
         """
-        if plan.status != ExecutionStatus.COMPLETED:
+        if plan.status != MigrationStepStatus.COMPLETED:
             return None
 
         # Calculate actual timeline
@@ -572,7 +556,7 @@ class PatternLibrary:
             (plan.updated_at - plan.created_at).days / 7 if plan.updated_at else None
         )
 
-        pattern = {
+        return {
             "name": f"{plan.strategy.replace('_', ' ').title()} Migration Pattern",
             "category": "migration_strategy",
             "description": f"Complete migration pattern using {plan.strategy} strategy",
@@ -601,8 +585,6 @@ class PatternLibrary:
             ),
             "success_rate": 1.0,
         }
-
-        return pattern
 
     async def _extract_dependency_patterns(
         self, plan: MigrationPlan
@@ -719,7 +701,7 @@ class PatternLibrary:
         self,
         pattern: dict[str, Any],
         repo_analysis: dict[str, Any],
-        context: dict[str, Any],
+        _context: dict[str, Any],
     ) -> tuple[float, str]:
         """Calculate recommendation score for a pattern.
 
@@ -812,15 +794,16 @@ class PatternLibrary:
             Scenario key
         """
         # Create a simple key from main attributes
-        components = []
-        for key in ["size_category", "complexity_category", "target_architecture"]:
-            if key in scenario:
-                components.append(f"{key}:{scenario[key]}")
+        components = [
+            f"{key}:{scenario[key]}"
+            for key in ["size_category", "complexity_category", "target_architecture"]
+            if key in scenario
+        ]
 
         return "|".join(components) if components else "general"
 
     async def _get_pattern_usage_examples(
-        self, pattern_id: int
+        self, _pattern_id: int
     ) -> list[dict[str, Any]]:
         """Get real usage examples of a pattern.
 
@@ -837,7 +820,7 @@ class PatternLibrary:
             .join(MigrationStep)
             .join(MigrationPlan)
             .join(Repository)
-            .where(MigrationExecution.success == True)
+            .where(MigrationExecution.success)
             .order_by(MigrationExecution.completed_at.desc())
             .limit(10)
         )
@@ -886,7 +869,7 @@ class PatternLibrary:
 
         # Analyze executions
         failed_executions = [
-            e for e in step.executions if e.status == ExecutionStatus.FAILED
+            e for e in step.executions if e.status == MigrationStepStatus.FAILED
         ]
 
         for execution in failed_executions:
@@ -944,7 +927,7 @@ class PatternLibrary:
         return patterns
 
     def _generate_prevention_strategies(
-        self, failure_patterns: dict[str, list[str]], root_causes: list[str]
+        self, failure_patterns: dict[str, list[str]], _root_causes: list[str]
     ) -> list[str]:
         """Generate prevention strategies based on failures.
 
@@ -1035,7 +1018,7 @@ class PatternLibrary:
                         "suggestions": [
                             f"Add pre-migration validation for {task_type}",
                             f"Increase effort estimate by {failure_rate * 50:.0f}%",
-                            f"Add additional prerequisites check",
+                            "Add additional prerequisites check",
                         ],
                     }
                 )
@@ -1055,16 +1038,15 @@ class PatternLibrary:
 
         if "extract" in task_type or "separate" in task_type:
             return "extraction"
-        elif "interface" in task_type or "api" in task_type:
+        if "interface" in task_type or "api" in task_type:
             return "interface_design"
-        elif "refactor" in task_type:
+        if "refactor" in task_type:
             return "refactoring"
-        elif "test" in task_type:
+        if "test" in task_type:
             return "testing"
-        elif "validate" in task_type:
+        if "validate" in task_type:
             return "validation"
-        else:
-            return "general"
+        return "general"
 
     def _extract_plan_steps(self, plan: MigrationPlan) -> list[str]:
         """Extract high-level steps from plan.
@@ -1107,7 +1089,9 @@ class PatternLibrary:
         if not plan.steps:
             return 0.0
 
-        completed = sum(1 for s in plan.steps if s.status == ExecutionStatus.COMPLETED)
+        completed = sum(
+            1 for s in plan.steps if s.status == MigrationStepStatus.COMPLETED
+        )
         return completed / len(plan.steps)
 
     def _analyze_dependency_chains(
@@ -1204,7 +1188,7 @@ class PatternLibrary:
             phase_groups[phase].append(step)
 
         # Look for phases with multiple independent steps
-        for phase, phase_steps in phase_groups.items():
+        for phase_steps in phase_groups.values():
             if len(phase_steps) > 1:
                 # Check if steps have no inter-dependencies
                 independent = []
@@ -1232,10 +1216,9 @@ class PatternLibrary:
         """
         if file_count < 100:
             return "small"
-        elif file_count < 1000:
+        if file_count < 1000:
             return "medium"
-        else:
-            return "large"
+        return "large"
 
     def _categorize_complexity(self, avg_complexity: float) -> str:
         """Categorize code complexity.
@@ -1248,10 +1231,9 @@ class PatternLibrary:
         """
         if avg_complexity < 5:
             return "low"
-        elif avg_complexity < 10:
+        if avg_complexity < 10:
             return "medium"
-        else:
-            return "high"
+        return "high"
 
     def _extract_error_patterns(self, logs: list[str]) -> list[str]:
         """Extract error patterns from logs.
@@ -1291,16 +1273,15 @@ class PatternLibrary:
 
         if "dependency" in combined or "import" in combined:
             return "Unresolved dependencies"
-        elif "test" in combined or "assertion" in combined:
+        if "test" in combined or "assertion" in combined:
             return "Test failures"
-        elif "timeout" in combined or "time" in combined:
+        if "timeout" in combined or "time" in combined:
             return "Execution timeout"
-        elif "permission" in combined or "access" in combined:
+        if "permission" in combined or "access" in combined:
             return "Permission issues"
-        elif "memory" in combined or "resource" in combined:
+        if "memory" in combined or "resource" in combined:
             return "Resource constraints"
-        else:
-            return "Unknown failure"
+        return "Unknown failure"
 
     def _generate_prevention_suggestions(
         self, task_type: str, root_cause: str | None
@@ -1354,3 +1335,102 @@ class PatternLibrary:
                 )
 
         return suggestions
+
+    async def get_library_statistics(self) -> dict[str, Any]:
+        """Get statistics about the pattern library.
+
+        Returns:
+            Dictionary containing library statistics
+        """
+        logger.info("Getting pattern library statistics")
+
+        # Get total pattern count
+        total_count_result = await self.session.execute(
+            select(func.count(MigrationPattern.id))
+        )
+        total_patterns = total_count_result.scalar() or 0
+
+        # Get category breakdown
+        category_breakdown_result = await self.session.execute(
+            select(
+                MigrationPattern.category,
+                func.count(MigrationPattern.id).label("count"),
+                func.avg(MigrationPattern.success_rate).label("avg_success_rate"),
+            ).group_by(MigrationPattern.category)
+        )
+
+        categories = {}
+
+        for row in category_breakdown_result:
+            categories[row.category] = {
+                "count": row.count,
+                "avg_success_rate": (
+                    float(row.avg_success_rate) if row.avg_success_rate else 0.0
+                ),
+            }
+
+        # Get overall metrics
+        overall_metrics_result = await self.session.execute(
+            select(
+                func.avg(MigrationPattern.success_rate).label("avg_success_rate"),
+                func.sum(MigrationPattern.usage_count).label("total_usage_count"),
+                func.avg(MigrationPattern.avg_effort_hours).label("avg_effort_hours"),
+            )
+        )
+
+        metrics_row = overall_metrics_result.one()
+
+        # Get most used patterns
+        most_used_result = await self.session.execute(
+            select(MigrationPattern)
+            .order_by(MigrationPattern.usage_count.desc())
+            .limit(5)
+        )
+        most_used_patterns = [
+            {
+                "id": p.id,
+                "name": p.name,
+                "category": p.category,
+                "usage_count": p.usage_count,
+                "success_rate": p.success_rate,
+            }
+            for p in most_used_result.scalars()
+        ]
+
+        # Get recently added patterns
+        recent_patterns_result = await self.session.execute(
+            select(MigrationPattern)
+            .order_by(MigrationPattern.created_at.desc())
+            .limit(5)
+        )
+        recent_patterns = [
+            {
+                "id": p.id,
+                "name": p.name,
+                "category": p.category,
+                "created_at": p.created_at.isoformat() if p.created_at else None,
+            }
+            for p in recent_patterns_result.scalars()
+        ]
+
+        return {
+            "total_patterns": total_patterns,
+            "categories": categories,
+            "avg_success_rate": (
+                float(metrics_row.avg_success_rate)
+                if metrics_row.avg_success_rate
+                else 0.0
+            ),
+            "total_usage_count": (
+                int(metrics_row.total_usage_count)
+                if metrics_row.total_usage_count
+                else 0
+            ),
+            "avg_effort_hours": (
+                float(metrics_row.avg_effort_hours)
+                if metrics_row.avg_effort_hours
+                else 0.0
+            ),
+            "most_used_patterns": most_used_patterns,
+            "recent_patterns": recent_patterns,
+        }

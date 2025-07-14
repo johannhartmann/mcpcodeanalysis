@@ -53,7 +53,8 @@ class MigrationPerformanceOptimizer:
         )
 
         if not plan:
-            raise ValueError(f"Migration plan {plan_id} not found")
+            msg = f"Migration plan {plan_id} not found"
+            raise ValueError(msg)
 
         # Build dependency graph
         dep_graph = self._build_dependency_graph(plan.steps)
@@ -164,7 +165,8 @@ class MigrationPerformanceOptimizer:
         )
 
         if not plan:
-            raise ValueError(f"Migration plan {plan_id} not found")
+            msg = f"Migration plan {plan_id} not found"
+            raise ValueError(msg)
 
         bottlenecks = []
 
@@ -340,7 +342,8 @@ class MigrationPerformanceOptimizer:
         )
 
         if not plan:
-            raise ValueError(f"Migration plan {plan_id} not found")
+            msg = f"Migration plan {plan_id} not found"
+            raise ValueError(msg)
 
         # Get parallelization analysis
         parallel_analysis = await self.analyze_parallelization_opportunities(plan_id)
@@ -463,8 +466,7 @@ class MigrationPerformanceOptimizer:
             Total parallel execution time
         """
         # For each level, time is the maximum of all steps in that level
-        total_time = sum(level["max_hours"] for level in execution_levels)
-        return total_time
+        return sum(level["max_hours"] for level in execution_levels)
 
     def _calculate_resource_requirements(
         self, execution_levels: list[dict[str, Any]]
@@ -624,9 +626,11 @@ class MigrationPerformanceOptimizer:
                     group.append(pkg_lookup[pkg_id])
 
                 # Add coupled packages
-                for coupled_id in coupling_graph.get(pkg_id, set()):
-                    if coupled_id not in visited:
-                        stack.append(coupled_id)
+                stack.extend(
+                    coupled_id
+                    for coupled_id in coupling_graph.get(pkg_id, set())
+                    if coupled_id not in visited
+                )
 
         return group
 
@@ -651,8 +655,9 @@ class MigrationPerformanceOptimizer:
         for group in sorted_groups:
             if len(group) > batch_size:
                 # Large group needs to be split
-                for i in range(0, len(group), batch_size):
-                    batches.append(group[i : i + batch_size])
+                batches.extend(
+                    group[i : i + batch_size] for i in range(0, len(group), batch_size)
+                )
             elif len(current_batch) + len(group) <= batch_size:
                 # Add to current batch
                 current_batch.extend(group)
@@ -840,23 +845,23 @@ class MigrationPerformanceOptimizer:
         """
         bottlenecks = []
 
-        for step in steps:
-            if step.complexity_score and step.complexity_score > 8:
-                bottlenecks.append(
-                    {
-                        "step_id": step.id,
-                        "step_name": step.name,
-                        "type": "high_complexity",
-                        "complexity_score": step.complexity_score,
-                        "severity": "high" if step.complexity_score > 9 else "medium",
-                        "mitigation": [
-                            "Break down into smaller steps",
-                            "Assign senior developers",
-                            "Additional testing and validation",
-                            "Consider proof of concept first",
-                        ],
-                    }
-                )
+        bottlenecks.extend(
+            {
+                "step_id": step.id,
+                "step_name": step.name,
+                "type": "high_complexity",
+                "complexity_score": step.complexity_score,
+                "severity": "high" if step.complexity_score > 9 else "medium",
+                "mitigation": [
+                    "Break down into smaller steps",
+                    "Assign senior developers",
+                    "Additional testing and validation",
+                    "Consider proof of concept first",
+                ],
+            }
+            for step in steps
+            if step.complexity_score and step.complexity_score > 8
+        )
 
         return bottlenecks
 
@@ -1083,7 +1088,7 @@ class MigrationPerformanceOptimizer:
         self,
         allocations: list[dict[str, Any]],
         utilization: dict[str, Any],
-        available_resources: dict[str, int],
+        _available_resources: dict[str, int],
     ) -> list[str]:
         """Generate resource optimization suggestions.
 
@@ -1141,7 +1146,7 @@ class MigrationPerformanceOptimizer:
         return total_hours / 40
 
     def _identify_resource_bottlenecks_from_allocation(
-        self, allocations: list[dict[str, Any]], available_resources: dict[str, int]
+        self, allocations: list[dict[str, Any]], _available_resources: dict[str, int]
     ) -> list[str]:
         """Identify resource bottlenecks from allocation.
 

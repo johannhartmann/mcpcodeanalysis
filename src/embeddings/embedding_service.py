@@ -209,13 +209,20 @@ class EmbeddingService:
         }
 
         # Get module statistics
-        stats = await self._get_module_stats(module.id)
+        await self._get_module_stats(module.id)
 
-        # Generate embedding
-        result = await self.embedding_generator.generate_module_embedding(
+        # Get module contents for LLM interpretation
+        imports = await self._get_module_imports(module.id)
+        classes = await self._get_module_classes_summary(module.id)
+        functions = await self._get_module_functions_summary(module.id)
+
+        # Generate interpreted embedding using LLM
+        result = await self.embedding_generator.generate_interpreted_module_embedding(
             module_data,
             file_path,
-            stats,
+            imports=imports,
+            classes=classes,
+            functions=functions,
         )
 
         # Store embedding
@@ -273,17 +280,30 @@ class EmbeddingService:
             ],
         }
 
-        # Generate embedding
-        results = await self.embedding_generator.generate_class_embeddings(
-            [class_data],
+        # Extract actual class code from source file
+        from pathlib import Path
+
+        try:
+            raw_code, contextual_code = (
+                self.embedding_generator.code_extractor.get_entity_content(
+                    file_path=Path(file_path),
+                    entity_type="class",
+                    start_line=cls.start_line,
+                    end_line=cls.end_line,
+                    include_context=True,
+                )
+            )
+            code = contextual_code if contextual_code else raw_code
+        except (OSError, ValueError, AttributeError) as e:
+            logger.warning("Failed to extract code for class %s: %s", cls.name, e)
+            code = f"# Class {cls.name} code extraction failed"
+
+        # Generate interpreted embedding using LLM
+        result = await self.embedding_generator.generate_interpreted_class_embedding(
+            class_data,
+            code,
             file_path,
         )
-
-        if not results or not results[0].get("embedding"):
-            msg = "Failed to generate class embedding"
-            raise EmbeddingError(msg)
-
-        result = results[0]
 
         # Store embedding
         embedding = CodeEmbedding(
@@ -336,17 +356,30 @@ class EmbeddingService:
             "class_name": func.parent_class.name if func.class_id else None,
         }
 
-        # Generate embedding
-        results = await self.embedding_generator.generate_function_embeddings(
-            [func_data],
+        # Extract actual function code from source file
+        from pathlib import Path
+
+        try:
+            raw_code, contextual_code = (
+                self.embedding_generator.code_extractor.get_entity_content(
+                    file_path=Path(file_path),
+                    entity_type="function",
+                    start_line=func.start_line,
+                    end_line=func.end_line,
+                    include_context=True,
+                )
+            )
+            code = contextual_code if contextual_code else raw_code
+        except (OSError, ValueError, AttributeError) as e:
+            logger.warning("Failed to extract code for function %s: %s", func.name, e)
+            code = f"# Function {func.name} code extraction failed"
+
+        # Generate interpreted embedding using LLM
+        result = await self.embedding_generator.generate_interpreted_function_embedding(
+            func_data,
+            code,
             file_path,
         )
-
-        if not results or not results[0].get("embedding"):
-            msg = "Failed to generate function embedding"
-            raise EmbeddingError(msg)
-
-        result = results[0]
 
         # Store embedding
         embedding = CodeEmbedding(
@@ -626,3 +659,51 @@ class EmbeddingService:
                 )
 
         return stats
+
+    async def _get_module_imports(self, module_id: int) -> list[str]:
+        """Get import statements for a module."""
+        from src.database.models import Import
+
+        result = await self.db_session.execute(
+            select(Import.import_statement).join(Module).where(Module.id == module_id)
+        )
+        imports = result.scalars().all()
+        return [imp for imp in imports if imp]
+
+    async def _get_module_classes_summary(self, module_id: int) -> list[dict[str, Any]]:
+        """Get summary of classes in a module."""
+        result = await self.db_session.execute(
+            select(Class).where(Class.module_id == module_id)
+        )
+        classes = result.scalars().all()
+
+        return [
+            {
+                "name": cls.name,
+                "docstring": cls.docstring,
+                "is_abstract": cls.is_abstract,
+                "base_classes": cls.base_classes,
+            }
+            for cls in classes
+        ]
+
+    async def _get_module_functions_summary(
+        self, module_id: int
+    ) -> list[dict[str, Any]]:
+        """Get summary of functions in a module."""
+        result = await self.db_session.execute(
+            select(Function).where(
+                Function.module_id == module_id, Function.class_id.is_(None)
+            )
+        )
+        functions = result.scalars().all()
+
+        return [
+            {
+                "name": func.name,
+                "docstring": func.docstring,
+                "parameters": func.parameters,
+                "is_async": func.is_async,
+            }
+            for func in functions
+        ]

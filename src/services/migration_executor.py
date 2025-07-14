@@ -58,7 +58,8 @@ class MigrationExecutor:
         )
 
         if not step:
-            raise ValueError(f"Migration step {step_id} not found")
+            msg = f"Migration step {step_id} not found"
+            raise ValueError(msg)
 
         # Check if already executing
         if step.status == MigrationStepStatus.IN_PROGRESS:
@@ -132,7 +133,8 @@ class MigrationExecutor:
         )
 
         if not step:
-            raise ValueError(f"Migration step {step_id} not found")
+            msg = f"Migration step {step_id} not found"
+            raise ValueError(msg)
 
         # Find current execution
         current_execution = None
@@ -214,7 +216,8 @@ class MigrationExecutor:
         )
 
         if not plan:
-            raise ValueError(f"Migration plan {plan_id} not found")
+            msg = f"Migration plan {plan_id} not found"
+            raise ValueError(msg)
 
         # Calculate progress
         total_steps = len(plan.steps)
@@ -319,7 +322,8 @@ class MigrationExecutor:
         )
 
         if not step:
-            raise ValueError(f"Migration step {step_id} not found")
+            msg = f"Migration step {step_id} not found"
+            raise ValueError(msg)
 
         # Find latest execution
         latest_execution = max(step.executions, key=lambda e: e.started_at)
@@ -374,7 +378,8 @@ class MigrationExecutor:
         )
 
         if not step:
-            raise ValueError(f"Migration step {step_id} not found")
+            msg = f"Migration step {step_id} not found"
+            raise ValueError(msg)
 
         # Check if step can be rolled back
         if not step.rollback_procedure:
@@ -433,7 +438,8 @@ class MigrationExecutor:
         )
 
         if not plan:
-            raise ValueError(f"Migration plan {plan_id} not found")
+            msg = f"Migration plan {plan_id} not found"
+            raise ValueError(msg)
 
         # Collect execution metrics
         executions = []
@@ -467,15 +473,15 @@ class MigrationExecutor:
                 result = await self.session.execute(stmt)
                 exec_validations = result.scalars().all()
 
-                for validation in exec_validations:
-                    validations.append(
-                        {
-                            "step_name": step.name,
-                            "validation_type": validation.validation_type,
-                            "status": validation.status.value,
-                            "validated_at": validation.validated_at,
-                        }
-                    )
+                validations.extend(
+                    {
+                        "step_name": step.name,
+                        "validation_type": validation.validation_type,
+                        "status": validation.status.value,
+                        "validated_at": validation.validated_at,
+                    }
+                    for validation in exec_validations
+                )
 
                 # Collect issues
                 if execution.status == MigrationStepStatus.FAILED:
@@ -639,17 +645,17 @@ class MigrationExecutor:
         blockers = []
 
         # Check for failed steps
-        for step in plan.steps:
-            if step.status == MigrationStepStatus.FAILED:
-                blockers.append(
-                    {
-                        "type": "failed_step",
-                        "step_id": step.id,
-                        "step_name": step.name,
-                        "description": f"Step '{step.name}' failed and blocks dependent steps",
-                        "severity": "high",
-                    }
-                )
+        blockers.extend(
+            {
+                "type": "failed_step",
+                "step_id": step.id,
+                "step_name": step.name,
+                "description": f"Step '{step.name}' failed and blocks dependent steps",
+                "severity": "high",
+            }
+            for step in plan.steps
+            if step.status == MigrationStepStatus.FAILED
+        )
 
         # Check for overdue steps
         for step in plan.steps:
@@ -716,7 +722,7 @@ class MigrationExecutor:
 
     async def _perform_validation(
         self,
-        step: MigrationStep,
+        _step: MigrationStep,
         validation_type: str,
         criteria: dict[str, Any],
     ) -> dict[str, Any]:
