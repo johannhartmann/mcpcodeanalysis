@@ -29,8 +29,8 @@ async def extract_migration_patterns(
         from src.database.init_db import get_session_factory
 
         session_factory = await get_session_factory()
-        async with session_factory() as db_session:
-            return await extract_migration_patterns(plan_id, db_session)
+        async with session_factory() as session:
+            return await extract_migration_patterns(plan_id, session)
 
     try:
         from src.services.pattern_library import PatternLibrary
@@ -82,9 +82,9 @@ async def search_migration_patterns(
         from src.database.init_db import get_session_factory
 
         session_factory = await get_session_factory()
-        async with session_factory() as db_session:
+        async with session_factory() as session:
             return await search_migration_patterns(
-                category, context_type, keywords, min_success_rate, db_session
+                category, context_type, keywords, min_success_rate, session
             )
 
     try:
@@ -133,8 +133,8 @@ async def get_pattern_library_stats(db_session=None) -> dict[str, Any]:
         from src.database.init_db import get_session_factory
 
         session_factory = await get_session_factory()
-        async with session_factory() as db_session:
-            return await get_pattern_library_stats(db_session)
+        async with session_factory() as session:
+            return await get_pattern_library_stats(session)
 
     try:
         from src.services.pattern_library import PatternLibrary

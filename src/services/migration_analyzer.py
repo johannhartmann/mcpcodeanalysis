@@ -7,7 +7,10 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.database.domain_models import BoundedContext, DomainEntity
+from src.database.domain_models import (
+    BoundedContext,
+    BoundedContextMembership,
+)
 from src.database.migration_models import (
     MigrationPattern,
     RiskLevel,
@@ -51,7 +54,8 @@ class MigrationAnalyzer:
         # Get repository
         repo = await self.session.get(Repository, repository_id)
         if not repo:
-            raise ValueError(f"Repository {repository_id} not found")
+            msg = f"Repository {repository_id} not found"
+            raise ValueError(msg)
 
         # Analyze bounded contexts
         contexts = await self._analyze_bounded_contexts(repository_id)
@@ -93,20 +97,46 @@ class MigrationAnalyzer:
             List of bounded contexts with migration scores
         """
         # Query bounded contexts with their entities
-        stmt = (
-            select(BoundedContext)
-            .join(BoundedContext.memberships)
-            .join(DomainEntity)
-            .where(
-                DomainEntity.source_entities.any(File.repository_id == repository_id)
+        # First get file IDs from the repository
+        file_ids_result = await self.session.execute(
+            select(File.id).where(File.repository_id == repository_id)
+        )
+        file_ids = [row[0] for row in file_ids_result]
+
+        if not file_ids:
+            return []
+
+        # Query bounded contexts where domain entities reference these files
+        # Use a simpler approach - get all domain entities first, then filter in Python
+
+        # Get all bounded contexts with their memberships
+        # Use eager loading to avoid additional queries
+        stmt = select(BoundedContext).options(
+            selectinload(BoundedContext.memberships).selectinload(
+                BoundedContextMembership.domain_entity
             )
-            .options(selectinload(BoundedContext.memberships))
-            .distinct()
         )
 
         result = await self.session.execute(stmt)
-        contexts = result.scalars().all()
+        all_contexts = result.scalars().unique().all()
 
+        # Filter contexts that have entities referencing our files
+        contexts = []
+        for context in all_contexts:
+            for membership in context.memberships:
+                if (
+                    membership.domain_entity
+                    and membership.domain_entity.source_entities
+                ):
+                    # Check if any of our file IDs are in the source_entities JSON array
+                    source_ids = membership.domain_entity.source_entities
+                    if isinstance(source_ids, list) and any(
+                        fid in source_ids for fid in file_ids
+                    ):
+                        contexts.append(context)
+                        break
+
+        # Now analyze each context
         context_analysis = []
         for context in contexts:
             # Calculate migration readiness score
@@ -165,8 +195,18 @@ class MigrationAnalyzer:
 
         candidates = []
         for package, metrics in packages:
+            # Count dependencies and dependents properly
+            dep_count = (
+                len(package.dependencies)
+                if hasattr(package.dependencies, "__len__")
+                else 0
+            )
+            dep_by_count = (
+                len(package.dependents) if hasattr(package.dependents, "__len__") else 0
+            )
+
             # Skip packages with too many dependencies
-            if len(package.dependents) > 10:
+            if dep_by_count > 10:
                 continue
 
             # Calculate migration score
@@ -188,15 +228,15 @@ class MigrationAnalyzer:
                         "functions": package.total_functions,
                     },
                     "quality_metrics": {
-                        "cohesion": metrics.cohesion_score,
-                        "coupling": metrics.coupling_score,
-                        "has_tests": metrics.has_tests,
-                        "has_docs": metrics.has_docs,
+                        "cohesion": metrics.cohesion_score if metrics else None,
+                        "coupling": metrics.coupling_score if metrics else None,
+                        "has_tests": metrics.has_tests if metrics else False,
+                        "has_docs": metrics.has_docs if metrics else False,
                     },
                     "migration_score": score,
                     "estimated_effort_hours": effort,
-                    "dependencies": len(package.dependencies),
-                    "dependents": len(package.dependents),
+                    "dependencies": dep_count,
+                    "dependents": dep_by_count,
                 }
             )
 
@@ -457,7 +497,7 @@ class MigrationAnalyzer:
         return max(0.0, min(complexity, 1.0))
 
     async def _analyze_context_dependencies(
-        self, context: BoundedContext
+        self, _context: BoundedContext
     ) -> dict[str, Any]:
         """Analyze dependencies for a bounded context.
 
@@ -534,8 +574,15 @@ class MigrationAnalyzer:
             elif metrics.avg_complexity > 5:
                 base_effort *= 1.2
 
-        # Adjust for dependencies
-        dependency_count = len(package.dependencies) + len(package.dependents)
+        # Adjust for dependencies - handle relationships properly
+        dep_count = (
+            len(package.dependencies) if hasattr(package.dependencies, "__len__") else 0
+        )
+        dep_by_count = (
+            len(package.dependents) if hasattr(package.dependents, "__len__") else 0
+        )
+        dependency_count = dep_count + dep_by_count
+
         if dependency_count > 10:
             base_effort *= 1.5
         elif dependency_count > 5:
@@ -548,7 +595,7 @@ class MigrationAnalyzer:
         return round(base_effort)
 
     async def _find_circular_dependencies(
-        self, repository_id: int
+        self, _repository_id: int
     ) -> list[dict[str, Any]]:
         """Find circular dependencies in the repository.
 
@@ -594,7 +641,14 @@ class MigrationAnalyzer:
                 "package_id": pkg.id,
                 "package_path": pkg.path,
                 "coupling_score": metrics.coupling_score,
-                "dependency_count": len(pkg.dependencies) + len(pkg.dependents),
+                "dependency_count": (
+                    (
+                        len(pkg.dependencies)
+                        if hasattr(pkg.dependencies, "__len__")
+                        else 0
+                    )
+                    + (len(pkg.dependents) if hasattr(pkg.dependents, "__len__") else 0)
+                ),
             }
             for pkg, metrics in packages
         ]
@@ -661,12 +715,23 @@ class MigrationAnalyzer:
         Returns:
             Average dependency count
         """
-        stmt = (
-            select(func.avg(func.count(PackageDependency.id)))
-            .join(Package, Package.id == PackageDependency.source_package_id)
+        # Use a subquery to avoid nested aggregates
+
+        # First get dependency counts per package
+        subq = (
+            select(Package.id, func.count(PackageDependency.id).label("dep_count"))
+            .join(
+                PackageDependency,
+                Package.id == PackageDependency.source_package_id,
+                isouter=True,
+            )
             .where(Package.repository_id == repository_id)
             .group_by(Package.id)
+            .subquery()
         )
+
+        # Then calculate the average
+        stmt = select(func.avg(subq.c.dep_count))
         result = await self.session.execute(stmt)
         avg = result.scalar()
         return float(avg) if avg else 0.0
@@ -683,16 +748,15 @@ class MigrationAnalyzer:
         """
         if max_complexity > 20 or avg_complexity > 10:
             return "high"
-        elif max_complexity > 10 or avg_complexity > 5:
+        if max_complexity > 10 or avg_complexity > 5:
             return "medium"
-        else:
-            return "low"
+        return "low"
 
     def _generate_migration_phases(
         self,
         strategy_type: str,
-        contexts: list[dict[str, Any]],
-        candidates: list[dict[str, Any]],
+        _contexts: list[dict[str, Any]],
+        _candidates: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
         """Generate migration phases based on strategy.
 
@@ -952,9 +1016,8 @@ class MigrationAnalyzer:
 
         if risk_score >= 0.7:
             return RiskLevel.CRITICAL.value
-        elif risk_score >= 0.5:
+        if risk_score >= 0.5:
             return RiskLevel.HIGH.value
-        elif risk_score >= 0.3:
+        if risk_score >= 0.3:
             return RiskLevel.MEDIUM.value
-        else:
-            return RiskLevel.LOW.value
+        return RiskLevel.LOW.value

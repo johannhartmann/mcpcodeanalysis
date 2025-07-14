@@ -26,8 +26,8 @@ async def start_migration_step(
         from src.database.init_db import get_session_factory
 
         session_factory = await get_session_factory()
-        async with session_factory() as db_session:
-            return await start_migration_step(step_id, executor_id, db_session)
+        async with session_factory() as session:
+            return await start_migration_step(step_id, executor_id, session)
 
     try:
         from src.services.migration_executor import MigrationExecutor
@@ -41,11 +41,10 @@ async def start_migration_step(
                 "message": f"Started migration step: {result['step_name']}",
                 "data": result,
             }
-        else:
-            return {
-                "success": False,
-                "error": result.get("error", "Failed to start migration step"),
-            }
+        return {
+            "success": False,
+            "error": result.get("error", "Failed to start migration step"),
+        }
 
     except Exception as e:
         logger.exception("Failed to start migration step")
@@ -73,9 +72,9 @@ async def complete_migration_step(
         from src.database.init_db import get_session_factory
 
         session_factory = await get_session_factory()
-        async with session_factory() as db_session:
+        async with session_factory() as session:
             return await complete_migration_step(
-                step_id, success, notes, validation_results, db_session
+                step_id, success, notes, validation_results, session
             )
 
     try:
@@ -93,11 +92,10 @@ async def complete_migration_step(
                 "message": f"Completed migration step {status}",
                 "data": result,
             }
-        else:
-            return {
-                "success": False,
-                "error": result.get("error", "Failed to complete migration step"),
-            }
+        return {
+            "success": False,
+            "error": result.get("error", "Failed to complete migration step"),
+        }
 
     except Exception as e:
         logger.exception("Failed to complete migration step")
@@ -116,8 +114,8 @@ async def track_migration_progress(
         from src.database.init_db import get_session_factory
 
         session_factory = await get_session_factory()
-        async with session_factory() as db_session:
-            return await track_migration_progress(plan_id, db_session)
+        async with session_factory() as session:
+            return await track_migration_progress(plan_id, session)
 
     try:
         from src.services.migration_monitor import MigrationMonitor
@@ -147,8 +145,8 @@ async def get_migration_dashboard(
         from src.database.init_db import get_session_factory
 
         session_factory = await get_session_factory()
-        async with session_factory() as db_session:
-            return await get_migration_dashboard(repository_url, db_session)
+        async with session_factory() as session:
+            return await get_migration_dashboard(repository_url, session)
 
     try:
         # Get repository ID if URL provided

@@ -95,7 +95,7 @@ async def generate_large_codebase(
             package = Package(
                 repository_id=large_repository.id,
                 path=f"src/{domain}/module_{i}",
-                name=f"{domain}_module_{i}",
+                name=f"{domain}_module_{i}_{domain_idx}",  # Use domain_idx
                 module_count=5 + (i % 10),
                 total_lines=1000 + (i * 50),
             )
@@ -263,7 +263,11 @@ class TestMigrationBenchmarks:
             large_repository.id
         )
         duration = time.time() - start
-        metrics.record("full_analysis", duration)
+        metrics.record(
+            "full_analysis",
+            duration,
+            entities_analyzed=len(full_analysis.get("entities", [])),
+        )
 
         # Generate report
         report = metrics.report()
@@ -275,7 +279,7 @@ class TestMigrationBenchmarks:
         assert report["metrics"]["bounded_context_analysis"]["duration_seconds"] < 10.0
         assert report["metrics"]["dependency_analysis"]["duration_seconds"] < 5.0
 
-        print(f"\n📊 Large Repository Analysis Benchmark Report:")
+        print("\n📊 Large Repository Analysis Benchmark Report:")
         print(f"Total duration: {report['total_duration_seconds']:.2f}s")
         print(f"Slowest operation: {report['summary']['slowest']}")
         print(f"Package count: {len(generate_large_codebase)}")
@@ -342,7 +346,7 @@ class TestMigrationBenchmarks:
         assert report["metrics"]["bottleneck_identification"]["duration_seconds"] < 3.0
         assert report["metrics"]["resource_optimization"]["duration_seconds"] < 2.0
 
-        print(f"\n📊 Complex Plan Optimization Benchmark Report:")
+        print("\n📊 Complex Plan Optimization Benchmark Report:")
         print(f"Total duration: {report['total_duration_seconds']:.2f}s")
         print(
             f"Time savings from parallelization: {parallel_analysis['time_savings_percentage']:.1f}%"
@@ -404,7 +408,7 @@ class TestMigrationBenchmarks:
             assert plan.id is not None
             assert len(plan.steps) > 0
 
-        print(f"\n📊 Concurrent Plan Creation Benchmark:")
+        print("\n📊 Concurrent Plan Creation Benchmark:")
         print(f"Created {len(plans)} plans in {duration:.2f}s")
         print(f"Average time per plan: {duration / len(plans):.2f}s")
 
@@ -446,7 +450,7 @@ class TestMigrationBenchmarks:
                 < 10.0
             )
 
-        print(f"\n📊 Step Batching Optimization Benchmark:")
+        print("\n📊 Step Batching Optimization Benchmark:")
         for batch_size in batch_sizes:
             metric = report["metrics"][f"batching_size_{batch_size}"]
             print(
@@ -509,7 +513,7 @@ class TestMigrationBenchmarks:
         assert report["metrics"]["pattern_extraction"]["duration_seconds"] < 5.0
         assert report["metrics"]["pattern_search"]["duration_seconds"] < 1.0
 
-        print(f"\n📊 Pattern Library Performance Benchmark:")
+        print("\n📊 Pattern Library Performance Benchmark:")
         print(
             f"Pattern extraction: {report['metrics']['pattern_extraction']['duration_seconds']:.2f}s"
         )
@@ -578,7 +582,7 @@ class TestMigrationBenchmarks:
         assert report["metrics"]["dashboard_generation"]["duration_seconds"] < 3.0
         assert report["metrics"]["concurrent_health_checks"]["duration_seconds"] < 5.0
 
-        print(f"\n📊 Monitoring Dashboard Performance Benchmark:")
+        print("\n📊 Monitoring Dashboard Performance Benchmark:")
         print(
             f"Dashboard generation: {report['metrics']['dashboard_generation']['duration_seconds']:.2f}s"
         )
@@ -605,7 +609,9 @@ class TestMigrationBenchmarks:
         start = time.time()
         analysis = await analyzer.analyze_repository_for_migration(large_repository.id)
         duration = time.time() - start
-        metrics.record("analysis_phase", duration)
+        metrics.record(
+            "analysis_phase", duration, entities=len(analysis.get("entities", []))
+        )
 
         # 2. Planning phase
         planner = MigrationPlanner(session)
@@ -620,7 +626,12 @@ class TestMigrationBenchmarks:
         )
         roadmap = await planner.generate_migration_roadmap(plan.id)
         duration = time.time() - start
-        metrics.record("planning_phase", duration, steps_created=len(plan.steps))
+        metrics.record(
+            "planning_phase",
+            duration,
+            steps_created=len(plan.steps),
+            roadmap_items=len(roadmap.get("items", [])),
+        )
 
         # 3. Optimization phase
         optimizer = MigrationPerformanceOptimizer(session)
@@ -628,7 +639,12 @@ class TestMigrationBenchmarks:
         parallel = await optimizer.analyze_parallelization_opportunities(plan.id)
         bottlenecks = await optimizer.identify_migration_bottlenecks(plan.id)
         duration = time.time() - start
-        metrics.record("optimization_phase", duration)
+        metrics.record(
+            "optimization_phase",
+            duration,
+            parallel_opportunities=len(parallel.get("opportunities", [])),
+            bottlenecks_found=len(bottlenecks.get("bottlenecks", [])),
+        )
 
         # 4. Resource planning phase
         start = time.time()
@@ -639,13 +655,17 @@ class TestMigrationBenchmarks:
             available_qa=3,
         )
         duration = time.time() - start
-        metrics.record("resource_planning_phase", duration)
+        metrics.record(
+            "resource_planning_phase",
+            duration,
+            resources_planned=len(resources.get("allocations", [])),
+        )
 
         # Generate final report
         report = metrics.report()
         total_duration = report["total_duration_seconds"]
 
-        print(f"\n📊 End-to-End Migration Workflow Benchmark:")
+        print("\n📊 End-to-End Migration Workflow Benchmark:")
         print(f"Total duration: {total_duration:.2f}s")
         print(
             f"Analysis phase: {report['metrics']['analysis_phase']['duration_seconds']:.2f}s"
@@ -664,12 +684,10 @@ class TestMigrationBenchmarks:
         assert total_duration < 60.0  # Complete workflow should finish within 1 minute
 
         # Save benchmark results
-        benchmark_results = {
+        return {
             "timestamp": datetime.now(UTC).isoformat(),
             "package_count": len(generate_large_codebase),
             "plan_steps": len(plan.steps),
             "total_duration": total_duration,
             "phases": report["metrics"],
         }
-
-        return benchmark_results

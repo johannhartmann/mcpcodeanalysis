@@ -50,29 +50,35 @@ class CodeExtractor:
         include_context: bool = True,
     ) -> tuple[str, str]:
         """Get the raw and contextual content for a code entity."""
-        suffix = file_path.suffix
+        # Get language plugin for this file
+        plugin = self.plugin_registry.get_plugin_by_file_path(file_path)
 
-        if suffix not in self.parsers:
+        if plugin is None:
+            logger.warning("No parser available for file type: %s", file_path.suffix)
             return "", ""
 
-        parser = self.parsers[suffix]
+        try:
+            parser = plugin.create_parser()
 
-        # Get raw content
-        raw_content = parser.get_code_chunk(file_path, start_line, end_line)
+            # Get raw content
+            raw_content = parser.get_code_chunk(file_path, start_line, end_line)
 
-        if not include_context:
-            return raw_content, raw_content
+            if not include_context:
+                return raw_content, raw_content
 
-        # Get contextual content based on entity type
-        context_lines = 3 if entity_type == "function" else 5
-        contextual_content = parser.get_code_chunk(
-            file_path,
-            start_line,
-            end_line,
-            context_lines,
-        )
+            # Get contextual content based on entity type
+            context_lines = 3 if entity_type == "function" else 5
+            contextual_content = parser.get_code_chunk(
+                file_path,
+                start_line,
+                end_line,
+                context_lines,
+            )
 
-        return raw_content, contextual_content
+            return raw_content, contextual_content
+        except Exception:
+            logger.exception("Failed to extract code content from %s", file_path)
+            return "", ""
 
     def build_entity_description(
         self,

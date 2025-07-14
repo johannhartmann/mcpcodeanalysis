@@ -33,8 +33,8 @@ async def analyze_migration_readiness(
         from src.database.init_db import get_session_factory
 
         session_factory = await get_session_factory()
-        async with session_factory() as db_session:
-            return await analyze_migration_readiness(repository_url, db_session)
+        async with session_factory() as session:
+            return await analyze_migration_readiness(repository_url, session)
 
     try:
         # Get repository ID
@@ -139,7 +139,7 @@ async def create_migration_plan(
         from src.database.init_db import get_session_factory
 
         session_factory = await get_session_factory()
-        async with session_factory() as db_session:
+        async with session_factory() as session:
             return await create_migration_plan(
                 repository_url,
                 plan_name,
@@ -148,7 +148,7 @@ async def create_migration_plan(
                 team_size,
                 timeline_weeks,
                 risk_tolerance,
-                db_session,
+                session,
             )
 
     try:

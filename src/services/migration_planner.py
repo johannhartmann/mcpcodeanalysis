@@ -98,7 +98,7 @@ class MigrationPlanner:
         risks = await self._assess_plan_risks(plan, analysis)
 
         # Calculate resource requirements
-        resources = await self._calculate_resource_requirements(plan, steps)
+        await self._calculate_resource_requirements(plan, steps)
 
         # Calculate effort and timeline
         total_effort = sum(step.estimated_hours or 0 for step in steps)
@@ -348,7 +348,7 @@ class MigrationPlanner:
         await self.session.flush()
 
     async def _assess_plan_risks(
-        self, plan: MigrationPlan, analysis: dict[str, Any]
+        self, plan: MigrationPlan, _analysis: dict[str, Any]
     ) -> list[MigrationRisk]:
         """Assess risks for the migration plan.
 
@@ -550,7 +550,8 @@ class MigrationPlanner:
         )
 
         if not plan:
-            raise ValueError(f"Plan {plan_id} not found")
+            msg = f"Plan {plan_id} not found"
+            raise ValueError(msg)
 
         logger.info("Optimizing migration plan %d", plan_id)
 
@@ -660,7 +661,8 @@ class MigrationPlanner:
         )
 
         if not plan:
-            raise ValueError(f"Plan {plan_id} not found")
+            msg = f"Plan {plan_id} not found"
+            raise ValueError(msg)
 
         # Group steps by phase
         phases = self._group_steps_by_phase(plan.steps)
@@ -799,7 +801,7 @@ class MigrationPlanner:
             if not step:
                 return current_path
 
-            current_path = current_path + [step_id]
+            current_path = [*current_path, step_id]
 
             # Find dependent steps
             dependent_ids = [
@@ -879,7 +881,7 @@ class MigrationPlanner:
         return milestones
 
     def _generate_resource_allocation(
-        self, plan: MigrationPlan, phases: list[dict[str, Any]]
+        self, _plan: MigrationPlan, phases: list[dict[str, Any]]
     ) -> dict[str, Any]:
         """Generate resource allocation plan.
 
@@ -923,22 +925,18 @@ class MigrationPlanner:
         Returns:
             Risk mitigation schedule
         """
-        schedule = []
-
-        for risk in plan.risks:
-            if risk.risk_level in ["critical", "high"]:
-                schedule.append(
-                    {
-                        "risk_id": risk.id,
-                        "risk_name": risk.name,
-                        "mitigation_timing": (
-                            "before_extraction"
-                            if risk.risk_type == "technical"
-                            else "ongoing"
-                        ),
-                        "mitigation_strategy": risk.mitigation_strategy,
-                        "owner": risk.owner or "team_lead",
-                    }
-                )
+        schedule = [
+            {
+                "risk_id": risk.id,
+                "risk_name": risk.name,
+                "mitigation_timing": (
+                    "before_extraction" if risk.risk_type == "technical" else "ongoing"
+                ),
+                "mitigation_strategy": risk.mitigation_strategy,
+                "owner": risk.owner or "team_lead",
+            }
+            for risk in plan.risks
+            if risk.risk_level in ["critical", "high"]
+        ]
 
         return schedule

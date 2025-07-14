@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.models import File, Function, Module
@@ -165,21 +165,35 @@ class FindTool:
         usages: list[dict[str, Any]] = []
 
         # Query imports that contain the name
-        query = text(
-            """
-            SELECT i.*, f.path, f.repository_id FROM imports i
-            JOIN files f ON i.file_id = f.id
-            WHERE i.import_statement LIKE :pattern
-            OR :name = ANY(i.imported_names)
-        """
+        # Use JSONB contains operator for PostgreSQL JSON columns
+        import json
+
+        from sqlalchemy import or_
+
+        from src.database.models import Import
+
+        # Build query using SQLAlchemy ORM
+        # Properly escape the name for JSONB query
+        json_array = json.dumps([name])
+        stmt = (
+            select(Import, File.path, File.repository_id)
+            .join(File, Import.file_id == File.id)
+            .where(
+                or_(
+                    Import.import_statement.like(f"%{name}%"),
+                    text(
+                        "imports.imported_names::jsonb @> :json_array::jsonb"
+                    ).bindparams(json_array=json_array),
+                )
+            )
         )
 
-        params = {"pattern": f"%{name}%", "name": name}
-        results = await self.session.execute(query, params)
+        results = await self.session.execute(stmt)
 
-        for import_record in results:
+        for row in results:
+            import_record, path, repository_id = row
             # Get repository info
-            repo = await self.repo_repo.get_by_id(import_record.repository_id)
+            repo = await self.repo_repo.get_by_id(repository_id)
 
             if repository and repo and repo.name != repository:
                 continue
@@ -191,7 +205,7 @@ class FindTool:
                     "location": {
                         "repository": repo.name if repo else None,
                         "repository_url": repo.github_url if repo else None,
-                        "file": import_record.path,
+                        "file": path,
                         "line": import_record.line_number,
                     },
                     "context": f"Imported from {import_record.imported_from or 'module'}",

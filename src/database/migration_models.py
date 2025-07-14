@@ -342,6 +342,9 @@ class MigrationPattern(Base):
     implementation_steps = Column(JSON)  # Step-by-step implementation
     prerequisites = Column(JSON)  # Prerequisites for using this pattern
     best_practices = Column(JSON)  # Best practices when applying pattern
+    anti_patterns = Column(JSON)  # Anti-patterns to avoid
+    risks = Column(JSON)  # Known risks when applying this pattern
+    example_code = Column(Text)  # Example code demonstrating the pattern
 
     # Success metrics
     success_rate = Column(Float)  # Historical success rate

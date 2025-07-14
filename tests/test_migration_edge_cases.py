@@ -123,7 +123,7 @@ async def failed_migration_plan(
             plan_id=plan.id,
             sequence_number=i,
             name=f"Failed Step {i}",
-            description=f"Step that will fail",
+            description="Step that will fail",
             step_type="module_extraction",
             estimated_hours=8.0,
             status=MigrationStepStatus.FAILED if i < 3 else MigrationStepStatus.PENDING,
@@ -551,7 +551,7 @@ class TestMigrationEdgeCases:
         pattern = await library.add_pattern_to_library(pattern_data)
 
         # Try to update with invalid data
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Invalid|Pattern"):
             await library.update_pattern_from_execution(
                 pattern.id,
                 {

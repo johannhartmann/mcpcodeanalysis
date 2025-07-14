@@ -5,7 +5,7 @@ from src.services.migration_analyzer import MigrationAnalyzer
 from src.services.migration_planner import MigrationPlanner
 
 __all__ = [
+    "InterfaceDesigner",
     "MigrationAnalyzer",
     "MigrationPlanner",
-    "InterfaceDesigner",
 ]

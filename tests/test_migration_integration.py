@@ -119,6 +119,10 @@ class TestMigrationIntegration:
         monitor = MigrationMonitor(session)
         progress = await executor.track_migration_progress(plan.id)
 
+        # Use monitor for health check
+        health = await monitor.check_migration_health(plan.id)
+        assert health["status"] == "healthy"
+
         assert progress["plan_id"] == plan.id
         assert progress["progress_summary"]["completed_steps"] == 1
         assert progress["health_score"] > 0
@@ -480,9 +484,9 @@ class TestMigrationIntegration:
 
         # Execute steps concurrently
         if len(independent_steps) >= 2:
-            tasks = []
-            for step in independent_steps:
-                tasks.append(executor.start_migration_step(step.id))
+            tasks = [
+                executor.start_migration_step(step.id) for step in independent_steps
+            ]
 
             results = await asyncio.gather(*tasks)
 

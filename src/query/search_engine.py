@@ -38,9 +38,9 @@ class SearchEngine:
         limit = min(limit, self.query_config.max_limit)
 
         try:
-            # For now, implement keyword-based search until embedding search is fully implemented
-            results = await self._keyword_search(
-                query, limit, entity_types, repository_filter
+            # Use semantic search if embeddings are available
+            results = await self.search_semantic(
+                query, limit, 0.3, entity_types, repository_filter
             )
 
             # Log search statistics
@@ -185,22 +185,29 @@ class SearchEngine:
 
         # Build the query based on entity types
         if not entity_types:
-            entity_types = ["module", "class", "function", "method"]
+            entity_types = ["module", "class", "function"]
 
         results = []
 
+        # Convert numpy array to PostgreSQL array format for pgvector
+        # pgvector expects format like '[0.1,0.2,0.3,...]'
+        embedding_str = "[" + ",".join(str(x) for x in query_embedding.tolist()) + "]"
+
         # Query for similar embeddings using pgvector
+        # Use bindparam for proper parameter handling
+
+        # For asyncpg, we need to use positional parameters $1, $2, etc.
         sql = text(
             """
             SELECT
                 e.entity_type,
                 e.entity_id,
                 e.file_id,
-                1 - (e.embedding <=> cast(:query_embedding as vector)) as similarity
+                1 - (e.embedding <=> CAST(:embedding AS vector)) as similarity
             FROM code_embeddings e
             WHERE
                 e.entity_type = ANY(:entity_types)
-                AND 1 - (e.embedding <=> cast(:query_embedding as vector)) > :threshold
+                AND 1 - (e.embedding <=> CAST(:embedding AS vector)) > :threshold
             ORDER BY similarity DESC
             LIMIT :limit
         """
@@ -209,7 +216,7 @@ class SearchEngine:
         result = await self.session.execute(
             sql,
             {
-                "query_embedding": str(query_embedding),
+                "embedding": embedding_str,
                 "entity_types": entity_types,
                 "threshold": threshold,
                 "limit": limit,
@@ -312,7 +319,15 @@ class SearchEngine:
                 code_snippet
             )
 
+            # Convert numpy array to PostgreSQL array format for pgvector
+            embedding_str = (
+                "[" + ",".join(str(x) for x in snippet_embedding.tolist()) + "]"
+            )
+
             # Search for similar embeddings
+            # Use bindparam for proper parameter handling
+
+            # For asyncpg, we need to use positional parameters $1, $2, etc.
             query = text(
                 """
                 SELECT
@@ -320,11 +335,11 @@ class SearchEngine:
                     e.entity_id,
                     e.file_id,
                     e.content,
-                    1 - (e.embedding <=> cast(:query_embedding as vector)) as similarity
+                    1 - (e.embedding <=> CAST(:embedding AS vector)) as similarity
                 FROM code_embeddings e
                 WHERE
                     e.embedding_type = 'raw'
-                    AND 1 - (e.embedding <=> cast(:query_embedding as vector)) > :threshold
+                    AND 1 - (e.embedding <=> CAST(:embedding AS vector)) > :threshold
                 ORDER BY similarity DESC
                 LIMIT :limit
                 """
@@ -332,11 +347,7 @@ class SearchEngine:
 
             result = await self.session.execute(
                 query,
-                {
-                    "query_embedding": str(snippet_embedding),
-                    "threshold": threshold,
-                    "limit": limit,
-                },
+                {"embedding": embedding_str, "threshold": threshold, "limit": limit},
             )
 
             similar_code = []

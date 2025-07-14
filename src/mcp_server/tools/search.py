@@ -3,9 +3,8 @@
 from typing import Any
 
 from src.database import get_session_factory, init_database
+from src.embeddings.vector_search import SearchScope, VectorSearch
 from src.logger import get_logger
-from src.query.ranking import ResultRanker
-from src.query.search_engine import SearchEngine
 
 logger = get_logger(__name__)
 
@@ -14,7 +13,6 @@ class SearchTool:
     """MCP tool for searching code."""
 
     def __init__(self) -> None:
-        self.result_ranker = ResultRanker()
         self._engine = None
         self._session_factory = None
 
@@ -39,27 +37,40 @@ class SearchTool:
         try:
             session_factory = await self._get_session_factory()
             async with session_factory() as session:
-                search_engine = SearchEngine(session)
+                vector_search = VectorSearch(session)
 
-                # Try semantic search first
-                results = await search_engine.search_semantic(query, limit)
-
-                # If no semantic results, fall back to keyword search
-                if not results:
-                    logger.info(
-                        "No semantic search results, falling back to keyword search"
-                    )
-                    results = await search_engine.search(query, limit)
-
-                # Rank results
-                ranked_results = self.result_ranker.rank_results(results, query)
-
-                # Format for output
-                return self.result_ranker.format_results(
-                    ranked_results,
-                    include_scores=False,
-                    include_context=True,
+                # Use proper vector search with embeddings
+                results = await vector_search.search(
+                    query=query,
+                    scope=SearchScope.ALL,
+                    limit=limit,
+                    threshold=0.3,  # Lower threshold for better results
                 )
+
+                # Format results for MCP output
+                formatted_results = []
+                for result in results:
+                    entity = result.get("entity", {})
+                    formatted_results.append(
+                        {
+                            "name": entity.get("name", "Unknown"),
+                            "type": entity.get("type", result.get("entity_type")),
+                            "file_path": entity.get("file_path", ""),
+                            "repository": entity.get("repository", ""),
+                            "start_line": entity.get("start_line"),
+                            "end_line": entity.get("end_line"),
+                            "similarity_score": result.get("similarity", 0),
+                            "content": result.get("text", ""),
+                            "class_name": entity.get("class_name"),
+                            "is_async": entity.get("is_async"),
+                            "parameters": entity.get("parameters"),
+                            "return_type": entity.get("return_type"),
+                            "base_classes": entity.get("base_classes"),
+                            "is_abstract": entity.get("is_abstract"),
+                        }
+                    )
+
+                return formatted_results
 
         except Exception as e:
             logger.exception("Error in search_code")

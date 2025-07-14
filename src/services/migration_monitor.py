@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.database.migration_models import (
+    MigrationDependency,
     MigrationExecution,
     MigrationPlan,
     MigrationRisk,
@@ -102,7 +103,8 @@ class MigrationMonitor:
         )
 
         if not step:
-            raise ValueError(f"Step {step_id} not found")
+            msg = f"Step {step_id} not found"
+            raise ValueError(msg)
 
         # Find current execution
         current_execution = None
@@ -177,7 +179,8 @@ class MigrationMonitor:
         )
 
         if not plan:
-            raise ValueError(f"Plan {plan_id} not found")
+            msg = f"Plan {plan_id} not found"
+            raise ValueError(msg)
 
         # Build timeline
         timeline_events = []
@@ -258,7 +261,8 @@ class MigrationMonitor:
         )
 
         if not plan:
-            raise ValueError(f"Plan {plan_id} not found")
+            msg = f"Plan {plan_id} not found"
+            raise ValueError(msg)
 
         # Perform health checks
         health_checks = {
@@ -328,7 +332,8 @@ class MigrationMonitor:
         )
 
         if not plan:
-            raise ValueError(f"Plan {plan_id} not found")
+            msg = f"Plan {plan_id} not found"
+            raise ValueError(msg)
 
         # Check for execution anomalies
         for step in plan.steps:
@@ -431,14 +436,14 @@ class MigrationMonitor:
             return self._generate_executive_report(
                 plan_id, progress, health, anomalies, timeline
             )
-        elif report_type == "detailed":
+        if report_type == "detailed":
             return self._generate_detailed_report(
                 plan_id, progress, health, anomalies, timeline
             )
-        else:  # summary
-            return self._generate_summary_report(
-                plan_id, progress, health, anomalies, timeline
-            )
+        # summary
+        return self._generate_summary_report(
+            plan_id, progress, health, anomalies, timeline
+        )
 
     async def _get_summary_metrics(self, repository_id: int | None) -> dict[str, Any]:
         """Get summary metrics for dashboard.
@@ -540,16 +545,16 @@ class MigrationMonitor:
         failed_result = await self.session.execute(failed_stmt)
         failed_steps = failed_result.scalars().all()
 
-        for step in failed_steps:
-            alerts.append(
-                {
-                    "type": "step_failure",
-                    "severity": "high",
-                    "message": f"Step '{step.name}' has failed",
-                    "step_id": step.id,
-                    "timestamp": step.updated_at,
-                }
-            )
+        alerts.extend(
+            {
+                "type": "step_failure",
+                "severity": "high",
+                "message": f"Step '{step.name}' has failed",
+                "step_id": step.id,
+                "timestamp": step.updated_at,
+            }
+            for step in failed_steps
+        )
 
         # Check for overdue steps
         overdue_stmt = select(MigrationStep).where(
@@ -561,16 +566,16 @@ class MigrationMonitor:
         overdue_result = await self.session.execute(overdue_stmt)
         overdue_steps = overdue_result.scalars().all()
 
-        for step in overdue_steps:
-            alerts.append(
-                {
-                    "type": "step_overdue",
-                    "severity": "medium",
-                    "message": f"Step '{step.name}' is overdue",
-                    "step_id": step.id,
-                    "timestamp": datetime.now(UTC),
-                }
-            )
+        alerts.extend(
+            {
+                "type": "step_overdue",
+                "severity": "medium",
+                "message": f"Step '{step.name}' is overdue",
+                "step_id": step.id,
+                "timestamp": datetime.now(UTC),
+            }
+            for step in overdue_steps
+        )
 
         # Check for high risks
         risk_stmt = select(MigrationRisk).where(
@@ -579,16 +584,16 @@ class MigrationMonitor:
         risk_result = await self.session.execute(risk_stmt)
         critical_risks = risk_result.scalars().all()
 
-        for risk in critical_risks:
-            alerts.append(
-                {
-                    "type": "critical_risk",
-                    "severity": "critical",
-                    "message": f"Critical risk: {risk.description}",
-                    "risk_id": risk.id,
-                    "timestamp": risk.identified_date,
-                }
-            )
+        alerts.extend(
+            {
+                "type": "critical_risk",
+                "severity": "critical",
+                "message": f"Critical risk: {risk.description}",
+                "risk_id": risk.id,
+                "timestamp": risk.identified_date,
+            }
+            for risk in critical_risks
+        )
 
         return alerts
 
@@ -640,7 +645,7 @@ class MigrationMonitor:
         ).where(
             and_(
                 MigrationExecution.completed_at.isnot(None),
-                MigrationExecution.success == True,
+                MigrationExecution.success,
             )
         )
 
@@ -653,7 +658,7 @@ class MigrationMonitor:
         total_executions = total_result.scalar() or 0
 
         success_stmt = select(func.count(MigrationExecution.id)).where(
-            MigrationExecution.success == True
+            MigrationExecution.success
         )
         success_result = await self.session.execute(success_stmt)
         successful_executions = success_result.scalar() or 0
@@ -848,7 +853,7 @@ class MigrationMonitor:
             "issues": issues,
         }
 
-    async def _check_resource_health(self, plan: MigrationPlan) -> dict[str, Any]:
+    async def _check_resource_health(self, _plan: MigrationPlan) -> dict[str, Any]:
         """Check resource health of plan.
 
         Args:
@@ -974,7 +979,7 @@ class MigrationMonitor:
             "issues": issues,
         }
 
-    async def _check_dependency_health(self, plan: MigrationPlan) -> dict[str, Any]:
+    async def _check_dependency_health(self, _plan: MigrationPlan) -> dict[str, Any]:
         """Check dependency health of plan.
 
         Args:

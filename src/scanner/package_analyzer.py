@@ -40,6 +40,9 @@ class PackageAnalyzer:
             msg = f"Repository {self.repository_id} not found"
             raise ValueError(msg)
 
+        # Clean up existing package data for this repository
+        await self._cleanup_existing_packages()
+
         # Find all Python files
         result = await self.db_session.execute(
             select(File).where(
@@ -76,6 +79,47 @@ class PackageAnalyzer:
             "total_files": len(python_files),
             "package_tree": await self._build_package_tree(),
         }
+
+    async def _cleanup_existing_packages(self) -> None:
+        """Remove existing package data for this repository."""
+        from sqlalchemy import delete
+
+        # Delete in order to respect foreign key constraints
+        await self.db_session.execute(
+            delete(PackageMetrics).where(
+                PackageMetrics.package_id.in_(
+                    select(Package.id).where(
+                        Package.repository_id == self.repository_id
+                    )
+                )
+            )
+        )
+
+        await self.db_session.execute(
+            delete(PackageDependency).where(
+                PackageDependency.source_package_id.in_(
+                    select(Package.id).where(
+                        Package.repository_id == self.repository_id
+                    )
+                )
+            )
+        )
+
+        await self.db_session.execute(
+            delete(PackageModule).where(
+                PackageModule.package_id.in_(
+                    select(Package.id).where(
+                        Package.repository_id == self.repository_id
+                    )
+                )
+            )
+        )
+
+        await self.db_session.execute(
+            delete(Package).where(Package.repository_id == self.repository_id)
+        )
+
+        await self.db_session.flush()
 
     async def _discover_packages(  # noqa: PLR0912
         self, python_files: list[File]

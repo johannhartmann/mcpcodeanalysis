@@ -2,12 +2,13 @@
 
 import math
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, TypedDict
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.database.models import Class, File, Function, Module
+from src.database.init_db import get_session_factory as _get_session_factory
+from src.database.models import Class, File, Function, Module, Repository
 from src.logger import get_logger
 
 logger = get_logger(__name__)
@@ -411,10 +412,6 @@ def parse_code_location(location: str) -> tuple[str | None, int | None, int | No
 
 
 # Migration tool-specific utilities
-from typing import TypedDict
-
-from src.database.init_db import get_session_factory as _get_session_factory
-from src.database.models import Repository
 
 
 class ToolResult(TypedDict):
