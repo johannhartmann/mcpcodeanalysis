@@ -57,7 +57,8 @@ class InterfaceDesigner:
         )
 
         if not package:
-            raise ValueError(f"Package {package_id} not found")
+            msg = f"Package {package_id} not found"
+            raise ValueError(msg)
 
         # Analyze current interface
         current_interface = await self._analyze_current_interface(package)
@@ -159,17 +160,17 @@ class InterfaceDesigner:
                     public_classes.append(class_info)
 
             # Analyze public functions
-            for func in module.functions:
-                if not func.name.startswith("_"):  # Public function
-                    public_functions.append(
-                        {
-                            "name": func.name,
-                            "module": module.name,
-                            "parameters": func.parameters,
-                            "return_type": func.return_type,
-                            "docstring": func.docstring,
-                        }
-                    )
+            public_functions.extend(
+                {
+                    "name": func.name,
+                    "module": module.name,
+                    "parameters": func.parameters,
+                    "return_type": func.return_type,
+                    "docstring": func.docstring,
+                }
+                for func in module.functions
+                if not func.name.startswith("_")  # Public function
+            )
 
             # Check __all__ exports
             if pm.exports:
@@ -236,28 +237,25 @@ class InterfaceDesigner:
 
         if "service" in name_lower:
             return "domain_service"
-        elif "repository" in name_lower:
+        if "repository" in name_lower:
             return "repository_interface"
-        elif "factory" in name_lower:
+        if "factory" in name_lower:
             return "factory"
-        elif "event" in name_lower or "event" in doc_lower:
+        if "event" in name_lower or "event" in doc_lower:
             return "domain_event"
-        elif "command" in name_lower:
+        if "command" in name_lower:
             return "command"
-        elif "query" in name_lower:
+        if "query" in name_lower:
             return "query"
-        elif any(
-            term in doc_lower for term in ["entity", "aggregate", "domain object"]
-        ):
+        if any(term in doc_lower for term in ["entity", "aggregate", "domain object"]):
             return "entity"
-        elif "value" in doc_lower and "object" in doc_lower:
+        if "value" in doc_lower and "object" in doc_lower:
             return "value_object"
-        else:
-            return "entity"  # Default
+        return "entity"  # Default
 
     async def _design_public_api(
         self,
-        package: Package,
+        _package: Package,
         current_interface: dict[str, Any],
         domain_concepts: list[dict[str, Any]],
         target_architecture: str,
@@ -336,7 +334,7 @@ class InterfaceDesigner:
 
     async def _design_data_contracts(
         self,
-        package: Package,
+        _package: Package,
         domain_concepts: list[dict[str, Any]],
         public_api: dict[str, Any],
     ) -> list[dict[str, Any]]:
@@ -402,7 +400,7 @@ class InterfaceDesigner:
         return contracts
 
     async def _design_domain_events(
-        self, package: Package, domain_concepts: list[dict[str, Any]]
+        self, _package: Package, domain_concepts: list[dict[str, Any]]
     ) -> list[dict[str, Any]]:
         """Design domain events for event-driven architecture.
 
@@ -492,8 +490,8 @@ class InterfaceDesigner:
 
     def _generate_implementation_notes(
         self,
-        package: Package,
-        public_api: dict[str, Any],
+        _package: Package,
+        _public_api: dict[str, Any],
         target_architecture: str,
     ) -> dict[str, Any]:
         """Generate implementation guidelines.
@@ -596,15 +594,15 @@ class InterfaceDesigner:
 
         # Removed methods
         removed = current_methods - new_methods
-        for method in removed:
-            changes.append(
-                {
-                    "type": "removed_method",
-                    "method": method,
-                    "severity": "breaking",
-                    "migration": "Deprecate first, then remove in next major version",
-                }
-            )
+        changes.extend(
+            {
+                "type": "removed_method",
+                "method": method,
+                "severity": "breaking",
+                "migration": "Deprecate first, then remove in next major version",
+            }
+            for method in removed
+        )
 
         return changes
 
@@ -696,16 +694,16 @@ class InterfaceDesigner:
         ]
 
         # Add existing methods that follow patterns
-        for method in repo_class.get("methods", []):
-            if method["name"].startswith("find_by_") and method["name"] != "find_by_id":
-                methods.append(
-                    {
-                        "name": method["name"],
-                        "parameters": self._clean_parameters(method["parameters"]),
-                        "return_type": method.get("return_type", f"list[{entity}]"),
-                        "description": method.get("docstring", ""),
-                    }
-                )
+        methods.extend(
+            {
+                "name": method["name"],
+                "parameters": self._clean_parameters(method["parameters"]),
+                "return_type": method.get("return_type", f"list[{entity}]"),
+                "description": method.get("docstring", ""),
+            }
+            for method in repo_class.get("methods", [])
+            if method["name"].startswith("find_by_") and method["name"] != "find_by_id"
+        )
 
         return methods
 
@@ -800,8 +798,7 @@ class InterfaceDesigner:
             important_methods = [
                 m
                 for m in service["methods"]
-                if not m["name"].startswith("_")
-                and "create" in m["name"].lower()
+                if (not m["name"].startswith("_") and "create" in m["name"].lower())
                 or "get" in m["name"].lower()
             ][
                 :2
@@ -819,7 +816,7 @@ class InterfaceDesigner:
 
         return facade
 
-    def _infer_response_fields(self, method: dict[str, Any]) -> list[dict[str, Any]]:
+    def _infer_response_fields(self, _method: dict[str, Any]) -> list[dict[str, Any]]:
         """Infer response fields from method signature.
 
         Args:
@@ -836,7 +833,7 @@ class InterfaceDesigner:
             {"name": "error", "type": "str | None", "required": False},
         ]
 
-    def _infer_entity_fields(self, concept: dict[str, Any]) -> list[dict[str, Any]]:
+    def _infer_entity_fields(self, _concept: dict[str, Any]) -> list[dict[str, Any]]:
         """Infer entity fields from domain concept.
 
         Args:
@@ -846,7 +843,7 @@ class InterfaceDesigner:
             List of fields
         """
         # Basic fields common to all entities
-        fields = [
+        return [
             {"name": "id", "type": "str", "required": True},
             {"name": "created_at", "type": "datetime", "required": True},
             {"name": "updated_at", "type": "datetime", "required": True},
@@ -854,7 +851,6 @@ class InterfaceDesigner:
 
         # Add concept-specific fields based on name
         # This is simplified - in practice would analyze the actual class
-        return fields
 
     def _infer_dependency_purpose(self, import_details: list[str] | None) -> str:
         """Infer the purpose of a dependency from imports.
@@ -984,8 +980,10 @@ class InterfaceDesigner:
             doc_lines.append(f"Purpose: {dep['purpose']}")
             if dep["interfaces"]:
                 doc_lines.append("Required interfaces:")
-                for iface in dep["interfaces"]:
-                    doc_lines.append(f"- {iface['type']}: `{iface['name']}`")
+                doc_lines.extend(
+                    f"- {iface['type']}: `{iface['name']}`"
+                    for iface in dep["interfaces"]
+                )
 
         # Implementation Notes
         doc_lines.append("\n## Implementation Notes")
@@ -994,15 +992,12 @@ class InterfaceDesigner:
         notes = interface_design["implementation_notes"]
 
         doc_lines.append("### Principles")
-        for principle in notes["principles"]:
-            doc_lines.append(f"- {principle}")
+        doc_lines.extend(f"- {principle}" for principle in notes["principles"])
 
         doc_lines.append("\n### Patterns")
-        for pattern in notes["patterns"]:
-            doc_lines.append(f"- {pattern}")
+        doc_lines.extend(f"- {pattern}" for pattern in notes["patterns"])
 
         doc_lines.append("\n### Anti-patterns to Avoid")
-        for antipattern in notes["antipatterns"]:
-            doc_lines.append(f"- {antipattern}")
+        doc_lines.extend(f"- {antipattern}" for antipattern in notes["antipatterns"])
 
         return "\n".join(doc_lines)

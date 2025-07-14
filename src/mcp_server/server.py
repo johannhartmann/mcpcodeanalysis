@@ -357,11 +357,10 @@ async def start_migration_step(
                     "message": f"Started migration step: {result['step_name']}",
                     "data": result,
                 }
-            else:
-                return {
-                    "success": False,
-                    "error": result.get("error", "Failed to start migration step"),
-                }
+            return {
+                "success": False,
+                "error": result.get("error", "Failed to start migration step"),
+            }
         except Exception as e:
             logger.exception("Failed to start migration step")
             return {"success": False, "error": str(e)}
@@ -402,11 +401,10 @@ async def complete_migration_step(
                     "message": f"Completed migration step {status}",
                     "data": result,
                 }
-            else:
-                return {
-                    "success": False,
-                    "error": result.get("error", "Failed to complete migration step"),
-                }
+            return {
+                "success": False,
+                "error": result.get("error", "Failed to complete migration step"),
+            }
         except Exception as e:
             logger.exception("Failed to complete migration step")
             return {"success": False, "error": str(e)}
@@ -594,14 +592,181 @@ async def get_pattern_library_stats() -> dict[str, Any]:
     return {}
 
 
-# Register package analysis tools
-# TODO: These need to be converted to @mcp.tool decorators
-# mcp.add_tool(analyze_packages)
-# mcp.add_tool(get_package_dependencies)
-# mcp.add_tool(find_circular_dependencies)
-# mcp.add_tool(get_package_coupling_metrics)
-# mcp.add_tool(get_package_details)
-# mcp.add_tool(get_package_tree)
+# Package analysis tools
+@mcp.tool(
+    name="analyze_packages", description="Analyze the package structure of a repository"
+)
+async def analyze_packages(
+    repository_id: int = Field(description="Repository ID to analyze"),
+    force_refresh: bool = Field(
+        default=False, description="Force re-analysis even if data exists"
+    ),
+) -> dict[str, Any]:
+    """Analyze the package structure of a repository.
+
+    This tool discovers all packages (directories with __init__.py),
+    analyzes their contents, dependencies, and calculates metrics.
+    """
+    await initialize_server()
+
+    async for session in get_db_session():
+        try:
+            from src.mcp_server.tools.package_analysis import (
+                AnalyzePackagesRequest,
+            )
+            from src.mcp_server.tools.package_analysis import (
+                analyze_packages as analyze_impl,
+            )
+
+            request = AnalyzePackagesRequest(
+                repository_id=repository_id, force_refresh=force_refresh
+            )
+            return await analyze_impl(request, session)
+        except Exception as e:
+            logger.exception("Error analyzing packages")
+            return {"status": "error", "error": str(e)}
+    return {}
+
+
+@mcp.tool(name="get_package_tree", description="Get the hierarchical package structure")
+async def get_package_tree(
+    repository_id: int = Field(description="Repository ID"),
+) -> dict[str, Any]:
+    """Get the hierarchical package structure of a repository.
+
+    Returns a tree view of all packages and their relationships.
+    """
+    await initialize_server()
+
+    async for session in get_db_session():
+        try:
+            from src.mcp_server.tools.package_analysis import (
+                GetPackageTreeRequest,
+            )
+            from src.mcp_server.tools.package_analysis import (
+                get_package_tree as get_tree_impl,
+            )
+
+            request = GetPackageTreeRequest(repository_id=repository_id)
+            return await get_tree_impl(request, session)
+        except Exception as e:
+            logger.exception("Error getting package tree")
+            return {"status": "error", "error": str(e)}
+    return {}
+
+
+@mcp.tool(name="get_package_dependencies", description="Get dependencies for a package")
+async def get_package_dependencies(
+    repository_id: int = Field(description="Repository ID"),
+    package_path: str = Field(description="Package path (e.g., 'src/utils')"),
+    direction: str = Field(
+        default="both", description="Direction: 'imports', 'imported_by', or 'both'"
+    ),
+) -> dict[str, Any]:
+    """Get dependencies for a specific package."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        try:
+            from src.mcp_server.tools.package_analysis import (
+                GetPackageDependenciesRequest,
+            )
+            from src.mcp_server.tools.package_analysis import (
+                get_package_dependencies as get_deps_impl,
+            )
+
+            request = GetPackageDependenciesRequest(
+                repository_id=repository_id,
+                package_path=package_path,
+                direction=direction,
+            )
+            return await get_deps_impl(request, session)
+        except Exception as e:
+            logger.exception("Error getting package dependencies")
+            return {"status": "error", "error": str(e)}
+    return {}
+
+
+@mcp.tool(
+    name="find_circular_dependencies",
+    description="Find circular dependencies in repository",
+)
+async def find_circular_dependencies(
+    repository_id: int = Field(description="Repository ID"),
+) -> dict[str, Any]:
+    """Find circular dependencies between packages."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        try:
+            from src.mcp_server.tools.package_analysis import (
+                FindCircularDependenciesRequest,
+            )
+            from src.mcp_server.tools.package_analysis import (
+                find_circular_dependencies as find_circular_impl,
+            )
+
+            request = FindCircularDependenciesRequest(repository_id=repository_id)
+            return await find_circular_impl(request, session)
+        except Exception as e:
+            logger.exception("Error finding circular dependencies")
+            return {"status": "error", "error": str(e)}
+    return {}
+
+
+@mcp.tool(
+    name="get_package_coupling_metrics", description="Get package coupling metrics"
+)
+async def get_package_coupling_metrics(
+    repository_id: int = Field(description="Repository ID"),
+) -> dict[str, Any]:
+    """Get coupling metrics between packages."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        try:
+            from src.mcp_server.tools.package_analysis import (
+                GetPackageCouplingRequest,
+            )
+            from src.mcp_server.tools.package_analysis import (
+                get_package_coupling as get_coupling_impl,
+            )
+
+            request = GetPackageCouplingRequest(repository_id=repository_id)
+            return await get_coupling_impl(request, session)
+        except Exception as e:
+            logger.exception("Error getting package coupling")
+            return {"status": "error", "error": str(e)}
+    return {}
+
+
+@mcp.tool(
+    name="get_package_details", description="Get details about a specific package"
+)
+async def get_package_details(
+    repository_id: int = Field(description="Repository ID"),
+    package_path: str = Field(description="Package path (e.g., 'src/utils')"),
+) -> dict[str, Any]:
+    """Get detailed information about a specific package."""
+    await initialize_server()
+
+    async for session in get_db_session():
+        try:
+            from src.mcp_server.tools.package_analysis import (
+                GetPackageDetailsRequest,
+            )
+            from src.mcp_server.tools.package_analysis import (
+                get_package_details as get_details_impl,
+            )
+
+            request = GetPackageDetailsRequest(
+                repository_id=repository_id, package_path=package_path
+            )
+            return await get_details_impl(request, session)
+        except Exception as e:
+            logger.exception("Error getting package details")
+            return {"status": "error", "error": str(e)}
+    return {}
 
 
 # Tools from main.py for compatibility
@@ -614,11 +779,39 @@ async def search_code(
     await initialize_server()
 
     try:
-        from src.query.search_engine import SearchEngine
+        from src.embeddings.vector_search import SearchScope, VectorSearch
 
         async for session in get_db_session():
-            search = SearchEngine(session)
-            return await search.search(query, limit=limit)
+            vector_search = VectorSearch(session)
+
+            # Use proper vector search
+            results = await vector_search.search(
+                query=query, scope=SearchScope.ALL, limit=limit, threshold=0.3
+            )
+
+            # Format results
+            formatted_results = []
+            for result in results:
+                entity = result.get("entity", {})
+                formatted_results.append(
+                    {
+                        "name": entity.get("name", "Unknown"),
+                        "type": entity.get("type", result.get("entity_type")),
+                        "file_path": entity.get("file_path", ""),
+                        "repository": entity.get("repository", ""),
+                        "start_line": entity.get("start_line"),
+                        "end_line": entity.get("end_line"),
+                        "relevance_score": result.get("similarity", 0),
+                        "content": (
+                            result.get("text", "")[:200] + "..."
+                            if len(result.get("text", "")) > 200
+                            else result.get("text", "")
+                        ),
+                    }
+                )
+
+            return formatted_results
+
     except Exception as e:
         logger.exception("Error in search_code")
         return [{"error": str(e)}]
@@ -750,7 +943,7 @@ async def suggest_refactoring(
 @mcp.tool(name="find_similar_code", description="Find code similar to a given example")
 async def find_similar_code(
     code_snippet: str = Field(description="Code snippet to find similar code for"),
-    repository: str = Field(
+    _repository: str = Field(
         default=None, description="Optional repository name filter"
     ),
     limit: int = Field(default=10, description="Maximum results to return"),
@@ -759,11 +952,39 @@ async def find_similar_code(
     await initialize_server()
 
     try:
-        from src.query.search_engine import SearchEngine
+        from src.embeddings.vector_search import SearchScope, VectorSearch
 
         async for session in get_db_session():
-            search = SearchEngine(session)
-            return await search.search_similar_code(code_snippet, limit=limit)
+            vector_search = VectorSearch(session)
+
+            # Use search_by_code method for code snippet search
+            results = await vector_search.search_by_code(
+                code_snippet=code_snippet, scope=SearchScope.ALL, limit=limit
+            )
+
+            # Format results
+            formatted_results = []
+            for result in results:
+                entity = result.get("entity", {})
+                formatted_results.append(
+                    {
+                        "name": entity.get("name", "Unknown"),
+                        "type": entity.get("type", result.get("entity_type")),
+                        "file_path": entity.get("file_path", ""),
+                        "repository": entity.get("repository", ""),
+                        "start_line": entity.get("start_line"),
+                        "end_line": entity.get("end_line"),
+                        "similarity_score": result.get("similarity", 0),
+                        "content": (
+                            result.get("text", "")[:200] + "..."
+                            if len(result.get("text", "")) > 200
+                            else result.get("text", "")
+                        ),
+                    }
+                )
+
+            return formatted_results
+
     except Exception as e:
         logger.exception("Error in find_similar_code")
         return [{"error": str(e)}]
