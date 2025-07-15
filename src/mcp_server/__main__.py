@@ -9,7 +9,8 @@ import click
 
 from src.config import settings
 from src.logger import setup_logging
-from src.mcp_server.server import create_server
+
+# Removed create_server import - using initialize_server instead
 
 # Default server configuration
 DEFAULT_HOST = "127.0.0.1"
@@ -53,7 +54,7 @@ def serve(host: str, port: int, reload: bool, log_level: str) -> None:  # noqa: 
         logging.getLogger().setLevel(log_level.upper())
 
     # Import MCP server here to avoid circular imports
-    from src.mcp_server.server import mcp
+    from src.mcp_server.server import initialize_server, mcp
 
     # Override settings with CLI options if provided
     if host != DEFAULT_HOST:
@@ -61,8 +62,11 @@ def serve(host: str, port: int, reload: bool, log_level: str) -> None:  # noqa: 
     if port != DEFAULT_PORT:
         settings.mcp.port = port
 
-    # Run the MCP server
-    mcp.run(transport="http", host=host, port=port)
+    # Initialize server with resources before running
+    asyncio.run(initialize_server())
+
+    # Run the MCP server with streamable HTTP transport (standard MCP protocol)
+    mcp.run(transport="streamable-http", host=host, port=port)
 
 
 @cli.command()
@@ -84,17 +88,19 @@ def scan(repository_url: str, branch: str, embeddings: bool) -> None:
         setup_logging()
         logging.getLogger().setLevel("INFO")
 
-        # Create server
-        server = create_server()
-
         # Initialize server
-        await server.initialize()
+        from src.mcp_server.server import initialize_server, mcp
+
+        await initialize_server()
 
         try:
-            # Scan repository
-            result = await server.scan_repository(
-                repository_url,
+            # Use the add_repository tool directly
+            from src.mcp_server.server import add_repository
+
+            result = await add_repository(
+                url=repository_url,
                 branch=branch,
+                scan_immediately=True,
                 generate_embeddings=embeddings,
             )
 
@@ -110,8 +116,8 @@ def scan(repository_url: str, branch: str, embeddings: bool) -> None:
                 )
 
         finally:
-            # Cleanup
-            await server.shutdown()
+            # Cleanup is handled by context managers
+            pass
 
     asyncio.run(_scan())
 
@@ -137,15 +143,20 @@ def search(query: str, repository_id: int, limit: int) -> None:
         setup_logging()
         logging.getLogger().setLevel("INFO")
 
-        # Create server
-        server = create_server()
-
         # Initialize server
-        await server.initialize()
+        from src.mcp_server.server import initialize_server, mcp
+
+        await initialize_server()
 
         try:
-            # Search
-            results = await server.search(query, repository_id, limit)
+            # Search using code search resource
+            from src.mcp_server.resources.code_analysis import CodeAnalysisResources
+            from src.mcp_server.server import _session_factory
+
+            code_resources = CodeAnalysisResources(mcp, _session_factory)
+            results = await code_resources._search_code_entities(
+                query, repository_id, limit
+            )
 
             # Print results
             click.echo(f"Found {len(results)} results for '{query}':\n")
@@ -159,8 +170,8 @@ def search(query: str, repository_id: int, limit: int) -> None:
                 click.echo()
 
         finally:
-            # Cleanup
-            await server.shutdown()
+            # Cleanup is handled by context managers
+            pass
 
     asyncio.run(_search())
 
