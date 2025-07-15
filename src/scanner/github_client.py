@@ -45,6 +45,7 @@ class GitHubClient:
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Async context manager exit."""
+        _ = (exc_type, exc_val, exc_tb)  # Required by protocol but unused
         if self._client:
             await self._client.aclose()
 

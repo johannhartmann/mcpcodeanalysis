@@ -9,6 +9,7 @@ try:
 except ImportError:
     # For SQLite tests, use JSON instead of Vector
     def Vector(dim: int) -> type[JSON]:  # noqa: ARG001, N802
+        _ = dim  # Mark as intentionally unused
         return JSON
 
 

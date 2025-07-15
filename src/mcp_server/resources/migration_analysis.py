@@ -221,24 +221,6 @@ To create a migration plan, use the `create_migration_plan` tool.
             )
         return output
 
-        @self.mcp.resource("migration://plans/{plan_id}/progress")
-        async def get_migration_progress(plan_id: str) -> str:
-            """Get detailed progress for a specific migration plan."""
-            async with self.session_maker() as session:
-                try:
-                    # Placeholder implementation
-                    return f"""# Migration Progress Report
-
-**Plan ID**: {plan_id}
-
-## Status
-Migration plan tracking is not yet implemented.
-
-Use the `track_migration_progress` tool to get progress information.
-"""
-                except Exception as e:
-                    return f"Error getting migration progress: {str(e)}"
-
     def _format_bounded_contexts(self, contexts: list) -> str:
         """Format bounded contexts for display."""
         if not contexts:
