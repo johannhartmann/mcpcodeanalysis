@@ -27,7 +27,7 @@ class PythonCodeParser:
             tree = self.parser.parse_content(content)
             if not tree:
                 msg = f"Failed to parse file: {file_path}"
-                raise ParserError(msg, str(file_path))  # noqa: TRY301
+                raise ParserError(msg, str(file_path))
 
             # Extract module information
             module_info = self.parser.extract_module_info(tree, content)

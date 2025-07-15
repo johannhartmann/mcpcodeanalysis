@@ -925,7 +925,7 @@ class MigrationPlanner:
         Returns:
             Risk mitigation schedule
         """
-        schedule = [
+        return [
             {
                 "risk_id": risk.id,
                 "risk_name": risk.name,
@@ -938,5 +938,3 @@ class MigrationPlanner:
             for risk in plan.risks
             if risk.risk_level in ["critical", "high"]
         ]
-
-        return schedule
