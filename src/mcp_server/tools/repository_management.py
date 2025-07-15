@@ -26,14 +26,6 @@ class AddRepositoryRequest(BaseModel):
         None,
         description="GitHub access token for private repos",
     )
-    scan_immediately: bool = Field(
-        default=True,
-        description="Start scanning immediately",
-    )
-    generate_embeddings: bool = Field(
-        default=True,
-        description="Generate embeddings after scanning",
-    )
 
 
 class ScanRepositoryRequest(BaseModel):
@@ -43,10 +35,6 @@ class ScanRepositoryRequest(BaseModel):
     force_full_scan: bool = Field(
         default=False,
         description="Force full scan instead of incremental",
-    )
-    generate_embeddings: bool = Field(
-        default=True,
-        description="Generate embeddings after scanning",
     )
 
 
@@ -122,20 +110,18 @@ class RepositoryManagementTools:
                     access_token=request.access_token,
                 )
 
-                # Start scanning if requested
-                scan_result = None
-                if request.scan_immediately:
-                    scanner = RepositoryScanner(self.db_session)
-                    scan_result = await scanner.scan_repository(repo_config)
+                # Always scan the repository (required for functionality)
+                scanner = RepositoryScanner(self.db_session)
+                scan_result = await scanner.scan_repository(repo_config)
 
-                    # Generate embeddings if requested
-                    if request.generate_embeddings and self.embedding_service:
-                        embedding_result = (
-                            await self.embedding_service.create_repository_embeddings(
-                                scan_result["repository_id"],
-                            )
+                # Always generate embeddings (core functionality)
+                if self.embedding_service:
+                    embedding_result = (
+                        await self.embedding_service.create_repository_embeddings(
+                            scan_result["repository_id"],
                         )
-                        scan_result["embeddings"] = embedding_result
+                    )
+                    scan_result["embeddings"] = embedding_result
 
                 return {
                     "success": True,
@@ -273,8 +259,8 @@ class RepositoryManagementTools:
                     force_full_scan=request.force_full_scan,
                 )
 
-                # Generate embeddings if requested
-                if request.generate_embeddings and self.embedding_service:
+                # Always generate embeddings (core functionality)
+                if self.embedding_service:
                     embedding_result = (
                         await self.embedding_service.create_repository_embeddings(
                             request.repository_id,

@@ -241,8 +241,6 @@ def test_calculator_multiply():
         # Add repository
         add_request = AddRepositoryRequest(
             url=f"file://{sample_repo}",
-            scan_immediately=True,
-            generate_embeddings=False,
         )
         add_tool = next(t for t in mcp.tools if t.name == "add_repository")
         add_result = await add_tool.fn(add_request)
@@ -278,7 +276,6 @@ def greet(name: str) -> str:
         scan_request = ScanRepositoryRequest(
             repository_id=repo_id,
             force_full_scan=False,  # Incremental scan
-            generate_embeddings=False,
         )
         scan_tool = next(t for t in mcp.tools if t.name == "scan_repository")
         scan_result = await scan_tool.fn(scan_request)
@@ -322,8 +319,6 @@ def greet(name: str) -> str:
 
         add_request = AddRepositoryRequest(
             url=f"file://{sample_repo}",
-            scan_immediately=True,
-            generate_embeddings=False,
         )
         add_tool = next(t for t in mcp.tools if t.name == "add_repository")
         add_result = await add_tool.fn(add_request)
@@ -367,8 +362,6 @@ def greet(name: str) -> str:
         # Test adding invalid repository
         add_request = AddRepositoryRequest(
             url="https://github.com/nonexistent/repo",
-            scan_immediately=True,
-            generate_embeddings=False,
         )
 
         # This should fail gracefully
@@ -387,7 +380,6 @@ def greet(name: str) -> str:
         scan_request = ScanRepositoryRequest(
             repository_id=999,  # Non-existent ID
             force_full_scan=True,
-            generate_embeddings=False,
         )
         scan_tool = next(t for t in mcp.tools if t.name == "scan_repository")
         scan_result = await scan_tool.fn(scan_request)

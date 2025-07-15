@@ -108,7 +108,7 @@ class TestDatabaseConfig:
 
     def test_defaults(self) -> None:
         """Test default values."""
-        config = DatabaseConfig(password=SecretStr("test_password"))
+        config = DatabaseConfig(password=SecretStr("test_password"))  # type: ignore[call-arg]
         assert config.host == "localhost"
         assert config.port == 5432
         assert config.database == "code_analysis"
@@ -119,7 +119,7 @@ class TestDatabaseConfig:
     def test_port_validation(self) -> None:
         """Test port number validation."""
         with pytest.raises(ValidationError):
-            DatabaseConfig(password=SecretStr("test"), port=70000)  # Invalid port
+            DatabaseConfig(password=SecretStr("test"), port=70000)  # type: ignore[call-arg]
 
 
 class TestQueryConfig:
@@ -127,7 +127,7 @@ class TestQueryConfig:
 
     def test_ranking_weights_default(self) -> None:
         """Test default ranking weights."""
-        config = QueryConfig()
+        config = QueryConfig()  # type: ignore[call-arg]
         assert config.ranking_weights.semantic_similarity == 0.6
         assert config.ranking_weights.keyword_match == 0.2
         assert config.ranking_weights.recency == 0.1
@@ -144,7 +144,7 @@ class TestQueryConfig:
             recency=0.1,
             popularity=0.1,
         )
-        config = QueryConfig(ranking_weights=weights)
+        config = QueryConfig(ranking_weights=weights)  # type: ignore[call-arg]
 
         total = (
             config.ranking_weights.semantic_similarity
@@ -157,7 +157,7 @@ class TestQueryConfig:
     def test_similarity_threshold_validation(self) -> None:
         """Test similarity threshold validation."""
         with pytest.raises(ValidationError):
-            QueryConfig(similarity_threshold=1.5)  # Out of range
+            QueryConfig(similarity_threshold=1.5)  # type: ignore[call-arg]
 
 
 # Tests for Dynaconf settings can be added here if needed

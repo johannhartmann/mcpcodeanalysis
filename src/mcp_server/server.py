@@ -20,7 +20,6 @@ from src.mcp_server.resources import (
 )
 
 # Repository management tools handled via functions
-from src.scanner.repository_scanner import RepositoryConfig
 
 logger = get_logger(__name__)
 
@@ -62,7 +61,34 @@ async def initialize_server() -> None:
 
         _resources_registered = True
 
-    logger.info("Server initialized successfully with resources")
+    # Register advanced tool classes
+    logger.info("Registering advanced tool classes...")
+
+    # Import tool classes
+    from src.mcp_server.tools.analysis_tools import AnalysisTools
+    from src.mcp_server.tools.domain_tools import DomainTools
+    from src.mcp_server.tools.repository_management import RepositoryManagementTools
+
+    # Note: Tool classes will create their own sessions as needed
+    # We pass the session factory so they can create sessions on demand
+    # Create temporary session just for tool registration
+    async with _session_factory() as temp_session:
+        # Domain-Driven Design tools
+        domain_tools = DomainTools(temp_session, mcp)
+        await domain_tools.register_tools()
+        logger.info("Registered DomainTools")
+
+        # Advanced analysis tools
+        analysis_tools = AnalysisTools(temp_session, mcp)
+        await analysis_tools.register_tools()
+        logger.info("Registered AnalysisTools")
+
+        # Repository management tools
+        repo_tools = RepositoryManagementTools(temp_session, mcp)
+        await repo_tools.register_tools()
+        logger.info("Registered RepositoryManagementTools")
+
+    logger.info("Server initialized successfully with resources and advanced tools")
 
 
 async def get_db_session() -> AsyncGenerator[Any, None]:
@@ -79,79 +105,7 @@ async def get_db_session() -> AsyncGenerator[Any, None]:
 # =======================
 
 
-# Repository management tools
-@mcp.tool(
-    name="add_repository", description="Add a new repository to track and analyze"
-)
-async def add_repository(
-    url: str = Field(description="Repository URL (GitHub or file://)"),
-    branch: str = Field(default=None, description="Branch to track (optional)"),
-) -> dict[str, Any]:
-    """Add a new repository to track. Automatically scans the repository and generates embeddings."""
-    await initialize_server()
-
-    async for session in get_db_session():
-        try:
-            # Check for existing repository
-            result = await session.execute(
-                select(Repository).where(Repository.github_url == url),
-            )
-            existing_repo = result.scalar_one_or_none()
-
-            if existing_repo:
-                return {
-                    "success": False,
-                    "error": f"Repository already exists with ID {existing_repo.id}",
-                    "repository_id": existing_repo.id,
-                }
-
-            # Add repository to database
-            repo = Repository(
-                github_url=url,
-                owner=url.split("/")[-2] if "/" in url else "local",
-                name=url.split("/")[-1].replace(".git", "") if "/" in url else url,
-                default_branch=branch or "main",
-            )
-            session.add(repo)
-            await session.commit()
-            await session.refresh(repo)
-
-            # Always scan the repository (required for functionality)
-            from src.scanner.repository_scanner import RepositoryScanner
-
-            repo_config = RepositoryConfig(
-                url=url,
-                branch=branch,
-            )
-
-            scanner = RepositoryScanner(session)
-            scan_result: dict[str, Any] = await scanner.scan_repository(repo_config)
-
-            # Always generate embeddings (core functionality)
-            from src.embeddings.embedding_service import EmbeddingService
-
-            embedding_service = EmbeddingService(session)
-            embedding_result = await embedding_service.create_repository_embeddings(
-                scan_result["repository_id"],
-            )
-            scan_result["embeddings"] = embedding_result
-
-            return {
-                "success": True,
-                "repository": {
-                    "id": repo.id,
-                    "url": url,
-                    "branch": branch or "default",
-                },
-                "scan_result": scan_result,
-            }
-        except (AttributeError, KeyError, ValueError, TypeError) as e:
-            logger.exception("Failed to add repository: %s")
-            return {
-                "success": False,
-                "error": str(e),
-            }
-    return None
+# Note: Repository management is handled by RepositoryManagementTools class
 
 
 # Migration planning tools (that create/modify data)
