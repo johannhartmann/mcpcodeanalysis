@@ -95,7 +95,7 @@ async def analyze_migration_readiness(
             "data": result,
         }
 
-    except Exception as e:
+    except (AttributeError, KeyError, ValueError, TypeError) as e:
         logger.exception("Failed to analyze repository")
         return {"success": False, "error": str(e)}
 
@@ -225,6 +225,6 @@ async def create_migration_plan(
             "data": result,
         }
 
-    except Exception as e:
+    except (AttributeError, KeyError, ValueError, TypeError) as e:
         logger.exception("Failed to create migration plan")
         return {"success": False, "error": str(e)}

@@ -85,7 +85,7 @@ class FindTool:
 
             return definitions
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Error in find_definition")
             return [{"error": str(e), "name": name, "type": type}]
 
@@ -146,7 +146,7 @@ class FindTool:
 
             return unique_usages
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Error in find_usage")
             return [
                 {

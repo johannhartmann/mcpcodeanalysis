@@ -89,7 +89,7 @@ class GitHubMonitor:
                 raise GitHubError(msg) from e
             msg = "API error"
             raise GitHubError(msg) from e
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             msg = "Fetch failed"
             raise GitHubError(msg) from e
 
@@ -166,7 +166,7 @@ class GitHubMonitor:
         except httpx.HTTPStatusError as e:
             msg = "Get commits failed"
             raise GitHubError(msg) from e
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             msg = "Fetch error"
             raise GitHubError(msg) from e
 
@@ -208,7 +208,7 @@ class GitHubMonitor:
         except httpx.HTTPStatusError as e:
             msg = "Get files failed"
             raise GitHubError(msg) from e
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             msg = "Fetch error"
             raise GitHubError(msg) from e
 
@@ -284,7 +284,7 @@ class GitHubMonitor:
                 return {"status": "exists"}
             msg = "Create failed"
             raise GitHubError(msg) from e
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             msg = "Create error"
             raise GitHubError(msg) from e
 

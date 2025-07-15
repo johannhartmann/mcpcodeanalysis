@@ -64,7 +64,7 @@ class ExplainTool:
                 # Format explanation as text
                 return self._format_explanation(explanation)
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Error in explain_code: %s")
             return f"Error explaining code: {e!s}"
 

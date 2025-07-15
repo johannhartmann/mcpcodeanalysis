@@ -6,8 +6,8 @@ from src.mcp_server.resources.package_analysis import PackageAnalysisResources
 from src.mcp_server.resources.system import SystemResources
 
 __all__ = [
+    "CodeAnalysisResources",
     "MigrationAnalysisResources",
     "PackageAnalysisResources",
-    "CodeAnalysisResources",
     "SystemResources",
 ]

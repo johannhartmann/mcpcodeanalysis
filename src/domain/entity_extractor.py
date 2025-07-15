@@ -81,7 +81,7 @@ class DomainEntityExtractor:
             result = json.loads(response.content)
             return self._process_extraction_result(result, code_chunk)
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Error extracting entities")
             return {
                 "entities": [],

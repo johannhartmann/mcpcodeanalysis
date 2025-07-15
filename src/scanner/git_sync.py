@@ -54,8 +54,7 @@ class GitSync:
             parts = path.rstrip("/").split("/")
             if len(parts) >= 2:
                 return parts[-2], parts[-1]
-            else:
-                return "local", parts[-1] if parts else "unknown"
+            return "local", parts[-1] if parts else "unknown"
 
         # Handle both HTTPS and SSH URLs for GitHub
         if github_url.startswith("https://github.com/"):
@@ -266,7 +265,7 @@ class GitSync:
                         "new_path": file_path,
                     }
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Error getting changed files", error=str(e))
             msg = "Get changes failed"
             raise RepositoryError(msg) from e
@@ -411,7 +410,7 @@ class GitSync:
                 )
 
             return commit_info
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception(
                 "Error getting commit info",
                 commit_sha=commit_sha,
@@ -451,7 +450,7 @@ class GitSync:
 
                 commits.append(self.get_commit_info(repo, commit.hexsha))
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Error getting recent commits", error=str(e))
             msg = "Get commits failed"
             raise RepositoryError(msg) from e

@@ -232,7 +232,7 @@ if __name__ == "__main__":
 
             await engine.dispose()
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             print(f"❌ Database initialization failed: {e}")
             raise
 

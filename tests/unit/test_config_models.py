@@ -21,6 +21,8 @@ class TestRepositoryConfig:
         config = RepositoryConfig(
             url="https://github.com/owner/repo",
             branch="main",
+            access_token=None,
+            enable_domain_analysis=False,
         )
         assert config.url == "https://github.com/owner/repo"
         assert config.branch == "main"
@@ -30,13 +32,21 @@ class TestRepositoryConfig:
         """Test GitHub SSH URL."""
         config = RepositoryConfig(
             url="git@github.com:owner/repo.git",
+            branch=None,
+            access_token=None,
+            enable_domain_analysis=False,
         )
         assert config.url == "git@github.com:owner/repo.git"
 
     def test_invalid_url(self) -> None:
         """Test invalid repository URL."""
         with pytest.raises(ValidationError) as exc_info:
-            RepositoryConfig(url="https://gitlab.com/owner/repo")
+            RepositoryConfig(
+                url="https://gitlab.com/owner/repo",
+                branch=None,
+                access_token=None,
+                enable_domain_analysis=False,
+            )
 
         assert "Invalid GitHub URL" in str(exc_info.value)
 
@@ -44,7 +54,9 @@ class TestRepositoryConfig:
         """Test repository with access token."""
         config = RepositoryConfig(
             url="https://github.com/owner/private-repo",
+            branch=None,
             access_token=SecretStr("ghp_test_token"),
+            enable_domain_analysis=False,
         )
         assert config.access_token.get_secret_value() == "ghp_test_token"
 
@@ -54,7 +66,13 @@ class TestScannerConfig:
 
     def test_defaults(self) -> None:
         """Test default values."""
-        config = ScannerConfig()
+        config = ScannerConfig(
+            sync_interval=300,
+            storage_path=Path("./repositories"),
+            max_file_size_mb=10,
+            use_git=True,
+            git_branch="main",
+        )
         assert config.sync_interval == 300
         assert config.storage_path == Path("./repositories")
         assert "__pycache__" in config.exclude_patterns
@@ -65,6 +83,9 @@ class TestScannerConfig:
             sync_interval=60,
             storage_path=Path("/storage"),
             exclude_patterns=["build", "dist"],
+            max_file_size_mb=10,
+            use_git=True,
+            git_branch="main",
         )
         assert config.sync_interval == 60
         assert config.storage_path == Path("/storage")
@@ -73,7 +94,13 @@ class TestScannerConfig:
     def test_sync_interval_validation(self) -> None:
         """Test sync interval validation."""
         with pytest.raises(ValidationError):
-            ScannerConfig(sync_interval=5)  # Too short
+            ScannerConfig(
+                sync_interval=5,  # Too short
+                storage_path=Path("./repositories"),
+                max_file_size_mb=10,
+                use_git=True,
+                git_branch="main",
+            )
 
 
 class TestDatabaseConfig:

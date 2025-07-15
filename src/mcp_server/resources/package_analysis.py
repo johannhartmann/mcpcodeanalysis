@@ -42,8 +42,8 @@ class PackageAnalysisResources:
 - **Max Depth**: {self._get_max_depth(tree)}
 - **Root Packages**: {len(tree.get('children', []))}
 """
-                except Exception as e:
-                    return f"Error getting package tree: {str(e)}"
+                except (AttributeError, KeyError, ValueError, TypeError) as e:
+                    return f"Error getting package tree: {e!s}"
 
         @self.mcp.resource("packages://{repository_url}/{package_path}/dependencies")
         async def get_package_dependencies(
@@ -78,8 +78,8 @@ class PackageAnalysisResources:
 - **Instability (I)**: {deps.get('metrics', {}).get('instability', 0):.2f}
 - **Abstractness (A)**: {deps.get('metrics', {}).get('abstractness', 0):.2f}
 """
-                except Exception as e:
-                    return f"Error getting package dependencies: {str(e)}"
+                except (AttributeError, KeyError, ValueError, TypeError) as e:
+                    return f"Error getting package dependencies: {e!s}"
 
         @self.mcp.resource("packages://{repository_url}/circular-dependencies")
         async def find_circular_dependencies(
@@ -115,8 +115,8 @@ This is excellent - your package structure maintains a clean dependency hierarch
 ## Recommendations
 {self._generate_circular_dep_recommendations(circles)}
 """
-                except Exception as e:
-                    return f"Error finding circular dependencies: {str(e)}"
+                except (AttributeError, KeyError, ValueError, TypeError) as e:
+                    return f"Error finding circular dependencies: {e!s}"
 
         @self.mcp.resource("packages://{repository_url}/{package_path}/coupling")
         async def get_package_coupling_metrics(
@@ -166,8 +166,8 @@ This is excellent - your package structure maintains a clean dependency hierarch
 ## Analysis
 {self._analyze_coupling_metrics(metrics)}
 """
-                except Exception as e:
-                    return f"Error getting coupling metrics: {str(e)}"
+                except (AttributeError, KeyError, ValueError, TypeError) as e:
+                    return f"Error getting coupling metrics: {e!s}"
 
         @self.mcp.resource("packages://{repository_url}/{package_path}/details")
         async def get_package_details(repository_url: str, package_path: str) -> str:
@@ -216,8 +216,8 @@ This is excellent - your package structure maintains a clean dependency hierarch
 ## Package Health
 {self._assess_package_health(details)}
 """
-                except Exception as e:
-                    return f"Error getting package details: {str(e)}"
+                except (AttributeError, KeyError, ValueError, TypeError) as e:
+                    return f"Error getting package details: {e!s}"
 
     def _format_tree(self, tree: dict, prefix: str = "", is_last: bool = True) -> str:
         """Format package tree structure."""
@@ -397,5 +397,4 @@ This is excellent - your package structure maintains a clean dependency hierarch
 
         if not issues:
             return "✅ **Healthy Package**: All metrics are within acceptable ranges."
-        else:
-            return "**Issues Found**:\n" + "\n".join(f"- {issue}" for issue in issues)
+        return "**Issues Found**:\n" + "\n".join(f"- {issue}" for issue in issues)

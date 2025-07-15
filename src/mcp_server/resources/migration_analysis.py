@@ -48,8 +48,8 @@ class MigrationAnalysisResources:
 ## Recommendations
 {self._format_recommendations(readiness.get('recommendations', []))}
 """
-                except Exception as e:
-                    return f"Error analyzing migration readiness: {str(e)}"
+                except (AttributeError, KeyError, ValueError, TypeError) as e:
+                    return f"Error analyzing migration readiness: {e!s}"
 
         @self.mcp.resource("migration://patterns/search")
         async def search_migration_patterns() -> str:
@@ -86,15 +86,13 @@ class MigrationAnalysisResources:
 """
                     return result
 
-                except Exception as e:
-                    return f"Error searching migration patterns: {str(e)}"
+                except (AttributeError, KeyError, ValueError, TypeError) as e:
+                    return f"Error searching migration patterns: {e!s}"
 
         @self.mcp.resource("migration://patterns/stats")
         async def get_pattern_library_stats() -> str:
             """Get statistics about the pattern library."""
             async with self.session_maker() as session:
-                library = PatternLibrary(session)
-
                 try:
                     # Get pattern statistics directly from database
                     from src.database.migration_models import MigrationPattern
@@ -170,22 +168,21 @@ class MigrationAnalysisResources:
 ## Recent Patterns
 {self._format_patterns_list(recent_patterns.scalars().all())}
 """
-                except Exception as e:
-                    return f"Error getting pattern library stats: {str(e)}"
+                except (AttributeError, KeyError, ValueError, TypeError) as e:
+                    return f"Error getting pattern library stats: {e!s}"
 
         @self.mcp.resource("migration://dashboard/{repository_url}")
         async def get_migration_dashboard(repository_url: str | None = None) -> str:
             """Get migration dashboard with summary metrics."""
-            async with self.session_maker() as session:
-                try:
-                    # For now, return a placeholder dashboard
-                    # In a real implementation, this would query migration plans
-                    result = "# Migration Dashboard\n\n"
+            try:
+                # For now, return a placeholder dashboard
+                # In a real implementation, this would query migration plans
+                result = "# Migration Dashboard\n\n"
 
-                    if repository_url:
-                        result += f"**Repository**: {repository_url}\n\n"
+                if repository_url:
+                    result += f"**Repository**: {repository_url}\n\n"
 
-                    result += """## Summary
+                result += """## Summary
 - **Total Plans**: 0
 - **Active Plans**: 0
 - **Completed Plans**: 0
@@ -196,10 +193,10 @@ No migration plans have been created yet.
 To create a migration plan, use the `create_migration_plan` tool.
 """
 
-                    return result
+                return result
 
-                except Exception as e:
-                    return f"Error getting migration dashboard: {str(e)}"
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
+                return f"Error getting migration dashboard: {e!s}"
 
     def _format_category_stats_from_results(self, category_stats) -> str:
         """Format category statistics from query results."""

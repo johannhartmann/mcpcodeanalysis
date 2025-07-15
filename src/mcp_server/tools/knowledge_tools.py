@@ -48,7 +48,7 @@ async def extract_migration_patterns(
             },
         }
 
-    except Exception as e:
+    except (AttributeError, KeyError, ValueError, TypeError) as e:
         logger.exception("Failed to extract patterns")
         return {"success": False, "error": str(e)}
 
@@ -112,7 +112,7 @@ async def search_migration_patterns(
             },
         }
 
-    except Exception as e:
+    except (AttributeError, KeyError, ValueError, TypeError) as e:
         logger.exception("Failed to search patterns")
         return {"success": False, "error": str(e)}
 
@@ -148,6 +148,6 @@ async def get_pattern_library_stats(db_session=None) -> dict[str, Any]:
             "data": stats,
         }
 
-    except Exception as e:
+    except (AttributeError, KeyError, ValueError, TypeError) as e:
         logger.exception("Failed to get library stats")
         return {"success": False, "error": str(e)}

@@ -121,7 +121,7 @@ class CodeProcessor:
                 "domain_statistics": domain_stats,
             }
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Error processing file %s", file_record.path)
             import traceback
 
@@ -300,7 +300,7 @@ class CodeProcessor:
             try:
                 result = await self.process_file(file)
                 results.append(result)
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.exception("Error processing file %s", file.path)
                 results.append(e)
         return results
@@ -599,7 +599,7 @@ class CodeProcessor:
                 stats["type_hints"],
             )
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Error extracting references for %s", file_record.path)
             stats["errors"].append(str(e))
 
@@ -702,15 +702,18 @@ class CodeProcessor:
 
             if not target_id:
                 # Skip logging for external modules
-                if not self._is_external_module(ref["target_name"]):
+                if not self._is_external_module(
+                    ref["target_name"]
+                ) and logger.isEnabledFor(
+                    5
+                ):  # TRACE level
                     # Only log internal unresolved references at trace level
-                    if logger.isEnabledFor(5):  # TRACE level
-                        logger.log(
-                            5,
-                            "Could not resolve internal target entity: %s (%s)",
-                            ref["target_name"],
-                            ref["target_type"],
-                        )
+                    logger.log(
+                        5,
+                        "Could not resolve internal target entity: %s (%s)",
+                        ref["target_name"],
+                        ref["target_type"],
+                    )
                 return None
 
             return {

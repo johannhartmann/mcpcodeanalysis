@@ -37,7 +37,7 @@ class PHPCodeParser:
             module_info["file_name"] = file_path.name
             module_info["module_name"] = file_path.stem
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Error parsing PHP file %s", file_path)
             msg = f"Failed to parse PHP file: {file_path}"
             raise ParserError(

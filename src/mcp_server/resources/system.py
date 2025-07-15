@@ -121,18 +121,18 @@ class SystemResources:
                     # System information
                     output += "\n## System Information\n"
                     output += f"- **Server Version**: {health_status.get('version', 'unknown')}\n"
-                    output += f"- **Environment**: {health_status.get('environment', {}).get('debug', False) and 'Debug' or 'Production'}\n"
+                    output += f"- **Environment**: {(health_status.get('environment', {}).get('debug', False) and 'Debug') or 'Production'}\n"
                     output += f"- **Check Duration**: {health_status.get('duration_ms', 0):.0f}ms\n"
                     output += f"- **Last Check**: {health_status.get('timestamp', 'unknown')}\n"
 
                     return output
 
-                except Exception as e:
+                except (AttributeError, KeyError, ValueError, TypeError) as e:
                     return f"""# System Health Status
 
 ## Overall Status: ❌ ERROR
 
-**Error checking system health**: {str(e)}
+**Error checking system health**: {e!s}
 
 Please check the server logs for more details."""
 
@@ -205,7 +205,7 @@ Please check the server logs for more details."""
                     # Database stats
                     db_size = await self._get_database_size(session)
                     if db_size:
-                        output += f"\n## Database Statistics\n"
+                        output += "\n## Database Statistics\n"
                         output += f"- **Database Size**: {self._format_bytes(db_size['total_size'])}\n"
                         output += f"- **Tables**: {db_size['table_count']}\n"
                         output += f"- **Indexes**: {db_size['index_count']}\n"
@@ -218,8 +218,8 @@ Please check the server logs for more details."""
 
                     return output
 
-                except Exception as e:
-                    return f"Error gathering system statistics: {str(e)}"
+                except (AttributeError, KeyError, ValueError, TypeError) as e:
+                    return f"Error gathering system statistics: {e!s}"
 
         @self.mcp.resource("system://config")
         async def get_configuration_info() -> str:
@@ -260,8 +260,8 @@ Please check the server logs for more details."""
 
                 return output
 
-            except Exception as e:
-                return f"Error getting configuration: {str(e)}"
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
+                return f"Error getting configuration: {e!s}"
 
     def _format_bytes(self, bytes_value: int) -> str:
         """Format bytes into human-readable format."""
@@ -299,6 +299,6 @@ Please check the server logs for more details."""
                 "table_count": table_count,
                 "index_count": index_count,
             }
-        except Exception:
+        except (AttributeError, KeyError, ValueError, TypeError):
             # Return None if database-specific queries fail
             return None

@@ -46,7 +46,7 @@ async def start_migration_step(
             "error": result.get("error", "Failed to start migration step"),
         }
 
-    except Exception as e:
+    except (AttributeError, KeyError, ValueError, TypeError) as e:
         logger.exception("Failed to start migration step")
         return {"success": False, "error": str(e)}
 
@@ -97,7 +97,7 @@ async def complete_migration_step(
             "error": result.get("error", "Failed to complete migration step"),
         }
 
-    except Exception as e:
+    except (AttributeError, KeyError, ValueError, TypeError) as e:
         logger.exception("Failed to complete migration step")
         return {"success": False, "error": str(e)}
 
@@ -129,7 +129,7 @@ async def track_migration_progress(
             "data": progress,
         }
 
-    except Exception as e:
+    except (AttributeError, KeyError, ValueError, TypeError) as e:
         logger.exception("Failed to track migration progress")
         return {"success": False, "error": str(e)}
 
@@ -170,6 +170,6 @@ async def get_migration_dashboard(
             "data": dashboard,
         }
 
-    except Exception as e:
+    except (AttributeError, KeyError, ValueError, TypeError) as e:
         logger.exception("Failed to get migration dashboard")
         return {"success": False, "error": str(e)}

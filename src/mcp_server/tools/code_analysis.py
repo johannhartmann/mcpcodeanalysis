@@ -157,7 +157,7 @@ class CodeAnalysisTools:
                     "raw_code": raw_content,
                 }
 
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.exception("Failed to get code: %s")
                 return {
                     "success": False,
@@ -301,7 +301,7 @@ class CodeAnalysisTools:
 
                 return analysis
 
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.exception("Failed to analyze file: %s")
                 return {
                     "success": False,
@@ -422,7 +422,7 @@ class CodeAnalysisTools:
 
                 return dependencies
 
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.exception("Failed to get dependencies: %s")
                 return {
                     "success": False,
@@ -484,7 +484,7 @@ class CodeAnalysisTools:
                     "count": len(usages),
                 }
 
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.exception("Failed to find usages: %s")
                 return {
                     "success": False,

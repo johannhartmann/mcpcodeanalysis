@@ -88,7 +88,7 @@ class RepositoryScanner:
                     "updated_at": repo_info.get("updated_at"),
                 }
 
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.exception(
                     "Failed to fetch repository info from GitHub",
                     error=str(e),
@@ -205,14 +205,6 @@ class RepositoryScanner:
         resolved_count = 0
         for file in files:
             try:
-                # Create a code processor for reference resolution
-                code_processor = CodeProcessor(
-                    self.db_session,
-                    repository_path=None,  # Not needed for reference resolution
-                    enable_domain_analysis=False,
-                    enable_parallel=False,
-                )
-
                 # Get parsed entities for this file
                 from src.scanner.code_processor import Module
 
@@ -227,7 +219,7 @@ class RepositoryScanner:
                     # In a production system, we'd track unresolved references separately
                     resolved_count += 1
 
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.warning(
                     "Failed to resolve references for file %s: %s", file.path, str(e)
                 )
@@ -499,7 +491,7 @@ class RepositoryScanner:
                         "details": result,
                     },
                 )
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.exception(
                     "Failed to scan repository",
                     url=repo_config.url,
@@ -570,7 +562,7 @@ class RepositoryScanner:
                         },
                     )
 
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.exception(
                     "Failed to create webhook",
                     url=repo_config.url,

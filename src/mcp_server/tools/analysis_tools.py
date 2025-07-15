@@ -91,7 +91,7 @@ class AnalysisTools:
                 return await self.pattern_analyzer.analyze_cross_context_coupling(
                     request.repository_id,
                 )
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.exception("Error analyzing coupling")
                 return {"error": str(e)}
 
@@ -108,7 +108,7 @@ class AnalysisTools:
                     request.min_entities,
                     request.max_cohesion_threshold,
                 )
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.exception("Error suggesting splits")
                 return [{"error": str(e)}]
 
@@ -124,7 +124,7 @@ class AnalysisTools:
                 return await self.pattern_analyzer.detect_anti_patterns(
                     request.repository_id,
                 )
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.exception("Error detecting anti-patterns")
                 return {"error": [{"message": str(e)}]}
 
@@ -141,7 +141,7 @@ class AnalysisTools:
                     request.repository_id,
                     request.days,
                 )
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.exception("Error analyzing evolution")
                 return {"error": str(e)}
 
@@ -231,7 +231,7 @@ class AnalysisTools:
                         anti_patterns,
                     ),
                 }
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.exception("Error getting domain metrics")
                 return {"error": str(e)}
 

@@ -102,7 +102,7 @@ class RepositoryTool:
 
             return repositories
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Error in list_repositories: %s")
             return [{"error": str(e)}]
 
@@ -232,7 +232,7 @@ class RepositoryTool:
 
             return result
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Error in sync_repository: %s")
             return {
                 "status": "error",

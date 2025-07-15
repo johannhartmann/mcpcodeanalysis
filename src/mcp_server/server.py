@@ -157,7 +157,7 @@ async def add_repository(
                 },
                 "scan_result": scan_result,
             }
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Failed to add repository: %s")
             return {
                 "success": False,
@@ -270,7 +270,7 @@ async def create_migration_plan(
                 "data": result,
             }
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Failed to create migration plan")
             return {"success": False, "error": str(e)}
     return {}
@@ -309,7 +309,7 @@ async def start_migration_step(
                 },
             }
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Failed to start migration step")
             return {"success": False, "error": str(e)}
     return {}
@@ -375,7 +375,7 @@ async def complete_migration_step(
                 },
             }
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Failed to complete migration step")
             return {"success": False, "error": str(e)}
     return {}
@@ -422,7 +422,7 @@ async def extract_migration_patterns(
                 },
             }
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Failed to extract migration patterns")
             return {"success": False, "error": str(e)}
     return {}
@@ -478,21 +478,20 @@ async def analyze_packages(
                         "package_metrics": analysis["package_metrics"][:10],  # Top 10
                     },
                 }
-            else:
-                return {
-                    "success": True,
-                    "message": "Recent analysis exists. Use force_refresh=true to re-analyze.",
-                    "data": {
-                        "hint": "Access package data via resources:",
-                        "resources": [
-                            f"packages://{repository_url}/tree",
-                            f"packages://{repository_url}/circular-dependencies",
-                            f"packages://{repository_url}/<package_path>/dependencies",
-                        ],
-                    },
-                }
+            return {
+                "success": True,
+                "message": "Recent analysis exists. Use force_refresh=true to re-analyze.",
+                "data": {
+                    "hint": "Access package data via resources:",
+                    "resources": [
+                        f"packages://{repository_url}/tree",
+                        f"packages://{repository_url}/circular-dependencies",
+                        f"packages://{repository_url}/<package_path>/dependencies",
+                    ],
+                },
+            }
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Failed to analyze packages")
             return {"success": False, "error": str(e)}
     return {}

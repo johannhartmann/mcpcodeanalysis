@@ -30,7 +30,7 @@ class TestMCPResources:
     @pytest.fixture
     async def setup_repository(self, mcp_client, test_repo_url):
         """Add and scan test repository."""
-        result = await mcp_client.call_tool(
+        await mcp_client.call_tool(
             "add_repository",
             {
                 "url": test_repo_url,

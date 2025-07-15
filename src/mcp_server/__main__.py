@@ -89,7 +89,7 @@ def scan(repository_url: str, branch: str, embeddings: bool) -> None:
         logging.getLogger().setLevel("INFO")
 
         # Initialize server
-        from src.mcp_server.server import initialize_server, mcp
+        from src.mcp_server.server import initialize_server
 
         await initialize_server()
 

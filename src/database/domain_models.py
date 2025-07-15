@@ -8,7 +8,7 @@ try:
     from pgvector.sqlalchemy import Vector
 except ImportError:
     # For SQLite tests, use JSON instead of Vector
-    def Vector(dim: int) -> type[JSON]:  # noqa: ARG001, N802
+    def Vector(dim: int) -> type[JSON]:  # noqa: N802
         _ = dim  # Mark as intentionally unused
         return JSON
 
@@ -32,7 +32,7 @@ try:
     pass
 except ImportError:
     # For SQLite, we'll use JSON instead
-    def ARRAY(item_type: Any) -> Any:  # noqa: ARG001, N802
+    def ARRAY(item_type: Any) -> Any:  # noqa: N802
         _ = item_type  # Mark as intentionally unused
         return JSON
 

@@ -300,7 +300,7 @@ class DomainTools:
                 "source": "extracted",
             }
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Error extracting domain model: %s")
             return {
                 "error": str(e),
@@ -483,7 +483,7 @@ class DomainTools:
                 "summary": summary.business_summary if summary else None,
             }
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Error analyzing bounded context: %s")
             return {"error": str(e)}
 
@@ -602,7 +602,7 @@ class DomainTools:
 
             return suggestions
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Error suggesting DDD refactoring: %s")
             return [{"error": str(e)}]
 
@@ -747,7 +747,7 @@ class DomainTools:
 
             return {"error": f"Unsupported format: {output_format}"}
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Error generating context map: %s")
             return {"error": str(e)}
 

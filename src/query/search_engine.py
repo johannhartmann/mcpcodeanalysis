@@ -394,7 +394,7 @@ class SearchEngine:
             if entity_type == "module":
                 return await self._get_module_context(entity_id, include_dependencies)
             return {"error": f"Unknown entity type: {entity_type}"}
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Failed to get context for %s %d", entity_type, entity_id)
             return {"error": str(e)}
 

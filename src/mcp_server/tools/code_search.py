@@ -163,7 +163,7 @@ class CodeSearchTools:
                         ),
                     }
 
-                except Exception as e:
+                except (AttributeError, KeyError, ValueError, TypeError) as e:
                     logger.exception("Semantic search failed: %s")
                     return {
                         "success": False,
@@ -198,7 +198,7 @@ class CodeSearchTools:
                         "count": len(results),
                     }
 
-                except Exception as e:
+                except (AttributeError, KeyError, ValueError, TypeError) as e:
                     logger.exception("Similar code search failed: %s")
                     return {
                         "success": False,
@@ -239,7 +239,7 @@ class CodeSearchTools:
                         "count": len(results),
                     }
 
-                except Exception as e:
+                except (AttributeError, KeyError, ValueError, TypeError) as e:
                     logger.exception("Code snippet search failed: %s")
                     return {
                         "success": False,
@@ -280,7 +280,7 @@ class CodeSearchTools:
                             "count": len(results),
                         }
 
-                    except Exception as e:
+                    except (AttributeError, KeyError, ValueError, TypeError) as e:
                         logger.exception("Business capability search failed: %s")
                         return {
                             "success": False,
@@ -428,7 +428,7 @@ class CodeSearchTools:
                     "count": len(results),
                 }
 
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.exception("Keyword search failed: %s")
                 return {
                     "success": False,

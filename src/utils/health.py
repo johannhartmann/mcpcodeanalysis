@@ -43,7 +43,7 @@ class HealthCheck:
             result = await self._perform_check()
             status = HealthStatus.HEALTHY if result else HealthStatus.UNHEALTHY
             details = result if isinstance(result, dict) else {}
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Health check failed: %s", self.name)
             status = HealthStatus.UNHEALTHY
             details = {"error": str(e)}

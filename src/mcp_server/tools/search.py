@@ -72,6 +72,6 @@ class SearchTool:
 
                 return formatted_results
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Error in search_code")
             return [{"error": str(e), "query": query}]

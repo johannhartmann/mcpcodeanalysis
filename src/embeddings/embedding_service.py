@@ -73,7 +73,7 @@ class EmbeddingService:
                 try:
                     await self._create_module_embedding(module, file_record.path)
                     stats["modules"] += 1
-                except Exception as e:
+                except (AttributeError, KeyError, ValueError, TypeError) as e:
                     logger.exception(
                         "Failed to create embedding for module %s",
                         module.id,
@@ -86,7 +86,7 @@ class EmbeddingService:
                 try:
                     await self._create_class_embedding(cls, file_record.path)
                     stats["classes"] += 1
-                except Exception as e:
+                except (AttributeError, KeyError, ValueError, TypeError) as e:
                     logger.exception(
                         "Failed to create embedding for class %s",
                         cls.id,
@@ -99,7 +99,7 @@ class EmbeddingService:
                 try:
                     await self._create_function_embedding(func, file_record.path)
                     stats["functions"] += 1
-                except Exception as e:
+                except (AttributeError, KeyError, ValueError, TypeError) as e:
                     logger.exception(
                         "Failed to create embedding for function %s",
                         func.id,
@@ -115,7 +115,7 @@ class EmbeddingService:
                 stats["errors"],
             )
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Failed to create embeddings for file %s", file_id)
             msg = "Failed to create embeddings"
             raise EmbeddingError(msg) from e
@@ -171,7 +171,7 @@ class EmbeddingService:
                             for err in file_stats["errors"]
                         ],
                     )
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.exception("Failed to process file %s", file_record.id)
                 stats["errors"].append(f"File {file_record.path}: {e!s}")
 
@@ -614,7 +614,7 @@ class EmbeddingService:
                 "status": "success",
             }
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception(
                 "Failed to create embedding for domain entity %s",
                 entity.name,

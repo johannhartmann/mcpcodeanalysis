@@ -81,7 +81,7 @@ async def analyze_packages(
 
         return {"status": "success", **result}
 
-    except Exception as e:
+    except (AttributeError, KeyError, ValueError, TypeError) as e:
         logger.exception("Error analyzing packages")
         return {"status": "error", "error": str(e)}
 
@@ -99,7 +99,7 @@ async def get_package_tree(
 
         return {"status": "success", "repository_id": request.repository_id, **tree}
 
-    except Exception as e:
+    except (AttributeError, KeyError, ValueError, TypeError) as e:
         logger.exception("Error getting package tree")
         return {"status": "error", "error": str(e)}
 
@@ -164,7 +164,7 @@ async def get_package_details(
             },
         }
 
-    except Exception as e:
+    except (AttributeError, KeyError, ValueError, TypeError) as e:
         logger.exception("Error getting package details")
         return {"status": "error", "error": str(e)}
 
@@ -197,7 +197,7 @@ async def get_package_dependencies(
             **deps,
         }
 
-    except Exception as e:
+    except (AttributeError, KeyError, ValueError, TypeError) as e:
         logger.exception("Error getting package dependencies")
         return {"status": "error", "error": str(e)}
 
@@ -220,7 +220,7 @@ async def find_circular_dependencies(
             "cycles": cycles,
         }
 
-    except Exception as e:
+    except (AttributeError, KeyError, ValueError, TypeError) as e:
         logger.exception("Error finding circular dependencies")
         return {"status": "error", "error": str(e)}
 
@@ -238,6 +238,6 @@ async def get_package_coupling_metrics(
 
         return {"status": "success", "repository_id": request.repository_id, **metrics}
 
-    except Exception as e:
+    except (AttributeError, KeyError, ValueError, TypeError) as e:
         logger.exception("Error getting coupling metrics")
         return {"status": "error", "error": str(e)}

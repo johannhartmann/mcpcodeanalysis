@@ -125,7 +125,7 @@ class AnalyzeTool:
 
             return analysis
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Error in analyze_dependencies: %s")
             return {"error": str(e), "module_path": module_path}
 
@@ -166,7 +166,7 @@ class AnalyzeTool:
 
             return suggestions
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Error in suggest_refactoring: %s")
             return [{"error": str(e), "code_path": code_path}]
 
@@ -213,7 +213,7 @@ class AnalyzeTool:
 
             return results
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Error in find_similar_code: %s")
             return [{"error": str(e), "code_snippet": code_snippet[:100] + "..."}]
 
@@ -235,7 +235,7 @@ class AnalyzeTool:
             # Package/directory
             return await self._get_package_structure(path)
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Error in get_code_structure: %s")
             return {"error": str(e), "path": path}
 
@@ -722,7 +722,7 @@ class AnalyzeTool:
 
             return structure
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.exception("Error getting package structure")
             return {
                 "type": "package",

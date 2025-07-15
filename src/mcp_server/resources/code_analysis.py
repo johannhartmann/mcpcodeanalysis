@@ -56,7 +56,7 @@ This resource provides information about code search capabilities."""
                     # Get file information
                     file = await session.get(File, entity.file_id)
 
-                    output = f"# Code Explanation\n\n"
+                    output = "# Code Explanation\n\n"
                     output += f"## {entity.name}\n"
                     output += f"**Type**: {entity_type}\n"
                     output += f"**File**: `{file.file_path if file else 'Unknown'}`\n"
@@ -72,8 +72,8 @@ This resource provides information about code search capabilities."""
 
                     return output
 
-                except Exception as e:
-                    return f"Error explaining code: {str(e)}"
+                except (AttributeError, KeyError, ValueError) as e:
+                    return f"Error explaining code: {e!s}"
 
         @self.mcp.resource("code://definitions/{name}")
         async def find_definitions(name: str) -> str:
@@ -90,8 +90,6 @@ This resource provides information about code search capabilities."""
                         return f"No definitions found for: {name}"
 
                     output = f"# Symbol Definitions\n\n**Symbol**: `{name}`\n"
-                    if file_path:
-                        output += f"**Scope**: {file_path}\n"
                     output += f"**Found**: {len(results)} definitions\n\n"
 
                     for result in results:
@@ -108,8 +106,8 @@ This resource provides information about code search capabilities."""
 
                     return output
 
-                except Exception as e:
-                    return f"Error finding definitions: {str(e)}"
+                except (AttributeError, KeyError, ValueError) as e:
+                    return f"Error finding definitions: {e!s}"
 
         @self.mcp.resource("code://usages/{entity_type}/{entity_id}")
         async def find_usages(entity_type: str, entity_id: int) -> str:
@@ -126,7 +124,7 @@ This resource provides information about code search capabilities."""
                     if not results:
                         return f"No usages found for {entity_type} with ID {entity_id}"
 
-                    output = f"# Usage Analysis\n\n"
+                    output = "# Usage Analysis\n\n"
                     output += f"**Entity Type**: {entity_type}\n"
                     output += f"**Total Usages**: {len(results)}\n\n"
 
@@ -149,8 +147,8 @@ This resource provides information about code search capabilities."""
 
                     return output
 
-                except Exception as e:
-                    return f"Error finding usages: {str(e)}"
+                except (AttributeError, KeyError, ValueError) as e:
+                    return f"Error finding usages: {e!s}"
 
         @self.mcp.resource("code://structure/{file_path}")
         async def get_code_structure(file_path: str) -> str:
@@ -173,7 +171,9 @@ This resource provides information about code search capabilities."""
 
                     # File metrics
                     output += "## File Metrics\n"
-                    output += f"- **Lines of Code**: {file.lines_of_code or 0}\n"
+                    # Estimate lines from file size (assuming average 50 bytes per line)
+                    estimated_lines = (file.size or 0) // 50
+                    output += f"- **Lines of Code**: {estimated_lines} (estimated)\n"
                     output += f"- **Language**: {file.language or 'Unknown'}\n\n"
 
                     # Get classes
@@ -224,8 +224,8 @@ This resource provides information about code search capabilities."""
 
                     return output
 
-                except Exception as e:
-                    return f"Error getting code structure: {str(e)}"
+                except (AttributeError, KeyError, ValueError) as e:
+                    return f"Error getting code structure: {e!s}"
 
         @self.mcp.resource("code://refactoring/{entity_type}/{entity_id}")
         async def suggest_refactoring(entity_type: str, entity_id: int) -> str:
@@ -245,7 +245,7 @@ This resource provides information about code search capabilities."""
                     if not entity:
                         return f"{entity_type.title()} with ID {entity_id} not found"
 
-                    output = f"# Refactoring Analysis\n\n"
+                    output = "# Refactoring Analysis\n\n"
                     output += f"## {entity_name}\n"
                     output += f"**Type**: {entity_type}\n"
 
@@ -265,15 +265,18 @@ This resource provides information about code search capabilities."""
                                 }
                             )
 
-                    if hasattr(entity, "lines_of_code") and entity.lines_of_code:
-                        if entity.lines_of_code > 50:
-                            suggestions.append(
-                                {
-                                    "title": "Split Large Function",
-                                    "description": f"This {entity_type} is {entity.lines_of_code} lines long. Consider splitting it into smaller, more focused units.",
-                                    "priority": "medium",
-                                }
-                            )
+                    if (
+                        hasattr(entity, "lines_of_code")
+                        and entity.lines_of_code
+                        and entity.lines_of_code > 50
+                    ):
+                        suggestions.append(
+                            {
+                                "title": "Split Large Function",
+                                "description": f"This {entity_type} is {entity.lines_of_code} lines long. Consider splitting it into smaller, more focused units.",
+                                "priority": "medium",
+                            }
+                        )
 
                     if entity_type == "class":
                         # Count methods
@@ -310,8 +313,8 @@ This resource provides information about code search capabilities."""
 
                     return output
 
-                except Exception as e:
-                    return f"Error analyzing code for refactoring: {str(e)}"
+                except (AttributeError, KeyError, ValueError) as e:
+                    return f"Error analyzing code for refactoring: {e!s}"
 
         @self.mcp.resource("code://similar")
         async def find_similar_code() -> str:

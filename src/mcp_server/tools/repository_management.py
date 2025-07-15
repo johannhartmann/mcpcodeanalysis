@@ -146,7 +146,7 @@ class RepositoryManagementTools:
                     "scan_result": scan_result,
                 }
 
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.exception("Failed to add repository: %s")
                 return {
                     "success": False,
@@ -221,7 +221,7 @@ class RepositoryManagementTools:
                     "count": len(repo_list),
                 }
 
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.exception("Failed to list repositories: %s")
                 return {
                     "success": False,
@@ -292,7 +292,7 @@ class RepositoryManagementTools:
                     "scan_result": scan_result,
                 }
 
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.exception("Failed to scan repository: %s")
                 return {
                     "success": False,
@@ -348,7 +348,7 @@ class RepositoryManagementTools:
                     "embeddings": embedding_result,
                 }
 
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.exception("Failed to update embeddings: %s")
                 return {
                     "success": False,
@@ -485,7 +485,7 @@ class RepositoryManagementTools:
                     **stats,
                 }
 
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.exception("Failed to get repository stats: %s")
                 return {
                     "success": False,
@@ -540,7 +540,7 @@ class RepositoryManagementTools:
                     "message": f"Repository '{repo.name}' deleted successfully",
                 }
 
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.exception("Failed to delete repository: %s")
                 await self.db_session.rollback()
                 return {
