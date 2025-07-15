@@ -9,9 +9,6 @@ from sqlalchemy import select
 
 from src.database.init_db import get_session_factory, init_database
 from src.database.models import File
-from src.mcp_server.tools.code_search import (
-    CodeSearchTools,
-)
 from src.mcp_server.tools.repository_management import (
     AddRepositoryRequest,
     RepositoryManagementTools,
@@ -302,13 +299,19 @@ def greet(name: str) -> str:
         assert helper_file is not None
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="MCP tools framework not fully implemented in tests")
+    @pytest.mark.skip(
+        reason="CodeSearchTools converted to resources - use code://search instead"
+    )
     async def test_search_functionality(
         self,
         db_session,
         sample_repo,
     ) -> None:
-        """Test code search functionality (without embeddings)."""
+        """Test code search functionality (without embeddings).
+
+        NOTE: This test uses CodeSearchTools which has been converted to resources.
+        Use the code://search resource instead.
+        """
         from fastmcp import FastMCP
 
         mcp = FastMCP("Test MCP")
