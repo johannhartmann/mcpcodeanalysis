@@ -16,7 +16,27 @@ class PackageAnalysisResources:
     def register_resources(self):
         """Register all package analysis resources."""
 
-        @self.mcp.resource("packages://{repository_url}/tree")
+        @self.mcp.resource(
+            "packages://{repository_url}/tree",
+            description="""Get the hierarchical package/module structure of a repository.
+
+            Parameters:
+            - repository_url: GitHub repository URL (e.g., 'github.com/owner/repo')
+                             Note: Do not include https:// prefix
+
+            Returns: Markdown document containing:
+            - Visual tree representation of package hierarchy
+            - Package statistics (total count, max depth)
+            - Identification of root packages
+            - Module organization insights
+
+            Examples:
+            - packages://github.com/django/django/tree
+            - packages://github.com/fastapi/fastapi/tree
+
+            Use when: Understanding code organization, planning refactoring,
+                     identifying module boundaries, or analyzing architecture.""",
+        )
         async def get_package_tree(repository_url: str) -> str:
             """Get the hierarchical package structure of a repository."""
             async with self.session_maker() as session:
@@ -26,7 +46,7 @@ class PackageAnalysisResources:
                     tree = await repo.get_package_tree(repository_url)
 
                     if not tree:
-                        return f"No package structure found for repository: {repository_url}"
+                        return f"No package structure found for repository: {repository_url}\n\nTip: Ensure the repository has been added and scanned. Use list_repositories tool to check."
 
                     return f"""# Package Structure
 
@@ -45,7 +65,34 @@ class PackageAnalysisResources:
                 except (AttributeError, KeyError, ValueError, TypeError) as e:
                     return f"Error getting package tree: {e!s}"
 
-        @self.mcp.resource("packages://{repository_url}/{package_path}/dependencies")
+        @self.mcp.resource(
+            "packages://{repository_url}/{package_path}/dependencies",
+            description="""Analyze dependencies for a specific package or module.
+
+            Parameters:
+            - repository_url: GitHub repository URL (e.g., 'github.com/owner/repo')
+            - package_path: Path to package relative to repository root
+                           Examples: 'src/auth', 'app/models', 'lib/utils'
+
+            Returns: Markdown document containing:
+            - Direct dependencies (what this package imports)
+            - Reverse dependencies (what imports this package)
+            - Coupling metrics (Ca, Ce, Instability, Abstractness)
+            - Dependency graph visualization
+
+            Metrics explained:
+            - Afferent Coupling (Ca): Number of packages that depend on this package
+            - Efferent Coupling (Ce): Number of packages this package depends on
+            - Instability (I): Ce/(Ca+Ce) - ranges from 0 (stable) to 1 (unstable)
+            - Abstractness (A): Ratio of interfaces/abstract classes to total classes
+
+            Examples:
+            - packages://github.com/myapp/api/src/auth/dependencies
+            - packages://github.com/django/django/django/core/dependencies
+
+            Use when: Analyzing coupling, planning module extraction,
+                     understanding dependencies before refactoring.""",
+        )
         async def get_package_dependencies(
             repository_url: str, package_path: str
         ) -> str:
@@ -59,7 +106,7 @@ class PackageAnalysisResources:
                     )
 
                     if not deps:
-                        return f"No dependency information found for package: {package_path}"
+                        return f"No dependency information found for package: {package_path}\n\nTip: Verify the package path exists. Use packages://{repository_url}/tree to see available packages."
 
                     return f"""# Package Dependencies
 
@@ -81,7 +128,30 @@ class PackageAnalysisResources:
                 except (AttributeError, KeyError, ValueError, TypeError) as e:
                     return f"Error getting package dependencies: {e!s}"
 
-        @self.mcp.resource("packages://{repository_url}/circular-dependencies")
+        @self.mcp.resource(
+            "packages://{repository_url}/circular-dependencies",
+            description="""Detect circular dependencies in a repository's package structure.
+
+            Parameters:
+            - repository_url: GitHub repository URL (e.g., 'github.com/owner/repo')
+            - max_depth: Maximum depth to search for cycles (default: 10)
+
+            Returns: Markdown document containing:
+            - List of circular dependency chains
+            - Visual representation of cycles
+            - Impact analysis
+            - Refactoring recommendations to break cycles
+
+            Examples:
+            - packages://github.com/myapp/backend/circular-dependencies
+            - packages://github.com/legacy/monolith/circular-dependencies
+
+            Use when: Build times are slow, preparing for modularization,
+                     investigating coupling issues, or planning service extraction.
+
+            Note: Circular dependencies prevent proper modularization and
+                  increase build complexity.""",
+        )
         async def find_circular_dependencies(
             repository_url: str, max_depth: int | None = 10
         ) -> str:
@@ -118,7 +188,34 @@ This is excellent - your package structure maintains a clean dependency hierarch
                 except (AttributeError, KeyError, ValueError, TypeError) as e:
                     return f"Error finding circular dependencies: {e!s}"
 
-        @self.mcp.resource("packages://{repository_url}/{package_path}/coupling")
+        @self.mcp.resource(
+            "packages://{repository_url}/{package_path}/coupling",
+            description="""Get detailed coupling analysis for a specific package.
+
+            Parameters:
+            - repository_url: GitHub repository URL (e.g., 'github.com/owner/repo')
+            - package_path: Path to package (e.g., 'src/services/auth')
+
+            Returns: Markdown document containing:
+            - Coupling metrics (Ca, Ce, I, A, D)
+            - List of coupled packages with strength indicators
+            - Coupling heatmap visualization
+            - Specific recommendations for reducing coupling
+
+            Metrics explained:
+            - Ca (Afferent): Packages depending on this one (incoming)
+            - Ce (Efferent): Packages this one depends on (outgoing)
+            - I (Instability): Ce/(Ca+Ce) - 0=stable, 1=unstable
+            - A (Abstractness): Abstract types / Total types
+            - D (Distance): |A+I-1| - Distance from main sequence
+
+            Examples:
+            - packages://github.com/app/api/src/auth/coupling
+            - packages://github.com/lib/core/utils/coupling
+
+            Use when: Evaluating package stability, planning refactoring,
+                     identifying highly coupled code, or improving architecture.""",
+        )
         async def get_package_coupling_metrics(
             repository_url: str, package_path: str
         ) -> str:

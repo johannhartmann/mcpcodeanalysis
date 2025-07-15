@@ -20,7 +20,19 @@ class CodeAnalysisResources:
     def register_resources(self):
         """Register all code analysis resources."""
 
-        @self.mcp.resource("code://search")
+        @self.mcp.resource(
+            "code://search",
+            description="""Search for code using natural language queries (READ-ONLY).
+
+            Note: This resource provides search information. For actual searching, parameters would be:
+            - query: Natural language search query (e.g., "user authentication", "calculate total price")
+            - repository_id: Optional repository filter (get ID from system://stats)
+            - limit: Maximum results to return (default: 10, max: 50)
+
+            Returns: Information about code search capabilities.
+
+            For write operations (adding repositories), use the add_repository tool.""",
+        )
         async def search_code() -> str:
             """Search for code using natural language queries."""
             return """# Code Search
@@ -32,7 +44,29 @@ To search for code, use the search_code tool instead, which accepts parameters:
 
 This resource provides information about code search capabilities."""
 
-        @self.mcp.resource("code://explain/{entity_type}/{entity_id}")
+        @self.mcp.resource(
+            "code://explain/{entity_type}/{entity_id}",
+            description="""Get detailed explanation of a code entity.
+
+            Parameters:
+            - entity_type: Type of code entity - must be one of: 'function', 'class', 'module'
+            - entity_id: Numeric ID of the entity (obtained from search results)
+
+            Returns: Markdown document containing:
+            - Entity name and type
+            - File location
+            - Documentation/docstrings
+            - Signature (for functions/methods)
+            - Complexity metrics
+            - Related entities
+
+            Examples:
+            - code://explain/function/123
+            - code://explain/class/456
+            - code://explain/module/789
+
+            Note: Use code://search first to find entity IDs.""",
+        )
         async def explain_code(entity_type: str, entity_id: int) -> str:
             """Get explanation of code entities."""
             async with self.session_maker() as session:
@@ -41,17 +75,17 @@ This resource provides information about code search capabilities."""
                     if entity_type == "function":
                         entity = await session.get(Function, entity_id)
                         if not entity:
-                            return f"Function with ID {entity_id} not found"
+                            return f"Function with ID {entity_id} not found. Use code://search to find valid function IDs."
                     elif entity_type == "class":
                         entity = await session.get(Class, entity_id)
                         if not entity:
-                            return f"Class with ID {entity_id} not found"
+                            return f"Class with ID {entity_id} not found. Use code://search to find valid class IDs."
                     elif entity_type == "module":
                         entity = await session.get(Module, entity_id)
                         if not entity:
-                            return f"Module with ID {entity_id} not found"
+                            return f"Module with ID {entity_id} not found. Use code://search to find valid module IDs."
                     else:
-                        return f"Unknown entity type: {entity_type}"
+                        return f"Error: Invalid entity_type '{entity_type}'. Must be one of: function, class, module"
 
                     # Get file information
                     file = await session.get(File, entity.file_id)
@@ -75,7 +109,27 @@ This resource provides information about code search capabilities."""
                 except (AttributeError, KeyError, ValueError) as e:
                     return f"Error explaining code: {e!s}"
 
-        @self.mcp.resource("code://definitions/{name}")
+        @self.mcp.resource(
+            "code://definitions/{name}",
+            description="""Find all definitions of a symbol across the codebase.
+
+            Parameters:
+            - name: Symbol name to search for (case-sensitive)
+                   Examples: 'UserService', 'calculate_total', 'MAX_RETRIES'
+
+            Returns: Markdown listing all definitions with:
+            - Symbol type (class, function, variable)
+            - File path and line number
+            - Signature or declaration
+            - Documentation preview
+
+            Examples:
+            - code://definitions/UserRepository
+            - code://definitions/authenticate
+            - code://definitions/ConfigParser
+
+            Note: Name must match exactly. For fuzzy search, use code://search.""",
+        )
         async def find_definitions(name: str) -> str:
             """Find where symbols are defined."""
             # Decode URL-encoded name
@@ -87,7 +141,7 @@ This resource provides information about code search capabilities."""
                     results = await finder.find_definitions(name=name)
 
                     if not results:
-                        return f"No definitions found for: {name}"
+                        return f"No definitions found for: {name}\n\nTip: Symbol names are case-sensitive. Try code://search for fuzzy matching."
 
                     output = f"# Symbol Definitions\n\n**Symbol**: `{name}`\n"
                     output += f"**Found**: {len(results)} definitions\n\n"
@@ -109,7 +163,27 @@ This resource provides information about code search capabilities."""
                 except (AttributeError, KeyError, ValueError) as e:
                     return f"Error finding definitions: {e!s}"
 
-        @self.mcp.resource("code://usages/{entity_type}/{entity_id}")
+        @self.mcp.resource(
+            "code://usages/{entity_type}/{entity_id}",
+            description="""Find all places where a code entity is used.
+
+            Parameters:
+            - entity_type: Type of entity - must be one of: 'function', 'class', 'module'
+            - entity_id: Numeric ID of the entity (from code://explain or search results)
+
+            Returns: Markdown document listing:
+            - Total usage count
+            - Usages grouped by file
+            - Line numbers and usage context
+            - Usage types (import, call, instantiation, inheritance, etc.)
+
+            Examples:
+            - code://usages/function/123 - Find all calls to function
+            - code://usages/class/456 - Find instantiations and inheritance
+            - code://usages/module/789 - Find all imports
+
+            Note: Includes test files by default. Entity IDs come from search results.""",
+        )
         async def find_usages(entity_type: str, entity_id: int) -> str:
             """Find all usages of a code entity."""
             async with self.session_maker() as session:
@@ -122,7 +196,7 @@ This resource provides information about code search capabilities."""
                     )
 
                     if not results:
-                        return f"No usages found for {entity_type} with ID {entity_id}"
+                        return f"No usages found for {entity_type} with ID {entity_id}\n\nTip: Verify the entity exists with code://explain/{entity_type}/{entity_id}"
 
                     output = "# Usage Analysis\n\n"
                     output += f"**Entity Type**: {entity_type}\n"
@@ -150,7 +224,27 @@ This resource provides information about code search capabilities."""
                 except (AttributeError, KeyError, ValueError) as e:
                     return f"Error finding usages: {e!s}"
 
-        @self.mcp.resource("code://structure/{file_path}")
+        @self.mcp.resource(
+            "code://structure/{file_path}",
+            description="""Get the structure and organization of a code file.
+
+            Parameters:
+            - file_path: Full file path as stored in the database
+                        Examples: 'src/auth/login.py', 'lib/utils/helpers.py'
+
+            Returns: Markdown document containing:
+            - File metrics (lines, language)
+            - Class hierarchy with methods
+            - Standalone functions
+            - Documentation for each component
+            - Import statements (if available)
+
+            Examples:
+            - code://structure/src/services/user_service.py
+            - code://structure/tests/test_authentication.py
+
+            Note: Use system://stats to see available files and their paths.""",
+        )
         async def get_code_structure(file_path: str) -> str:
             """Get the structure of a code file."""
             # Decode URL-encoded file path
@@ -165,7 +259,7 @@ This resource provides information about code search capabilities."""
                     file = result.scalar_one_or_none()
 
                     if not file:
-                        return f"File not found: {file_path}"
+                        return f"File not found: {file_path}\n\nTip: Use exact file paths as stored in the database. Check system://stats for available files."
 
                     output = f"# Code Structure\n\n**File**: `{file_path}`\n\n"
 
@@ -227,7 +321,33 @@ This resource provides information about code search capabilities."""
                 except (AttributeError, KeyError, ValueError) as e:
                     return f"Error getting code structure: {e!s}"
 
-        @self.mcp.resource("code://refactoring/{entity_type}/{entity_id}")
+        @self.mcp.resource(
+            "code://refactoring/{entity_type}/{entity_id}",
+            description="""Get AI-powered refactoring suggestions for code improvement.
+
+            Parameters:
+            - entity_type: Type of entity - must be one of: 'function', 'class'
+            - entity_id: Numeric ID of the entity (from search or explain results)
+
+            Returns: Markdown document containing:
+            - Complexity metrics
+            - Specific refactoring suggestions
+            - Priority levels (high/medium/low)
+            - Code smell detection
+            - Design pattern recommendations
+
+            Detects issues like:
+            - High cyclomatic complexity (>10)
+            - Long methods (>50 lines)
+            - Large classes (>20 methods)
+            - Single Responsibility Principle violations
+
+            Examples:
+            - code://refactoring/function/123
+            - code://refactoring/class/456
+
+            Note: Suggestions are based on static analysis. Review before applying.""",
+        )
         async def suggest_refactoring(entity_type: str, entity_id: int) -> str:
             """Get refactoring suggestions for code entities."""
             async with self.session_maker() as session:
@@ -240,10 +360,10 @@ This resource provides information about code search capabilities."""
                         entity = await session.get(Class, entity_id)
                         entity_name = entity.name if entity else "Unknown"
                     else:
-                        return f"Unsupported entity type for refactoring: {entity_type}"
+                        return f"Error: Unsupported entity type '{entity_type}' for refactoring. Use 'function' or 'class'."
 
                     if not entity:
-                        return f"{entity_type.title()} with ID {entity_id} not found"
+                        return f"{entity_type.title()} with ID {entity_id} not found.\n\nTip: Use code://explain/{entity_type}/{entity_id} to verify the entity exists."
 
                     output = "# Refactoring Analysis\n\n"
                     output += f"## {entity_name}\n"
@@ -316,7 +436,24 @@ This resource provides information about code search capabilities."""
                 except (AttributeError, KeyError, ValueError) as e:
                     return f"Error analyzing code for refactoring: {e!s}"
 
-        @self.mcp.resource("code://similar")
+        @self.mcp.resource(
+            "code://similar",
+            description="""Information about finding similar code patterns (READ-ONLY).
+
+            Note: This resource provides information about similarity search.
+            For actual similarity search, parameters would include:
+            - reference_path: File containing the reference code
+            - reference_name: Name of the entity to find similar code for
+            - entity_type: Type of entity (function, class)
+            - threshold: Similarity threshold (0.0-1.0)
+
+            Use cases:
+            - Finding duplicate code for refactoring
+            - Locating similar implementations
+            - Identifying patterns across the codebase
+
+            Returns: Information about code similarity search capabilities.""",
+        )
         async def find_similar_code() -> str:
             """Find code similar to the provided snippet."""
             return """# Similar Code Search

@@ -111,7 +111,23 @@ async def get_db_session() -> AsyncGenerator[Any, None]:
 # Migration planning tools (that create/modify data)
 @mcp.tool(
     name="create_migration_plan",
-    description="Create a detailed migration plan for transforming a monolithic codebase",
+    description="""Create a comprehensive migration plan for modernizing a monolithic codebase.
+
+    Analyzes the repository to:
+    - Identify bounded contexts and service boundaries
+    - Detect dependencies and coupling
+    - Estimate effort and timeline
+    - Identify risks and mitigation strategies
+    - Generate step-by-step migration roadmap
+
+    Migration strategies:
+    - strangler_fig: Gradually replace parts of the monolith
+    - gradual: Step-by-step decomposition (default)
+    - big_bang: Complete rewrite (high risk)
+    - branch_by_abstraction: Create abstractions first
+    - parallel_run: Run old and new systems together
+
+    Returns a detailed plan with phases, steps, timeline, and risks.""",
 )
 async def create_migration_plan(
     repository_url: str = Field(description="Repository URL to create plan for"),
@@ -220,7 +236,19 @@ async def create_migration_plan(
 
 # Migration execution tools
 @mcp.tool(
-    name="start_migration_step", description="Start execution of a migration step"
+    name="start_migration_step",
+    description="""Begin executing a specific step from a migration plan.
+
+    Changes the step status to 'in_progress' and tracks:
+    - Who is working on it (executor_id)
+    - When work started
+    - Dependencies and blockers
+
+    Prerequisites:
+    - Must have created a migration plan first
+    - Previous steps should be completed (unless parallel execution allowed)
+
+    Use when: Starting work on a migration task""",
 )
 async def start_migration_step(
     step_id: int = Field(description="ID of the migration step to start"),
@@ -259,7 +287,20 @@ async def start_migration_step(
 
 @mcp.tool(
     name="complete_migration_step",
-    description="Mark a migration step as completed",
+    description="""Mark a migration step as finished and record the outcome.
+
+    Status options:
+    - completed: Successfully finished
+    - failed: Could not complete (provide notes)
+    - blocked: External dependency blocking progress
+
+    Records:
+    - Completion time and duration
+    - Validation results
+    - Lessons learned
+    - Updates overall plan progress
+
+    Use when: Finishing a migration task""",
 )
 async def complete_migration_step(
     step_id: int = Field(description="ID of the migration step to complete"),
@@ -325,7 +366,19 @@ async def complete_migration_step(
 
 @mcp.tool(
     name="extract_migration_patterns",
-    description="Extract reusable patterns from completed migration plans",
+    description="""Extract reusable patterns from successful migration plans.
+
+    Analyzes completed migration plans to identify:
+    - Successful strategies that worked well
+    - Common patterns across migrations
+    - Anti-patterns to avoid
+    - Context-specific best practices
+
+    Extracted patterns are added to the pattern library for future use.
+
+    Only extracts patterns with success rate above threshold (default 80%).
+
+    Use when: Learning from completed migrations to improve future plans""",
 )
 async def extract_migration_patterns(
     plan_id: int = Field(description="ID of the completed migration plan"),
@@ -373,7 +426,22 @@ async def extract_migration_patterns(
 # Package analysis tool (with force refresh option)
 @mcp.tool(
     name="analyze_packages",
-    description="Analyze the package structure of a repository",
+    description="""Analyze package/module structure to understand code organization.
+
+    Performs comprehensive analysis including:
+    - Package hierarchy and nesting depth
+    - Import dependencies between packages
+    - Circular dependency detection
+    - Coupling and cohesion metrics
+    - Identifies candidates for extraction
+
+    Results are cached for performance. Use force_refresh=true to reanalyze.
+
+    Use when:
+    - Planning modularization
+    - Understanding code organization
+    - Identifying tightly coupled packages
+    - Preparing for service extraction""",
 )
 async def analyze_packages(
     repository_url: str = Field(description="Repository URL to analyze"),

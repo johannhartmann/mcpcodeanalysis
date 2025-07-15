@@ -81,7 +81,23 @@ class RepositoryManagementTools:
 
         @self.mcp.tool(
             name="add_repository",
-            description="Add a new repository to track",
+            description="""Add a new repository for code analysis and tracking.
+
+            Automatically performs:
+            1. Clones/updates the repository
+            2. Scans all code files
+            3. Extracts code structure (classes, functions, imports)
+            4. Generates semantic embeddings for search
+            5. Analyzes package structure and dependencies
+
+            Process typically takes 1-5 minutes depending on repository size.
+
+            After adding, you can:
+            - Search code with natural language queries
+            - Analyze dependencies and coupling
+            - Extract domain models
+            - Plan migrations
+            - Find refactoring opportunities""",
         )
         async def add_repository(request: AddRepositoryRequest) -> dict[str, Any]:
             """Add a new repository for tracking and analysis.
@@ -141,7 +157,18 @@ class RepositoryManagementTools:
 
         @self.mcp.tool(
             name="list_repositories",
-            description="List all tracked repositories",
+            description="""List all tracked repositories with their current status.
+
+            Returns information about each repository including:
+            - Repository ID (needed for other operations)
+            - Name and owner
+            - GitHub URL
+            - Default branch
+            - Last sync time
+            - Optional: File counts, embedding counts, language stats
+
+            Use the repository IDs from this tool when calling other tools that
+            require a repository_id parameter.""",
         )
         async def list_repositories(
             include_stats: bool = Field(
@@ -217,7 +244,22 @@ class RepositoryManagementTools:
 
         @self.mcp.tool(
             name="scan_repository",
-            description="Scan or rescan a repository",
+            description="""Update a repository with latest code changes.
+
+            What it does:
+            1. Pulls latest changes from Git
+            2. Identifies new/modified/deleted files
+            3. Updates code structure analysis
+            4. Regenerates embeddings for changed files
+            5. Updates dependency graphs
+
+            Use when:
+            - Code has been updated in the repository
+            - Search results seem outdated
+            - After merging pull requests
+            - Fixing sync issues
+
+            Note: Incremental scan only processes changed files for efficiency.""",
         )
         async def scan_repository(request: ScanRepositoryRequest) -> dict[str, Any]:
             """Scan or rescan a repository.
@@ -287,7 +329,21 @@ class RepositoryManagementTools:
 
         @self.mcp.tool(
             name="update_embeddings",
-            description="Update embeddings for a repository",
+            description="""Regenerate semantic search embeddings for improved code search.
+
+            Embeddings enable:
+            - Natural language code search
+            - Finding similar code patterns
+            - Semantic code understanding
+
+            Use when:
+            - Search results seem inaccurate
+            - After major code refactoring
+            - Switching embedding models
+            - Fixing embedding generation failures
+
+            Note: This is usually done automatically during scanning.
+            Manual updates are rarely needed.""",
         )
         async def update_embeddings(request: UpdateEmbeddingsRequest) -> dict[str, Any]:
             """Update embeddings for repository files.
@@ -343,7 +399,21 @@ class RepositoryManagementTools:
 
         @self.mcp.tool(
             name="get_repository_stats",
-            description="Get detailed statistics for a repository",
+            description="""Get comprehensive statistics and metrics for a repository.
+
+            Returns detailed information including:
+            - Code metrics: files, classes, functions, modules
+            - Language distribution with percentages
+            - Embedding coverage for semantic search
+            - Recent commit history (optional)
+            - Complexity metrics
+            - Size statistics
+
+            Use when:
+            - Creating dashboards or reports
+            - Understanding codebase composition
+            - Monitoring repository growth
+            - Planning refactoring efforts""",
         )
         async def get_repository_stats(
             request: RepositoryStatsRequest,
@@ -480,7 +550,23 @@ class RepositoryManagementTools:
 
         @self.mcp.tool(
             name="delete_repository",
-            description="Delete a repository and all its data",
+            description="""Permanently delete a repository and all associated data.
+
+            ⚠️ WARNING: This action cannot be undone!
+
+            Deletes:
+            - All file and code analysis data
+            - All embeddings and search indexes
+            - All migration plans for this repository
+            - All dependency analysis
+            - All extracted domain models
+
+            Requires: confirm=true parameter for safety
+
+            Use when:
+            - Repository is no longer needed
+            - Cleaning up test repositories
+            - Freeing up storage space""",
         )
         async def delete_repository(
             repository_id: int = Field(..., description="Repository ID to delete"),

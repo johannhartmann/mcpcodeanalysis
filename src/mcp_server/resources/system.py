@@ -18,7 +18,33 @@ class SystemResources:
     def register_resources(self):
         """Register all system resources."""
 
-        @self.mcp.resource("system://health")
+        @self.mcp.resource(
+            "system://health",
+            description="""Get comprehensive health status of the MCP server and its components.
+
+            Returns: Markdown report containing:
+            - Overall system status (Healthy/Unhealthy)
+            - Component health checks:
+              * Database connectivity and stats
+              * GitHub API status and rate limits
+              * OpenAI API availability
+              * Embedding service status
+              * Background scanner status
+            - Performance metrics
+            - Resource usage (memory, connections)
+            - Error counts and recent issues
+
+            Health indicators:
+            - ✅ Healthy: All systems operational
+            - ⚠️ Degraded: Some issues but functional
+            - ❌ Unhealthy: Critical components down
+
+            Examples:
+            - system://health
+
+            Use when: Troubleshooting issues, monitoring system status,
+                     verifying deployments, or checking API limits.""",
+        )
         async def get_health_status() -> str:
             """Get comprehensive health status of the MCP server."""
             async with self.session_maker() as session:
@@ -136,7 +162,40 @@ class SystemResources:
 
 Please check the server logs for more details."""
 
-        @self.mcp.resource("system://stats")
+        @self.mcp.resource(
+            "system://stats",
+            description="""Get detailed statistics about the code analysis system.
+
+            Returns: Markdown report containing:
+            - Repository statistics:
+              * Total repositories tracked
+              * Active vs inactive repos
+              * Last sync times
+            - Code metrics:
+              * Total files indexed
+              * Lines of code (estimated)
+              * Language distribution
+              * File type breakdown
+            - Entity statistics:
+              * Classes, functions, modules
+              * Complexity distribution
+              * Documentation coverage
+            - Search & embedding stats:
+              * Total embeddings
+              * Search query performance
+              * Cache hit rates
+            - Migration statistics:
+              * Plans created/completed
+              * Pattern usage
+
+            Examples:
+            - system://stats
+
+            Use when: Reporting on system usage, understanding codebase composition,
+                     capacity planning, or creating dashboards.
+
+            Note: Some metrics are estimated for performance reasons.""",
+        )
         async def get_system_statistics() -> str:
             """Get detailed system statistics and metrics."""
             async with self.session_maker() as session:
@@ -221,7 +280,29 @@ Please check the server logs for more details."""
                 except (AttributeError, KeyError, ValueError, TypeError) as e:
                     return f"Error gathering system statistics: {e!s}"
 
-        @self.mcp.resource("system://config")
+        @self.mcp.resource(
+            "system://config",
+            description="""Get current server configuration and capabilities (non-sensitive info only).
+
+            Returns: Markdown document containing:
+            - MCP server settings (version, protocol, endpoints)
+            - Enabled features and their status
+            - Resource limits and quotas
+            - Scanning configuration
+            - Supported programming languages
+            - API rate limits
+            - Cache settings
+            - Performance tuning parameters
+
+            Security note: Sensitive information like API keys, passwords, and
+                          connection strings are never exposed.
+
+            Examples:
+            - system://config
+
+            Use when: Understanding system capabilities, troubleshooting limits,
+                     planning usage, or documenting the deployment.""",
+        )
         async def get_configuration_info() -> str:
             """Get current server configuration (non-sensitive)."""
             try:

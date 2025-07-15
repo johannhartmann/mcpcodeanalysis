@@ -18,7 +18,34 @@ class MigrationAnalysisResources:
     def register_resources(self):
         """Register all migration analysis resources."""
 
-        @self.mcp.resource("migration://readiness/{repository_url}")
+        @self.mcp.resource(
+            "migration://readiness/{repository_url}",
+            description="""Analyze a repository's readiness for migration to microservices or modular architecture.
+
+            Parameters:
+            - repository_url: GitHub repository URL (e.g., 'github.com/owner/repo')
+
+            Returns: Markdown report containing:
+            - Overall readiness score (0-10)
+            - Identified bounded contexts
+            - Migration candidates ranked by feasibility
+            - Complexity metrics (files, lines, coupling)
+            - Specific recommendations with priority
+
+            Analysis includes:
+            - Domain boundary detection
+            - Coupling analysis between modules
+            - Database table relationships
+            - Shared code identification
+            - Technical debt assessment
+
+            Examples:
+            - migration://readiness/github.com/legacy/monolith
+            - migration://readiness/github.com/company/backend
+
+            Use when: Planning migration strategy, identifying service boundaries,
+                     estimating migration effort, or prioritizing refactoring work.""",
+        )
         async def get_migration_readiness(repository_url: str) -> str:
             """Get migration readiness analysis for a repository."""
             async with self.session_maker() as session:
@@ -51,7 +78,38 @@ class MigrationAnalysisResources:
                 except (AttributeError, KeyError, ValueError, TypeError) as e:
                     return f"Error analyzing migration readiness: {e!s}"
 
-        @self.mcp.resource("migration://patterns/search")
+        @self.mcp.resource(
+            "migration://patterns/search",
+            description="""Search the library of proven migration patterns and strategies.
+
+            Note: Currently returns all patterns. Future versions will support:
+            - Query parameters for filtering by category
+            - Success rate thresholds
+            - Context type filtering
+
+            Returns: Markdown document listing:
+            - Pattern name and category
+            - Context type (monolith-to-services, database-split, etc.)
+            - Success rate from previous migrations
+            - Usage count
+            - Implementation template
+            - Potential risks and mitigations
+
+            Pattern categories:
+            - Strangler Fig Pattern
+            - Branch by Abstraction
+            - Parallel Run
+            - Event Sourcing Migration
+            - Database Decomposition
+
+            Examples:
+            - migration://patterns/search
+            - migration://patterns/search?category=database
+            - migration://patterns/search?min_success_rate=0.8
+
+            Use when: Looking for proven migration approaches, learning from
+                     successful patterns, or avoiding common pitfalls.""",
+        )
         async def search_migration_patterns() -> str:
             """Search migration patterns in the pattern library."""
             async with self.session_maker() as session:
@@ -89,7 +147,29 @@ class MigrationAnalysisResources:
                 except (AttributeError, KeyError, ValueError, TypeError) as e:
                     return f"Error searching migration patterns: {e!s}"
 
-        @self.mcp.resource("migration://patterns/stats")
+        @self.mcp.resource(
+            "migration://patterns/stats",
+            description="""Get usage statistics and insights from the migration pattern library.
+
+            Returns: Markdown report containing:
+            - Total patterns in library
+            - Most/least successful patterns
+            - Most frequently used patterns
+            - Success rate trends
+            - Pattern categories breakdown
+            - Recent pattern additions
+
+            Insights include:
+            - Which patterns work best for specific scenarios
+            - Common failure modes to avoid
+            - Success factors analysis
+
+            Examples:
+            - migration://patterns/stats
+
+            Use when: Evaluating migration strategies, understanding what works,
+                     making data-driven migration decisions, or reporting to stakeholders.""",
+        )
         async def get_pattern_library_stats() -> str:
             """Get statistics about the pattern library."""
             async with self.session_maker() as session:
@@ -171,7 +251,40 @@ class MigrationAnalysisResources:
                 except (AttributeError, KeyError, ValueError, TypeError) as e:
                     return f"Error getting pattern library stats: {e!s}"
 
-        @self.mcp.resource("migration://dashboard/{repository_url}")
+        @self.mcp.resource(
+            "migration://dashboard/{repository_url}",
+            description="""Get a comprehensive migration dashboard for tracking progress.
+
+            Parameters:
+            - repository_url: GitHub repository URL (e.g., 'github.com/owner/repo')
+                             If not provided, shows global dashboard across all repos
+
+            Returns: Markdown dashboard containing:
+            - Migration plan summary (total, active, completed)
+            - Current phase and progress percentage
+            - Timeline and milestones
+            - Risk indicators and blockers
+            - Team assignments and workload
+            - Recent activity log
+            - Success metrics tracking
+
+            Dashboard sections:
+            - Executive Summary
+            - Active Migrations
+            - Completed Migrations
+            - Upcoming Milestones
+            - Risk Assessment
+            - Resource Allocation
+
+            Examples:
+            - migration://dashboard/github.com/legacy/monolith
+            - migration://dashboard/all (global view)
+
+            Use when: Monitoring migration progress, reporting to stakeholders,
+                     identifying blockers, or planning resource allocation.
+
+            Note: Create migration plans first using create_migration_plan tool.""",
+        )
         async def get_migration_dashboard(repository_url: str | None = None) -> str:
             """Get migration dashboard with summary metrics."""
             try:
