@@ -80,20 +80,14 @@ async def get_db_session() -> AsyncGenerator[Any, None]:
 
 
 # Repository management tools
-@mcp.tool(name="add_repository", description="Add a new repository to track")
+@mcp.tool(
+    name="add_repository", description="Add a new repository to track and analyze"
+)
 async def add_repository(
     url: str = Field(description="Repository URL (GitHub or file://)"),
     branch: str = Field(default=None, description="Branch to track (optional)"),
-    scan_immediately: bool = Field(
-        default=True,
-        description="Scan repository immediately",
-    ),
-    generate_embeddings: bool = Field(
-        default=True,
-        description="Generate embeddings for code",
-    ),
 ) -> dict[str, Any]:
-    """Add a new repository to track."""
+    """Add a new repository to track. Automatically scans the repository and generates embeddings."""
     await initialize_server()
 
     async for session in get_db_session():
@@ -122,31 +116,25 @@ async def add_repository(
             await session.commit()
             await session.refresh(repo)
 
-            scan_result = {"repository_id": repo.id}
+            # Always scan the repository (required for functionality)
+            from src.scanner.repository_scanner import RepositoryScanner
 
-            # Scan if requested
-            if scan_immediately:
-                from src.scanner.repository_scanner import RepositoryScanner
+            repo_config = RepositoryConfig(
+                url=url,
+                branch=branch,
+            )
 
-                repo_config = RepositoryConfig(
-                    url=url,
-                    branch=branch,
-                )
+            scanner = RepositoryScanner(session)
+            scan_result: dict[str, Any] = await scanner.scan_repository(repo_config)
 
-                scanner = RepositoryScanner(session)
-                scan_result: dict[str, Any] = await scanner.scan_repository(repo_config)
+            # Always generate embeddings (core functionality)
+            from src.embeddings.embedding_service import EmbeddingService
 
-                # Generate embeddings if requested
-                if generate_embeddings:
-                    from src.embeddings.embedding_service import EmbeddingService
-
-                    embedding_service = EmbeddingService(session)
-                    embedding_result = (
-                        await embedding_service.create_repository_embeddings(
-                            scan_result["repository_id"],
-                        )
-                    )
-                    scan_result["embeddings"] = embedding_result
+            embedding_service = EmbeddingService(session)
+            embedding_result = await embedding_service.create_repository_embeddings(
+                scan_result["repository_id"],
+            )
+            scan_result["embeddings"] = embedding_result
 
             return {
                 "success": True,
