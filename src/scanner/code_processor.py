@@ -684,11 +684,14 @@ class CodeProcessor:
             )
 
             if not source_id:
-                logger.debug(
-                    "Could not resolve source entity: %s (%s)",
-                    ref["source_name"],
-                    ref["source_type"],
-                )
+                # Only log at trace level for performance
+                if logger.isEnabledFor(5):  # TRACE level
+                    logger.log(
+                        5,
+                        "Could not resolve source entity: %s (%s)",
+                        ref["source_name"],
+                        ref["source_type"],
+                    )
                 return None
 
             # Resolve target entity
@@ -698,11 +701,16 @@ class CodeProcessor:
             )
 
             if not target_id:
-                logger.debug(
-                    "Could not resolve target entity: %s (%s)",
-                    ref["target_name"],
-                    ref["target_type"],
-                )
+                # Skip logging for external modules
+                if not self._is_external_module(ref["target_name"]):
+                    # Only log internal unresolved references at trace level
+                    if logger.isEnabledFor(5):  # TRACE level
+                        logger.log(
+                            5,
+                            "Could not resolve internal target entity: %s (%s)",
+                            ref["target_name"],
+                            ref["target_type"],
+                        )
                 return None
 
             return {
@@ -773,6 +781,10 @@ class CodeProcessor:
         Returns:
             Tuple of (entity_id, file_id) or (None, None) if not found
         """
+        # Skip resolution for standard library and third-party modules
+        if self._is_external_module(target_name):
+            return None, None
+
         # For now, use simple lookups - in production, this would use a name index
         if target_type == "module":
             # Look up module by name
@@ -786,10 +798,23 @@ class CodeProcessor:
         elif target_type == "class":
             # Extract class name from full path
             class_name = target_name.split(".")[-1]
+            # Also try to match by full qualified name in module
+            module_path = ".".join(target_name.split(".")[:-1])
+
             result = await self.db_session.execute(
-                select(Class).where(Class.name == class_name)
+                select(Class)
+                .join(Module)
+                .where((Class.name == class_name) & (Module.name == module_path))
             )
             cls = result.scalar_one_or_none()
+
+            if not cls:
+                # Fallback to simple name match
+                result = await self.db_session.execute(
+                    select(Class).where(Class.name == class_name)
+                )
+                cls = result.scalar_one_or_none()
+
             if cls:
                 # Get file ID through module
                 module_result = await self.db_session.execute(
@@ -802,10 +827,23 @@ class CodeProcessor:
         elif target_type == "function":
             # Extract function name from full path
             func_name = target_name.split(".")[-1]
+            # Also try to match by module path
+            module_path = ".".join(target_name.split(".")[:-1])
+
             result = await self.db_session.execute(
-                select(Function).where(Function.name == func_name)
+                select(Function)
+                .join(Module)
+                .where((Function.name == func_name) & (Module.name == module_path))
             )
             func = result.scalar_one_or_none()
+
+            if not func:
+                # Fallback to simple name match
+                result = await self.db_session.execute(
+                    select(Function).where(Function.name == func_name)
+                )
+                func = result.scalar_one_or_none()
+
             if func:
                 # Get file ID through module
                 module_result = await self.db_session.execute(
@@ -816,6 +854,59 @@ class CodeProcessor:
                     return func.id, module.file_id
 
         return None, None
+
+    def _is_external_module(self, module_name: str) -> bool:
+        """Check if a module is external (standard library or third-party)."""
+        # Common standard library and third-party modules
+        external_prefixes = [
+            "abc",
+            "ast",
+            "asyncio",
+            "builtins",
+            "collections",
+            "contextlib",
+            "datetime",
+            "decimal",
+            "functools",
+            "hashlib",
+            "http",
+            "importlib",
+            "io",
+            "itertools",
+            "json",
+            "logging",
+            "math",
+            "os",
+            "pathlib",
+            "random",
+            "re",
+            "shutil",
+            "socket",
+            "sqlite3",
+            "subprocess",
+            "sys",
+            "threading",
+            "time",
+            "typing",
+            "unittest",
+            "urllib",
+            "uuid",
+            # Common third-party
+            "dynaconf",
+            "fastmcp",
+            "git",
+            "httpx",
+            "numpy",
+            "pandas",
+            "pydantic",
+            "pytest",
+            "requests",
+            "sqlalchemy",
+            "uvicorn",
+        ]
+
+        first_part = module_name.split(".")[0]
+        return first_part in external_prefixes
 
     def enable_parallel_processing(self, enabled: bool = True) -> None:
         """Enable or disable parallel processing for multiple files."""

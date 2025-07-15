@@ -24,15 +24,16 @@ class RepositoryConfig(BaseModel):
     @classmethod
     def validate_github_url(cls, v: str) -> str:
         """Validate GitHub URL format."""
-        # Accept both HTTPS and SSH formats
-        github_patterns = [
+        # Accept both HTTPS and SSH formats, and file:// for local repos
+        patterns = [
             r"^https://github\.com/[\w-]+/[\w.-]+/?$",
             r"^git@github\.com:[\w-]+/[\w.-]+\.git$",
             r"^git@github\.com:[\w-]+/[\w.-]+$",
+            r"^file:///.+$",  # Accept file:// URLs for local repos
         ]
 
-        if not any(re.match(pattern, v) for pattern in github_patterns):
-            msg = f"Invalid GitHub URL: {v}"
+        if not any(re.match(pattern, v) for pattern in patterns):
+            msg = f"Invalid repository URL: {v}"
             raise ValueError(msg)
 
         return v.rstrip("/")  # Remove trailing slash if present

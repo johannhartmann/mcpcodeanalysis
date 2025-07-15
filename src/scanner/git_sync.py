@@ -47,7 +47,17 @@ class GitSync:
 
     def extract_owner_repo(self, github_url: str) -> tuple[str, str]:
         """Extract owner and repository name from GitHub URL."""
-        # Handle both HTTPS and SSH URLs
+        # Handle file:// URLs specially
+        if github_url.startswith("file://"):
+            # For file URLs, use the last two path components as owner/repo
+            path = github_url.replace("file://", "")
+            parts = path.rstrip("/").split("/")
+            if len(parts) >= 2:
+                return parts[-2], parts[-1]
+            else:
+                return "local", parts[-1] if parts else "unknown"
+
+        # Handle both HTTPS and SSH URLs for GitHub
         if github_url.startswith("https://github.com/"):
             path = github_url.replace("https://github.com/", "")
         elif github_url.startswith("git@github.com:"):
@@ -119,7 +129,7 @@ class GitSync:
                     clone_url,
                     repo_path,
                     branch=branch,
-                    depth=1,  # Shallow clone for efficiency
+                    depth=10,  # Shallow clone with some history
                 ),
             )
 
@@ -388,7 +398,12 @@ class GitSync:
                 commit_info["files_changed"] = list(stats.files.keys())
                 commit_info["additions"] = stats.total["insertions"]
                 commit_info["deletions"] = stats.total["deletions"]
-            except (AttributeError, KeyError, TypeError) as stats_error:
+            except (
+                AttributeError,
+                KeyError,
+                TypeError,
+                git.exc.GitCommandError,
+            ) as stats_error:
                 logger.warning(
                     "Could not get commit stats for %s: %s",
                     commit_sha,
