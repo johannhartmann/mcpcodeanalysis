@@ -1,11 +1,13 @@
 """End-to-end integration tests for MCP server."""
 
 import tempfile
+from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
 import pytest_asyncio
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from src.database.init_db import get_session_factory, init_database
 from src.database.models import File
@@ -23,7 +25,7 @@ class TestMCPEndToEnd:
     """End-to-end integration tests for MCP server functionality."""
 
     @pytest_asyncio.fixture
-    async def test_db_engine(self):
+    async def test_db_engine(self) -> AsyncIterator[AsyncEngine]:
         """Create a test database engine."""
         # Use SQLite for tests to avoid PostgreSQL dependency
         db_url = "sqlite+aiosqlite:///:memory:"
@@ -32,7 +34,9 @@ class TestMCPEndToEnd:
         await engine.dispose()
 
     @pytest_asyncio.fixture
-    async def db_session(self, test_db_engine):
+    async def db_session(
+        self, test_db_engine: AsyncEngine
+    ) -> AsyncIterator[AsyncSession]:
         """Create a test database session."""
         factory = get_session_factory(test_db_engine)
         async with factory() as session:
@@ -41,13 +45,13 @@ class TestMCPEndToEnd:
     # OpenAI client no longer needed - embeddings are handled internally
 
     @pytest_asyncio.fixture
-    async def temp_repo_dir(self):
+    async def temp_repo_dir(self) -> AsyncIterator[Path]:
         """Create a temporary directory for test repositories."""
         with tempfile.TemporaryDirectory() as tmpdir:
             yield Path(tmpdir)
 
     @pytest_asyncio.fixture
-    async def sample_repo(self, temp_repo_dir):
+    async def sample_repo(self, temp_repo_dir: Path) -> Path:
         """Create a sample repository for testing."""
         repo_path = temp_repo_dir / "test_repo"
         repo_path.mkdir()
@@ -149,7 +153,9 @@ def test_calculator_multiply():
     @pytest.mark.skip(
         reason="Requires full environment setup with PostgreSQL and file permissions"
     )
-    async def test_full_workflow(self, db_session, sample_repo) -> None:
+    async def test_full_workflow(
+        self, db_session: AsyncSession, sample_repo: Path
+    ) -> None:
         """Test the complete workflow: add repo -> scan -> search -> analyze."""
         # Skip the MCP framework and test the core functionality directly
         from unittest.mock import AsyncMock, patch
@@ -229,15 +235,16 @@ def test_calculator_multiply():
     @pytest.mark.skip(reason="MCP tools framework not fully implemented in tests")
     async def test_incremental_scanning(
         self,
-        db_session,
-        sample_repo,
+        db_session: AsyncSession,
+        sample_repo: Path,
     ) -> None:
         """Test incremental scanning after file changes."""
         import subprocess
 
         from fastmcp import FastMCP
 
-        mcp = FastMCP("Test MCP")
+        mcp: FastMCP = FastMCP("Test MCP")
+
         repo_tools = RepositoryManagementTools(db_session, mcp)
         await repo_tools.register_tools()
 
@@ -247,7 +254,10 @@ def test_calculator_multiply():
             scan_immediately=True,
             generate_embeddings=False,
         )
-        add_tool = next(t for t in mcp.tools if t.name == "add_repository")
+        tools = getattr(mcp, "tools", [])
+        add_tool = next(
+            t for t in tools if getattr(t, "name", None) == "add_repository"
+        )
         add_result = await add_tool.fn(add_request)
         repo_id = add_result["repository_id"]
 
@@ -283,7 +293,10 @@ def greet(name: str) -> str:
             force_full_scan=False,  # Incremental scan
             generate_embeddings=False,
         )
-        scan_tool = next(t for t in mcp.tools if t.name == "scan_repository")
+        tools = getattr(mcp, "tools", [])
+        scan_tool = next(
+            t for t in tools if getattr(t, "name", None) == "scan_repository"
+        )
         scan_result = await scan_tool.fn(scan_request)
         assert scan_result["success"] is True
 
@@ -305,13 +318,13 @@ def greet(name: str) -> str:
     @pytest.mark.skip(reason="MCP tools framework not fully implemented in tests")
     async def test_search_functionality(
         self,
-        db_session,
-        sample_repo,
+        db_session: AsyncSession,
+        sample_repo: Path,
     ) -> None:
         """Test code search functionality (without embeddings)."""
         from fastmcp import FastMCP
 
-        mcp = FastMCP("Test MCP")
+        mcp: FastMCP = FastMCP("Test MCP")
 
         # Setup repository
         repo_tools = RepositoryManagementTools(db_session, mcp)
@@ -322,7 +335,10 @@ def greet(name: str) -> str:
             scan_immediately=True,
             generate_embeddings=False,
         )
-        add_tool = next(t for t in mcp.tools if t.name == "add_repository")
+        tools = getattr(mcp, "tools", [])
+        add_tool = next(
+            t for t in tools if getattr(t, "name", None) == "add_repository"
+        )
         add_result = await add_tool.fn(add_request)
         repo_id = add_result["repository_id"]
 
@@ -331,7 +347,10 @@ def greet(name: str) -> str:
         await search_tools.register_tools()
 
         # Test keyword search
-        keyword_tool = next(t for t in mcp.tools if t.name == "keyword_search")
+        tools = getattr(mcp, "tools", [])
+        keyword_tool = next(
+            t for t in tools if getattr(t, "name", None) == "keyword_search"
+        )
         keyword_results = await keyword_tool.fn(
             {
                 "keywords": ["Calculator", "add"],
@@ -353,11 +372,11 @@ def greet(name: str) -> str:
 
     @pytest.mark.asyncio
     @pytest.mark.skip(reason="MCP tools framework not fully implemented in tests")
-    async def test_error_handling(self, db_session) -> None:
+    async def test_error_handling(self, db_session: AsyncSession) -> None:
         """Test error handling in various scenarios."""
         from fastmcp import FastMCP
 
-        mcp = FastMCP("Test MCP")
+        mcp: FastMCP = FastMCP("Test MCP")
         repo_tools = RepositoryManagementTools(db_session, mcp)
         await repo_tools.register_tools()
 
@@ -369,13 +388,19 @@ def greet(name: str) -> str:
         )
 
         # This should fail gracefully
-        add_tool = next(t for t in mcp.tools if t.name == "add_repository")
+        tools = getattr(mcp, "tools", [])
+        add_tool = next(
+            t for t in tools if getattr(t, "name", None) == "add_repository"
+        )
         add_result = await add_tool.fn(add_request)
         assert add_result["success"] is False
         assert "error" in add_result
 
         # Test listing when no repositories exist
-        list_tool = next(t for t in mcp.tools if t.name == "list_repositories")
+        tools = getattr(mcp, "tools", [])
+        list_tool = next(
+            t for t in tools if getattr(t, "name", None) == "list_repositories"
+        )
         list_result = await list_tool.fn()
         assert list_result["success"] is True
         assert list_result["count"] == 0
@@ -386,7 +411,10 @@ def greet(name: str) -> str:
             force_full_scan=True,
             generate_embeddings=False,
         )
-        scan_tool = next(t for t in mcp.tools if t.name == "scan_repository")
+        tools = getattr(mcp, "tools", [])
+        scan_tool = next(
+            t for t in tools if getattr(t, "name", None) == "scan_repository"
+        )
         scan_result = await scan_tool.fn(scan_request)
         assert scan_result["success"] is False
         assert "not found" in scan_result["error"].lower()

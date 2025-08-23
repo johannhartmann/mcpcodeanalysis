@@ -1,6 +1,7 @@
 """End-to-end tests for TypeScript and JavaScript parsing."""
 
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -12,12 +13,12 @@ class TestTypeScriptJavaScriptParsing:
     """Test TypeScript and JavaScript parsing end-to-end."""
 
     @pytest.fixture
-    def temp_dir(self):
+    def temp_dir(self) -> Iterator[Path]:
         """Create temporary directory for test files."""
         with tempfile.TemporaryDirectory() as temp_dir:
             yield Path(temp_dir)
 
-    def test_typescript_plugin_basic_functionality(self):
+    def test_typescript_plugin_basic_functionality(self) -> None:
         """Test basic TypeScript plugin functionality."""
         plugin = LanguagePluginRegistry.get_plugin("typescript")
         assert plugin is not None
@@ -50,7 +51,7 @@ class TestTypeScriptJavaScriptParsing:
         }
         assert expected_nodes.issubset(complexity_nodes)
 
-    def test_javascript_plugin_basic_functionality(self):
+    def test_javascript_plugin_basic_functionality(self) -> None:
         """Test basic JavaScript plugin functionality."""
         plugin = LanguagePluginRegistry.get_plugin("javascript")
         assert plugin is not None
@@ -89,9 +90,10 @@ class TestTypeScriptJavaScriptParsing:
         False,  # TreeSitter is base infrastructure and should be available
         reason="TreeSitter libraries should be available",
     )
-    def test_typescript_parser_creation_and_usage(self, temp_dir):
+    def test_typescript_parser_creation_and_usage(self, temp_dir: Path) -> None:
         """Test TypeScript parser creation and basic usage."""
         plugin = LanguagePluginRegistry.get_plugin("typescript")
+        assert plugin is not None
 
         try:
             parser = plugin.create_parser()
@@ -144,9 +146,10 @@ export { User, UserService, createUser };
         False,  # TreeSitter is base infrastructure and should be available
         reason="TreeSitter libraries should be available",
     )
-    def test_javascript_parser_creation_and_usage(self, temp_dir):
+    def test_javascript_parser_creation_and_usage(self, temp_dir: Path) -> None:
         """Test JavaScript parser creation and basic usage."""
         plugin = LanguagePluginRegistry.get_plugin("javascript")
+        assert plugin is not None
 
         try:
             parser = plugin.create_parser()
@@ -196,7 +199,7 @@ export { UserService, createUser, getUserById };
         except ImportError:
             pytest.skip("tree-sitter-javascript not available")
 
-    def test_typescript_complexity_calculation(self):
+    def test_typescript_complexity_calculation(self) -> None:
         """Test TypeScript complexity calculation."""
         from src.parser.complexity_calculator import ComplexityCalculator
 
@@ -216,7 +219,7 @@ export { UserService, createUser, getUserById };
                 node in calculator.COMPLEXITY_NODES
             ), f"Missing TypeScript node: {node}"
 
-    def test_javascript_complexity_calculation(self):
+    def test_javascript_complexity_calculation(self) -> None:
         """Test JavaScript complexity calculation."""
         from src.parser.complexity_calculator import ComplexityCalculator
 
@@ -237,7 +240,7 @@ export { UserService, createUser, getUserById };
                 node in calculator.COMPLEXITY_NODES
             ), f"Missing JavaScript node: {node}"
 
-    def test_domain_analysis_feature_detection(self):
+    def test_domain_analysis_feature_detection(self) -> None:
         """Test that TypeScript/JavaScript support domain analysis."""
         from src.parser.plugin_registry import LanguagePluginRegistry
 
@@ -245,14 +248,16 @@ export { UserService, createUser, getUserById };
         # since they have classes and functions
 
         ts_plugin = LanguagePluginRegistry.get_plugin("typescript")
+        assert ts_plugin is not None
         assert ts_plugin.supports_feature("classes")
         assert ts_plugin.supports_feature("functions")
 
         js_plugin = LanguagePluginRegistry.get_plugin("javascript")
+        assert js_plugin is not None
         assert js_plugin.supports_feature("classes")
         assert js_plugin.supports_feature("functions")
 
-    def test_code_extractor_integration(self):
+    def test_code_extractor_integration(self) -> None:
         """Test that CodeExtractor can handle TypeScript/JavaScript files."""
         from src.parser.code_extractor import CodeExtractor
 
@@ -277,7 +282,7 @@ export { UserService, createUser, getUserById };
             else:
                 assert plugin.get_language_name() == "javascript"
 
-    def test_error_handling_missing_libraries(self):
+    def test_error_handling_missing_libraries(self) -> None:
         """Test error handling when TreeSitter libraries are missing."""
         # This test validates that the system degrades gracefully
         # when tree-sitter-typescript or tree-sitter-javascript are not installed
@@ -300,11 +305,14 @@ export { UserService, createUser, getUserById };
         assert len(ts_plugin.get_complexity_nodes()) > 0
         assert len(js_plugin.get_complexity_nodes()) > 0
 
-    def test_language_priority_system(self):
+    def test_language_priority_system(self) -> None:
         """Test language analysis priority system."""
         ts_plugin = LanguagePluginRegistry.get_plugin("typescript")
+        assert ts_plugin is not None
         js_plugin = LanguagePluginRegistry.get_plugin("javascript")
+        assert js_plugin is not None
         python_plugin = LanguagePluginRegistry.get_plugin("python")
+        assert python_plugin is not None
 
         # TypeScript should have higher priority than JavaScript
         assert ts_plugin.get_analysis_priority() > js_plugin.get_analysis_priority()
@@ -312,7 +320,7 @@ export { UserService, createUser, getUserById };
         # Python should have highest priority
         assert python_plugin.get_analysis_priority() > ts_plugin.get_analysis_priority()
 
-    def test_file_extension_mappings(self):
+    def test_file_extension_mappings(self) -> None:
         """Test that file extensions map to correct languages."""
         test_cases = [
             (".ts", "typescript"),
