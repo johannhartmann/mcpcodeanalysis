@@ -296,10 +296,14 @@ class GitHubMonitor:
         import hashlib
         import hmac
 
+        secret = self.github_config.get("webhook_secret")
+        if not isinstance(secret, str) or not secret:
+            return True
+
         expected_signature = (
             "sha256="
             + hmac.new(
-                self.github_config.get("webhook_secret").encode(),
+                secret.encode(),
                 payload,
                 hashlib.sha256,
             ).hexdigest()

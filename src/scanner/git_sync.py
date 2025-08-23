@@ -219,7 +219,7 @@ class GitSync:
         since_commit: str | None = None,
     ) -> dict[str, dict[str, Any]]:
         """Get files changed since a specific commit."""
-        changed_files = {}
+        changed_files: dict[str, dict[str, Any]] = {}
 
         try:
             if since_commit:
@@ -231,7 +231,7 @@ class GitSync:
 
             # Process changed files
             for item in diff:
-                file_path = item.a_path or item.b_path
+                file_path = item.a_path or item.b_path or ""
 
                 change_type = "modified"
                 if item.new_file:
@@ -473,7 +473,11 @@ class GitSync:
             try:
                 # Get the file's git object
                 git_file = repo.head.commit.tree[str(relative_path)]
-                git_hash = git_file.binsha.hex()
+                # gitpython binsha may be bytes; normalize to str
+                if isinstance(git_file.binsha, (bytes | bytearray)):
+                    git_hash = git_file.binsha.hex()
+                else:
+                    git_hash = str(git_file.binsha)
 
                 # Get last commit that modified this file
                 commits = list(repo.iter_commits(paths=str(relative_path), max_count=1))
@@ -500,6 +504,10 @@ class GitSync:
             }
 
             if last_commit:
+                # Normalize last_commit_message to str to satisfy typing
+                last_msg = last_commit.message.strip()
+                if not isinstance(last_msg, str):
+                    last_msg = str(last_msg)
                 metadata.update(
                     {
                         "last_commit_sha": last_commit.hexsha,
@@ -507,7 +515,7 @@ class GitSync:
                             last_commit.committed_date, tz=UTC
                         ).replace(tzinfo=None),
                         "last_commit_author": last_commit.author.name,
-                        "last_commit_message": last_commit.message.strip(),
+                        "last_commit_message": last_msg,
                     }
                 )
 

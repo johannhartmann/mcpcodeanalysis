@@ -146,9 +146,11 @@ async def test_discover_packages(
     async_session: AsyncSession,
     test_repository: Repository,
     test_files: list[File],
-):
+) -> None:
+    repo_id: int = int(test_repository.id)
+
     """Test package discovery."""
-    analyzer = PackageAnalyzer(async_session, test_repository.id)
+    analyzer = PackageAnalyzer(async_session, repo_id)
 
     # Discover packages
     packages = await analyzer._discover_packages(test_files)
@@ -174,9 +176,11 @@ async def test_analyze_packages(
     async_session: AsyncSession,
     test_repository: Repository,
     test_files: list[File],
-):
+) -> None:
+    repo_id: int = int(test_repository.id)
+
     """Test complete package analysis."""
-    analyzer = PackageAnalyzer(async_session, test_repository.id)
+    analyzer = PackageAnalyzer(async_session, repo_id)
 
     # Run analysis
     result = await analyzer.analyze_packages()
@@ -211,7 +215,7 @@ async def test_package_metrics(
     async_session: AsyncSession,
     test_repository: Repository,
     test_files: list[File],
-):
+) -> None:
     """Test package metrics calculation."""
     # Add some classes and functions to test metrics
     src_file = next(f for f in test_files if f.path == "src/utils.py")
@@ -253,10 +257,12 @@ async def test_package_metrics(
         complexity=3,
     )
     async_session.add_all([func1, func2])
+    repo_id: int = int(test_repository.id)
+
     await async_session.commit()
 
     # Run analysis
-    analyzer = PackageAnalyzer(async_session, test_repository.id)
+    analyzer = PackageAnalyzer(async_session, repo_id)
     await analyzer.analyze_packages()
 
     # Check metrics
@@ -285,7 +291,7 @@ async def test_package_dependencies(
     async_session: AsyncSession,
     test_repository: Repository,
     test_files: list[File],
-):
+) -> None:
     """Test package dependency analysis."""
     # Add imports to create dependencies
     from src.database.models import Import
@@ -309,12 +315,13 @@ async def test_package_dependencies(
         imported_names=["utility_function"],
         line_number=1,
     )
+    repo_id: int = int(test_repository.id)
 
     async_session.add_all([import1, import2])
     await async_session.commit()
 
     # Run analysis
-    analyzer = PackageAnalyzer(async_session, test_repository.id)
+    analyzer = PackageAnalyzer(async_session, repo_id)
     await analyzer.analyze_packages()
 
     # Check dependencies
@@ -330,7 +337,7 @@ async def test_package_dependencies(
     pkg_result = await async_session.execute(
         select(Package).where(Package.repository_id == test_repository.id)
     )
-    pkgs = {p.path: p for p in pkg_result.scalars()}
+    pkgs: dict[str, Package] = {str(p.path): p for p in pkg_result.scalars()}
 
     # Check src -> src/core dependency
     src_to_core = next(

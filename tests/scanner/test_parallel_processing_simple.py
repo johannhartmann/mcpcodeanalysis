@@ -1,5 +1,7 @@
 """Simple tests for parallel processing functionality."""
 
+from collections.abc import Awaitable, Callable
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -10,7 +12,7 @@ from src.scanner.code_processor import CodeProcessor
 
 
 @pytest.mark.asyncio
-async def test_parallel_processing_enabled(async_session: AsyncSession):
+async def test_parallel_processing_enabled(async_session: AsyncSession) -> None:
     """Test that parallel processing can be enabled and disabled."""
     processor = CodeProcessor(
         async_session,
@@ -31,7 +33,9 @@ async def test_parallel_processing_enabled(async_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_parallel_processing_uses_correct_method(async_session: AsyncSession):
+async def test_parallel_processing_uses_correct_method(
+    async_session: AsyncSession,
+) -> None:
     """Test that parallel processing uses the correct method based on settings."""
     # Create mock files
     mock_files = []
@@ -49,14 +53,17 @@ async def test_parallel_processing_uses_correct_method(async_session: AsyncSessi
     )
 
     # Mock the sequential method
-    processor_seq._process_files_sequential = AsyncMock(return_value=[])
-    processor_seq._process_files_parallel = AsyncMock(return_value=[])
+    from typing import cast
+
+    pseq_any = cast("Any", processor_seq)
+    pseq_any._process_files_sequential = AsyncMock(return_value=[])
+    pseq_any._process_files_parallel = AsyncMock(return_value=[])
 
     await processor_seq.process_files(mock_files)
 
     # Should have called sequential method
-    processor_seq._process_files_sequential.assert_called_once()
-    processor_seq._process_files_parallel.assert_not_called()
+    assert pseq_any._process_files_sequential.await_count == 1
+    assert pseq_any._process_files_parallel.await_count == 0
 
     # Test parallel processing
     processor_par = CodeProcessor(
@@ -66,18 +73,21 @@ async def test_parallel_processing_uses_correct_method(async_session: AsyncSessi
     )
 
     # Mock the methods
-    processor_par._process_files_sequential = AsyncMock(return_value=[])
-    processor_par._process_files_parallel = AsyncMock(return_value=[])
+    ppar_any = cast("Any", processor_par)
+    ppar_any._process_files_sequential = AsyncMock(return_value=[])
+    ppar_any._process_files_parallel = AsyncMock(return_value=[])
 
     await processor_par.process_files(mock_files)
 
     # Should have called parallel method
-    processor_par._process_files_parallel.assert_called_once()
-    processor_par._process_files_sequential.assert_not_called()
+    assert ppar_any._process_files_parallel.await_count == 1
+    assert ppar_any._process_files_sequential.await_count == 0
 
 
 @pytest.mark.asyncio
-async def test_parallel_processing_batch_size_calculation(async_session: AsyncSession):
+async def test_parallel_processing_batch_size_calculation(
+    async_session: AsyncSession,
+) -> None:
     """Test that batch size is calculated correctly."""
     processor = CodeProcessor(
         async_session,
@@ -90,9 +100,13 @@ async def test_parallel_processing_batch_size_calculation(async_session: AsyncSe
         mock_pm_instance = AsyncMock()
 
         # Capture the batch_size argument
-        captured_batch_size = None
+        captured_batch_size: int | None = None
 
-        async def capture_batch_size(items, func, batch_size):
+        async def capture_batch_size(
+            items: list[Any],
+            func: Callable[[Any, Any], Awaitable[dict[str, Any]]],
+            batch_size: int,
+        ) -> list[dict[str, Any]]:
             nonlocal captured_batch_size
             captured_batch_size = batch_size
             return [{} for _ in items]

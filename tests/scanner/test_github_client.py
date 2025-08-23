@@ -11,13 +11,13 @@ from src.utils.exceptions import GitHubError, RateLimitError
 
 
 @pytest.fixture
-def github_client():
+def github_client() -> GitHubClient:
     """Create GitHub client fixture."""
     return GitHubClient(access_token="test_token")
 
 
 @pytest.fixture
-def mock_response():
+def mock_response() -> MagicMock:
     """Create mock HTTP response."""
     response = MagicMock(spec=httpx.Response)
     response.headers = {
@@ -32,7 +32,7 @@ class TestGitHubClient:
     """Tests for GitHubClient class."""
 
     @pytest.mark.asyncio
-    async def test_context_manager(self, github_client) -> None:
+    async def test_context_manager(self, github_client: GitHubClient) -> None:
         """Test async context manager."""
         async with github_client as client:
             assert client._client is not None
@@ -59,7 +59,7 @@ class TestGitHubClient:
         assert headers["Accept"] == "application/vnd.github.v3+json"
 
     @pytest.mark.asyncio
-    async def test_check_rate_limit_ok(self, github_client) -> None:
+    async def test_check_rate_limit_ok(self, github_client: GitHubClient) -> None:
         """Test rate limit check when limit is ok."""
         github_client._rate_limit_remaining = 100
 
@@ -67,7 +67,9 @@ class TestGitHubClient:
         await github_client._check_rate_limit()
 
     @pytest.mark.asyncio
-    async def test_check_rate_limit_exhausted(self, github_client) -> None:
+    async def test_check_rate_limit_exhausted(
+        self, github_client: GitHubClient
+    ) -> None:
         """Test rate limit check when limit is exhausted."""
         github_client._rate_limit_remaining = 5
         github_client._rate_limit_reset = datetime.now(UTC).replace(
@@ -78,7 +80,9 @@ class TestGitHubClient:
             await github_client._check_rate_limit()
             mock_sleep.assert_called_once()
 
-    def test_update_rate_limit(self, github_client, mock_response) -> None:
+    def test_update_rate_limit(
+        self, github_client: GitHubClient, mock_response: MagicMock
+    ) -> None:
         """Test rate limit update from response headers."""
         github_client._update_rate_limit(mock_response)
 
@@ -86,7 +90,9 @@ class TestGitHubClient:
         assert github_client._rate_limit_reset is not None
 
     @pytest.mark.asyncio
-    async def test_request_success(self, github_client, mock_response) -> None:
+    async def test_request_success(
+        self, github_client: GitHubClient, mock_response: MagicMock
+    ) -> None:
         """Test successful API request."""
         mock_response.json.return_value = {"id": 123, "name": "test-repo"}
 
@@ -106,7 +112,7 @@ class TestGitHubClient:
                 )
 
     @pytest.mark.asyncio
-    async def test_request_rate_limit_error(self, github_client) -> None:
+    async def test_request_rate_limit_error(self, github_client: GitHubClient) -> None:
         """Test rate limit error handling."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 429
@@ -128,7 +134,7 @@ class TestGitHubClient:
                 assert exc_info.value.details.get("retry_after") == 60
 
     @pytest.mark.asyncio
-    async def test_request_github_error(self, github_client) -> None:
+    async def test_request_github_error(self, github_client: GitHubClient) -> None:
         """Test GitHub API error handling."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 404
@@ -148,7 +154,9 @@ class TestGitHubClient:
                 assert exc_info.value.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_get_repository(self, github_client, mock_response) -> None:
+    async def test_get_repository(
+        self, github_client: GitHubClient, mock_response: MagicMock
+    ) -> None:
         """Test getting repository information."""
         repo_data = {
             "id": 123,
@@ -157,17 +165,19 @@ class TestGitHubClient:
         }
         mock_response.json.return_value = repo_data
 
-        with patch.object(github_client, "_request", return_value=mock_response):
+        with patch.object(
+            github_client, "_request", return_value=mock_response
+        ) as req_mock:
             result = await github_client.get_repository("test-owner", "test-repo")
 
             assert result == repo_data
-            github_client._request.assert_called_once_with(
+            req_mock.assert_called_once_with(
                 "GET",
                 "/repos/test-owner/test-repo",
             )
 
     @pytest.mark.asyncio
-    async def test_get_default_branch(self, github_client) -> None:
+    async def test_get_default_branch(self, github_client: GitHubClient) -> None:
         """Test getting default branch."""
         with patch.object(
             github_client,
@@ -178,7 +188,9 @@ class TestGitHubClient:
             assert branch == "develop"
 
     @pytest.mark.asyncio
-    async def test_get_commits(self, github_client, mock_response) -> None:
+    async def test_get_commits(
+        self, github_client: GitHubClient, mock_response: MagicMock
+    ) -> None:
         """Test getting commits."""
         commits_data = [
             {"sha": "abc123", "message": "First commit"},
@@ -187,7 +199,9 @@ class TestGitHubClient:
         mock_response.json.return_value = commits_data
         mock_response.headers = {"X-RateLimit-Remaining": "4999"}
 
-        with patch.object(github_client, "_request", return_value=mock_response):
+        with patch.object(
+            github_client, "_request", return_value=mock_response
+        ) as req_mock:
             commits = await github_client.get_commits(
                 "test-owner",
                 "test-repo",
@@ -196,7 +210,7 @@ class TestGitHubClient:
             )
 
             assert commits == commits_data
-            github_client._request.assert_called_with(
+            req_mock.assert_called_with(
                 "GET",
                 "/repos/test-owner/test-repo/commits",
                 params={
@@ -207,7 +221,7 @@ class TestGitHubClient:
             )
 
     @pytest.mark.asyncio
-    async def test_get_commits_pagination(self, github_client) -> None:
+    async def test_get_commits_pagination(self, github_client: GitHubClient) -> None:
         """Test getting commits with pagination."""
         # First page
         response1 = MagicMock(spec=httpx.Response)
@@ -236,7 +250,9 @@ class TestGitHubClient:
             assert commits[1]["sha"] == "def456"
 
     @pytest.mark.asyncio
-    async def test_create_webhook(self, github_client, mock_response) -> None:
+    async def test_create_webhook(
+        self, github_client: GitHubClient, mock_response: MagicMock
+    ) -> None:
         """Test creating webhook."""
         webhook_data = {
             "id": 12345,
@@ -245,7 +261,9 @@ class TestGitHubClient:
         }
         mock_response.json.return_value = webhook_data
 
-        with patch.object(github_client, "_request", return_value=mock_response):
+        with patch.object(
+            github_client, "_request", return_value=mock_response
+        ) as req_mock:
             result = await github_client.create_webhook(
                 "test-owner",
                 "test-repo",
@@ -255,16 +273,18 @@ class TestGitHubClient:
             )
 
             assert result == webhook_data
-            github_client._request.assert_called_once()
+            req_mock.assert_called_once()
 
             # Check request data
-            call_args = github_client._request.call_args
+            call_args = req_mock.call_args
             assert call_args[0] == ("POST", "/repos/test-owner/test-repo/hooks")
             assert call_args[1]["json"]["config"]["secret"] == "webhook_secret"
             assert call_args[1]["json"]["events"] == ["push", "pull_request"]
 
     @pytest.mark.asyncio
-    async def test_get_file_content(self, github_client, mock_response) -> None:
+    async def test_get_file_content(
+        self, github_client: GitHubClient, mock_response: MagicMock
+    ) -> None:
         """Test getting file content."""
         file_data = {
             "name": "test.py",
@@ -273,7 +293,9 @@ class TestGitHubClient:
         }
         mock_response.json.return_value = file_data
 
-        with patch.object(github_client, "_request", return_value=mock_response):
+        with patch.object(
+            github_client, "_request", return_value=mock_response
+        ) as req_mock:
             result = await github_client.get_file_content(
                 "test-owner",
                 "test-repo",
@@ -282,14 +304,16 @@ class TestGitHubClient:
             )
 
             assert result == file_data
-            github_client._request.assert_called_once_with(
+            req_mock.assert_called_once_with(
                 "GET",
                 "/repos/test-owner/test-repo/contents/src/test.py",
                 params={"ref": "main"},
             )
 
     @pytest.mark.asyncio
-    async def test_get_changed_files(self, github_client, mock_response) -> None:
+    async def test_get_changed_files(
+        self, github_client: GitHubClient, mock_response: MagicMock
+    ) -> None:
         """Test getting changed files between commits."""
         compare_data = {
             "files": [
@@ -309,7 +333,9 @@ class TestGitHubClient:
         }
         mock_response.json.return_value = compare_data
 
-        with patch.object(github_client, "_request", return_value=mock_response):
+        with patch.object(
+            github_client, "_request", return_value=mock_response
+        ) as req_mock:
             files = await github_client.get_changed_files(
                 "test-owner",
                 "test-repo",
@@ -318,7 +344,7 @@ class TestGitHubClient:
             )
 
             assert files == compare_data["files"]
-            github_client._request.assert_called_once_with(
+            req_mock.assert_called_once_with(
                 "GET",
                 "/repos/test-owner/test-repo/compare/abc123...def456",
             )

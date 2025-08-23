@@ -1,6 +1,7 @@
 """Tests for code processor."""
 
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -11,7 +12,7 @@ from src.scanner.code_processor import CodeProcessor
 
 
 @pytest.fixture
-def mock_db_session():
+def mock_db_session() -> AsyncMock:
     """Create mock database session."""
     session = AsyncMock(spec=AsyncSession)
     session.add = MagicMock()
@@ -22,13 +23,13 @@ def mock_db_session():
 
 
 @pytest.fixture
-def code_processor(mock_db_session):
+def code_processor(mock_db_session: AsyncSession) -> CodeProcessor:
     """Create code processor fixture."""
     return CodeProcessor(mock_db_session)
 
 
 @pytest.fixture
-def mock_file_record():
+def mock_file_record() -> MagicMock:
     """Create mock file record."""
     file_record = MagicMock(spec=File)
     file_record.id = 1
@@ -39,7 +40,7 @@ def mock_file_record():
 
 
 @pytest.fixture
-def sample_entities():
+def sample_entities() -> dict[str, Any]:
     """Sample extracted entities."""
     return {
         "modules": [
@@ -97,9 +98,7 @@ class TestCodeProcessor:
 
     @pytest.mark.asyncio
     async def test_process_file_unsupported(
-        self,
-        code_processor,
-        mock_file_record,
+        self, code_processor: CodeProcessor, mock_file_record: MagicMock
     ) -> None:
         """Test processing unsupported file type."""
         mock_file_record.path = "test.txt"
@@ -117,10 +116,10 @@ class TestCodeProcessor:
     @pytest.mark.asyncio
     async def test_process_file_success(
         self,
-        code_processor,
-        mock_file_record,
-        sample_entities,
-        mock_db_session,
+        code_processor: CodeProcessor,
+        mock_file_record: MagicMock,
+        sample_entities: dict[str, Any],
+        mock_db_session: AsyncMock,
     ) -> None:
         """Test successful file processing."""
         with (
@@ -153,9 +152,7 @@ class TestCodeProcessor:
 
     @pytest.mark.asyncio
     async def test_process_file_extraction_failed(
-        self,
-        code_processor,
-        mock_file_record,
+        self, code_processor: CodeProcessor, mock_file_record: MagicMock
     ) -> None:
         """Test file processing with extraction failure."""
         with (
@@ -174,9 +171,9 @@ class TestCodeProcessor:
     @pytest.mark.asyncio
     async def test_process_file_error(
         self,
-        code_processor,
-        mock_file_record,
-        mock_db_session,
+        code_processor: CodeProcessor,
+        mock_file_record: MagicMock,
+        mock_db_session: AsyncMock,
     ) -> None:
         """Test file processing with error."""
         with (
@@ -199,7 +196,9 @@ class TestCodeProcessor:
             mock_db_session.commit.assert_called()
 
     @pytest.mark.asyncio
-    async def test_extract_entities(self, code_processor, sample_entities) -> None:
+    async def test_extract_entities(
+        self, code_processor: CodeProcessor, sample_entities: dict[str, Any]
+    ) -> None:
         """Test entity extraction."""
         file_path = Path("test.py")
 
@@ -214,10 +213,10 @@ class TestCodeProcessor:
     @pytest.mark.asyncio
     async def test_store_entities(
         self,
-        code_processor,
-        mock_file_record,
-        sample_entities,
-        mock_db_session,
+        code_processor: CodeProcessor,
+        mock_file_record: MagicMock,
+        sample_entities: dict[str, Any],
+        mock_db_session: AsyncMock,
     ) -> None:
         """Test storing entities in database."""
         with patch.object(code_processor, "_clear_file_entities"):
@@ -236,7 +235,9 @@ class TestCodeProcessor:
             mock_db_session.commit.assert_called()
 
     @pytest.mark.asyncio
-    async def test_clear_file_entities(self, code_processor, mock_db_session) -> None:
+    async def test_clear_file_entities(
+        self, code_processor: CodeProcessor, mock_db_session: AsyncMock
+    ) -> None:
         """Test clearing existing file entities."""
         # Mock the module query result
         mock_modules = MagicMock()
@@ -252,7 +253,9 @@ class TestCodeProcessor:
         mock_db_session.commit.assert_called()
 
     @pytest.mark.asyncio
-    async def test_process_files(self, code_processor, mock_file_record) -> None:
+    async def test_process_files(
+        self, code_processor: CodeProcessor, mock_file_record: MagicMock
+    ) -> None:
         """Test processing multiple files."""
         file_records = [mock_file_record, MagicMock(spec=File)]
         file_records[1].id = 2
@@ -278,9 +281,9 @@ class TestCodeProcessor:
     @pytest.mark.asyncio
     async def test_get_file_structure(
         self,
-        code_processor,
-        mock_file_record,
-        mock_db_session,
+        code_processor: CodeProcessor,
+        mock_file_record: MagicMock,
+        mock_db_session: AsyncMock,
     ) -> None:
         """Test getting file structure."""
         # Mock database queries

@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,10 +48,10 @@ class PackageAnalyzer:
                 ~File.is_deleted,
             )
         )
-        python_files = result.scalars().all()
+        python_files = list(result.scalars().all())
 
         # Build file cache
-        self._file_cache = {f.path: f for f in python_files}
+        self._file_cache = {cast("str", f.path): f for f in python_files}
 
         # Find all packages (directories with __init__.py)
         packages = await self._discover_packages(python_files)
@@ -81,7 +81,7 @@ class PackageAnalyzer:
         self, python_files: list[File]
     ) -> dict[str, dict[str, Any]]:
         """Discover all packages in the repository."""
-        packages = {}
+        packages: dict[str, dict[str, Any]] = {}
 
         # Find all __init__.py files
         init_files = [f for f in python_files if f.path.endswith("__init__.py")]
@@ -142,16 +142,20 @@ class PackageAnalyzer:
 
             if parent_path in packages:
                 module_name = file_path.stem
-                packages[parent_path]["modules"].append(
-                    {"name": module_name, "file": file}
+                modules_list = cast(
+                    "list[dict[str, Any]]", packages[parent_path]["modules"]
                 )
+                modules_list.append({"name": module_name, "file": file})
 
         # Build parent-child relationships
         for pkg_path in sorted(packages.keys(), key=len, reverse=True):
             if pkg_path:
                 parent_path = str(Path(pkg_path).parent)
                 if parent_path in packages and parent_path != pkg_path:
-                    packages[parent_path]["subpackages"].append(pkg_path)
+                    subpackages_list = cast(
+                        "list[str]", packages[parent_path]["subpackages"]
+                    )
+                    subpackages_list.append(pkg_path)
 
         return packages
 
@@ -249,8 +253,8 @@ class PackageAnalyzer:
             )
 
             # Update package statistics
-            package.module_count = module_count
-            package.subpackage_count = subpackage_count
+            cast("Any", package).module_count = module_count
+            cast("Any", package).subpackage_count = subpackage_count
 
     async def _analyze_package_dependencies(self) -> None:
         """Analyze dependencies between packages."""
@@ -263,7 +267,9 @@ class PackageAnalyzer:
         imports = result.all()
 
         # Track dependencies
-        dependencies = defaultdict(lambda: defaultdict(list))
+        dependencies: dict[int, dict[int, list[dict[str, Any]]]] = defaultdict(
+            lambda: defaultdict(list)
+        )
 
         for import_obj, file in imports:
             # Find source package
@@ -274,14 +280,17 @@ class PackageAnalyzer:
             # Parse import to find target package
             if import_obj.module_name:
                 target_package = self._find_package_by_import(import_obj.module_name)
-                if target_package and target_package.id != source_package.id:
-                    dependencies[source_package.id][target_package.id].append(
-                        {
-                            "module": import_obj.module_name,
-                            "names": import_obj.imported_names,
-                            "line": import_obj.line_number,
-                        }
-                    )
+                if target_package:
+                    sid = cast("int", source_package.id)
+                    tid = cast("int", target_package.id)
+                    if tid != sid:
+                        dependencies[sid][tid].append(
+                            {
+                                "module": import_obj.module_name,
+                                "names": import_obj.imported_names,
+                                "line": import_obj.line_number,
+                            }
+                        )
 
         # Create dependency records
         for source_id, targets in dependencies.items():
@@ -338,7 +347,7 @@ class PackageAnalyzer:
             # Get all files in package and subpackages
             package_files = []
             for file_path, file in self._file_cache.items():
-                if self._is_file_in_package(file_path, package.path):
+                if self._is_file_in_package(file_path, cast("str", package.path)):
                     package_files.append(file)
 
             if not package_files:
@@ -364,8 +373,8 @@ class PackageAnalyzer:
             # Get detailed statistics from the database
             from src.database.models import Class, Function
 
-            all_classes = []
-            all_functions = []
+            all_classes: list[Any] = []
+            all_functions: list[Any] = []
 
             for module in modules:
                 # Count classes
@@ -386,29 +395,34 @@ class PackageAnalyzer:
 
                 # Calculate complexity
                 for func in functions:
-                    if func.complexity:
-                        total_complexity += func.complexity
-                        max_complexity = max(max_complexity, func.complexity)
+                    val = cast("int | None", func.complexity)
+                    if val is not None:
+                        total_complexity += val
+                        max_complexity = max(max_complexity, val)
 
             # Update package stats
-            package.total_lines = total_lines
-            package.total_functions = total_functions
-            package.total_classes = total_classes
+            cast("Any", package).total_lines = total_lines
+            cast("Any", package).total_functions = total_functions
+            cast("Any", package).total_classes = total_classes
 
             # Update metrics
-            metrics.total_loc = total_lines
-            metrics.total_complexity = total_complexity
-            metrics.max_complexity = max_complexity
+            cast("Any", metrics).total_loc = total_lines
+            cast("Any", metrics).total_complexity = total_complexity
+            cast("Any", metrics).max_complexity = max_complexity
             if total_functions > 0:
-                metrics.avg_complexity = total_complexity // total_functions
+                cast("Any", metrics).avg_complexity = int(
+                    total_complexity // total_functions
+                )
 
             # Check for tests
-            metrics.has_tests = any(
+            cast("Any", metrics).has_tests = any(
                 "test" in f.path or "tests" in f.path for f in package_files
             )
 
             # Check for docs
-            metrics.has_docs = bool(package.readme_file_id or package.docstring)
+            cast("Any", metrics).has_docs = bool(
+                package.readme_file_id or package.docstring
+            )
 
             # Count public API
             public_classes = sum(
@@ -420,8 +434,8 @@ class PackageAnalyzer:
                 if not func.name.startswith("_") and not func.class_id
             )
 
-            metrics.public_classes = public_classes
-            metrics.public_functions = public_functions
+            cast("Any", metrics).public_classes = public_classes
+            cast("Any", metrics).public_functions = public_functions
 
             self.db_session.add(metrics)
 

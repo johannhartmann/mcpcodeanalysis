@@ -1,13 +1,20 @@
 """Code processing integration between scanner and parser."""
 
+from __future__ import annotations
+
 import ast
 import asyncio
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import delete
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from src.database.models import Class, File, Function, Import, Module
@@ -58,34 +65,40 @@ class CodeProcessor:
         if not self.parser_factory.is_supported(file_path):
             logger.debug("Skipping unsupported file type: %s", file_path)
             return {
-                "file_id": file_record.id,
+                "file_id": cast("int", file_record.id),
                 "status": "skipped",
                 "reason": "unsupported_file_type",
             }
 
         try:
             # Extract entities
-            entities = await self._extract_entities(absolute_path, file_record.id)
+            entities = await self._extract_entities(
+                absolute_path, cast("int", file_record.id)
+            )
             if not entities:
                 return {
-                    "file_id": file_record.id,
+                    "file_id": cast("int", file_record.id),
                     "status": "failed",
                     "reason": "extraction_failed",
                 }
 
             # Store entities in database
-            stats = await self._store_entities(entities, file_record)
+            store_stats = await self._store_entities(entities, file_record)
 
             # Extract and store references
             ref_stats = await self.extract_and_store_references(file_record, entities)
-            stats["references"] = ref_stats
+
+            # Build full statistics with references included (different type)
+            stats: dict[str, Any] = {**store_stats, "references": ref_stats}
 
             # Update file processing status
-            file_record.last_modified = datetime.now(UTC).replace(tzinfo=None)
+            cast("Any", file_record).last_modified = datetime.now(UTC).replace(
+                tzinfo=None
+            )
             await self.db_session.commit()
 
             # Run domain analysis if enabled
-            domain_stats = {}
+            domain_stats: dict[str, int] = {}
             # Check if language supports domain analysis (object-oriented languages)
             from src.parser.plugin_registry import LanguagePluginRegistry
 
@@ -99,12 +112,19 @@ class CodeProcessor:
             if self.domain_indexer and supports_domain_analysis:
                 try:
                     logger.info("Running domain analysis for %s", file_record.path)
-                    domain_result = await self.domain_indexer.index_file(file_record.id)
+                    domain_result = await self.domain_indexer.index_file(
+                        cast("int", file_record.id)
+                    )
                     domain_stats = {
-                        "domain_entities": domain_result.get("entities_extracted", 0),
-                        "domain_relationships": domain_result.get(
-                            "relationships_extracted",
-                            0,
+                        "domain_entities": cast(
+                            "int", domain_result.get("entities_extracted", 0)
+                        ),
+                        "domain_relationships": cast(
+                            "int",
+                            domain_result.get(
+                                "relationships_extracted",
+                                0,
+                            ),
                         ),
                     }
                 except (ValueError, TypeError, AttributeError) as e:
@@ -115,7 +135,7 @@ class CodeProcessor:
                     )
 
             return {
-                "file_id": file_record.id,
+                "file_id": cast("int", file_record.id),
                 "status": "success",
                 "statistics": stats,
                 "domain_statistics": domain_stats,
@@ -131,7 +151,7 @@ class CodeProcessor:
             await self.db_session.commit()
 
             return {
-                "file_id": file_record.id,
+                "file_id": cast("int", file_record.id),
                 "status": "failed",
                 "reason": "processing_error",
                 "error": str(e),
@@ -158,7 +178,7 @@ class CodeProcessor:
         file_record: File,
     ) -> dict[str, int]:
         """Store extracted entities in the database."""
-        stats = {
+        stats: dict[str, int] = {
             "modules": 0,
             "classes": 0,
             "functions": 0,
@@ -166,15 +186,15 @@ class CodeProcessor:
         }
 
         # Clear existing entities for this file
-        await self._clear_file_entities(file_record.id)
+        await self._clear_file_entities(cast("int", file_record.id))
 
         # Store modules and track their IDs
         # For Python files, there's typically one module per file
-        module_id = None
-        module_map = {}
+        module_id: int | None = None
+        module_map: dict[str, int] = {}
         for module_data in entities.get("modules", []):
             module = Module(
-                file_id=file_record.id,
+                file_id=cast("int", file_record.id),
                 name=module_data["name"],
                 docstring=module_data.get("docstring"),
                 start_line=module_data["start_line"],
@@ -183,16 +203,16 @@ class CodeProcessor:
             self.db_session.add(module)
             await self.db_session.flush()  # Get ID
             # In tests, the mock might not assign an ID, so use a fallback
-            if not hasattr(module, "id") or module.id is None:
-                module.id = 1  # Default ID for tests
-            module_map[module_data["name"]] = module.id
+            if not hasattr(module, "id") or cast("Any", module).id is None:
+                cast("Any", module).id = 1  # Default ID for tests
+            module_map[module_data["name"]] = cast("int", cast("Any", module).id)
             # For single-module files, track the primary module ID
             if module_id is None:
-                module_id = module.id
+                module_id = cast("int", cast("Any", module).id)
             stats["modules"] += 1
 
         # Store classes with proper module ID
-        class_map = {}
+        class_map: dict[str, int] = {}
         for class_data in entities.get("classes", []):
             # Skip if no module ID is available (shouldn't happen for Python files)
             if module_id is None:
@@ -216,7 +236,7 @@ class CodeProcessor:
             )
             self.db_session.add(class_obj)
             await self.db_session.flush()  # Get ID
-            class_map[class_data["name"]] = class_obj.id
+            class_map[class_data["name"]] = cast("int", cast("Any", class_obj).id)
             stats["classes"] += 1
 
         # Store functions and methods with proper module ID
@@ -236,7 +256,7 @@ class CodeProcessor:
                 class_id=class_map.get(class_name) if class_name else None,
                 name=func_data["name"],
                 parameters=func_data.get("parameters", []),
-                return_type=func_data.get("return_type"),
+                return_type=cast("str | None", func_data.get("return_type")),
                 docstring=func_data.get("docstring"),
                 decorators=func_data.get("decorators", []),
                 is_async=func_data.get("is_async", False),
@@ -254,7 +274,7 @@ class CodeProcessor:
         # Store imports
         for import_data in entities.get("imports", []):
             import_obj = Import(
-                file_id=file_record.id,
+                file_id=cast("int", file_record.id),
                 import_statement=import_data["import_statement"],
                 module_name=import_data.get("imported_from"),
                 imported_names=import_data.get("imported_names", []),
@@ -278,7 +298,7 @@ class CodeProcessor:
             select(Module).where(Module.file_id == file_id),
         )
         modules = modules_result.scalars().all()
-        module_ids = [m.id for m in modules]
+        module_ids = [cast("int", cast("Any", m).id) for m in modules]
 
         if module_ids:
             # Delete functions linked to these modules
@@ -293,9 +313,11 @@ class CodeProcessor:
         await self.db_session.execute(delete(Module).where(Module.file_id == file_id))
         await self.db_session.commit()
 
-    async def _process_files_sequential(self, file_records: list[File]) -> list[Any]:
+    async def _process_files_sequential(
+        self, file_records: list[File]
+    ) -> list[dict[str, Any] | Exception]:
         """Process files sequentially."""
-        results = []
+        results: list[dict[str, Any] | Exception] = []
         for file in file_records:
             try:
                 result = await self.process_file(file)
@@ -305,7 +327,9 @@ class CodeProcessor:
                 results.append(e)
         return results
 
-    async def _process_files_parallel(self, file_records: list[File]) -> list[Any]:
+    async def _process_files_parallel(
+        self, file_records: list[File]
+    ) -> list[dict[str, Any]]:
         """Process files in parallel using separate sessions."""
         from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -334,17 +358,17 @@ class CodeProcessor:
         batch_size = min(10, max(2, len(file_records) // 4))  # Adaptive batch size
         logger.info("Processing files in parallel with batch size: %d", batch_size)
 
-        results = await parallel_manager.execute_parallel(
+        results: list[dict[str, Any] | None] = await parallel_manager.execute_parallel(
             file_records, process_file_with_session, batch_size=batch_size
         )
 
         # Convert None results to error dictionaries
-        processed_results = []
+        processed_results: list[dict[str, Any]] = []
         for i, result in enumerate(results):
             if result is None:
                 processed_results.append(
                     {
-                        "file_id": file_records[i].id,
+                        "file_id": cast("int", file_records[i].id),
                         "status": "failed",
                         "reason": "parallel_processing_error",
                         "error": "Unknown error during parallel processing",
@@ -359,6 +383,8 @@ class CodeProcessor:
         """Process multiple files."""
         logger.info("Processing %s files", len(file_records))
 
+        # Decide processing strategy
+        results: Sequence[dict[str, Any] | Exception]
         # Check if we should use parallel processing
         if (
             len(file_records) > 5
@@ -371,7 +397,7 @@ class CodeProcessor:
             results = await self._process_files_sequential(file_records)
 
         # Aggregate results
-        summary = {
+        summary: dict[str, Any] = {
             "total": len(file_records),
             "success": 0,
             "failed": 0,
@@ -389,7 +415,7 @@ class CodeProcessor:
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 summary["failed"] += 1
-                summary["errors"].append(
+                cast("list[dict[str, Any]]", summary["errors"]).append(
                     {
                         "file": file_records[i].path,
                         "error": str(result),
@@ -399,18 +425,22 @@ class CodeProcessor:
                 if result["status"] == "success":
                     summary["success"] += 1
                     # Aggregate statistics
-                    for key, value in result.get("statistics", {}).items():
+                    for key, value in cast(
+                        "dict[str, Any]", result.get("statistics", {})
+                    ).items():
                         if key == "references" and isinstance(value, dict):
                             # Handle nested reference statistics
-                            summary["statistics"]["references"] += value.get("total", 0)
+                            summary["statistics"]["references"] += cast(
+                                "int", value.get("total", 0)
+                            )
                         else:
-                            summary["statistics"][key] += value
+                            summary["statistics"][key] += cast("int", value)
                 elif result["status"] == "skipped":
                     summary["skipped"] += 1
                 else:
                     summary["failed"] += 1
                     if "error" in result:
-                        summary["errors"].append(
+                        cast("list[dict[str, Any]]", summary["errors"]).append(
                             {
                                 "file": file_records[i].path,
                                 "error": result["error"],
@@ -428,9 +458,9 @@ class CodeProcessor:
 
     async def get_file_structure(self, file_record: File) -> dict[str, Any]:
         """Get the parsed structure of a file."""
-        structure = {
+        structure: dict[str, Any] = {
             "file": {
-                "id": file_record.id,
+                "id": cast("int", file_record.id),
                 "path": file_record.path,
                 "language": file_record.language,
             },
@@ -441,51 +471,53 @@ class CodeProcessor:
         }
 
         # Get modules
-        modules = await self.db_session.execute(
-            select(Module).where(Module.file_id == file_record.id),
+        modules_result = await self.db_session.execute(
+            select(Module).where(Module.file_id == cast("int", file_record.id)),
         )
-        structure["modules"] = [
+        modules_struct: list[dict[str, Any]] = [
             {
-                "id": m.id,
+                "id": cast("int", cast("Any", m).id),
                 "name": m.name,
                 "docstring": m.docstring,
                 "lines": f"{m.start_line}-{m.end_line}",
             }
-            for m in modules.scalars()
+            for m in modules_result.scalars()
         ]
+        structure["modules"] = modules_struct
 
         # Get module IDs for related queries
-        module_ids = [m["id"] for m in structure["modules"]]
+        module_ids = [cast("int", m["id"]) for m in modules_struct]
 
         # Get classes through modules
         if module_ids:
-            classes = await self.db_session.execute(
+            classes_result = await self.db_session.execute(
                 select(Class).where(Class.module_id.in_(module_ids)),
             )
         else:
-            classes = None
-        structure["classes"] = [
+            classes_result = None
+        classes_struct: list[dict[str, Any]] = [
             {
-                "id": c.id,
+                "id": cast("int", cast("Any", c).id),
                 "name": c.name,
                 "docstring": c.docstring,
                 "base_classes": c.base_classes,
                 "is_abstract": c.is_abstract,
                 "lines": f"{c.start_line}-{c.end_line}",
             }
-            for c in (classes.scalars() if classes else [])
+            for c in (classes_result.scalars() if classes_result else [])
         ]
+        structure["classes"] = classes_struct
 
         # Get functions through modules
         if module_ids:
-            functions = await self.db_session.execute(
+            functions_result = await self.db_session.execute(
                 select(Function).where(Function.module_id.in_(module_ids)),
             )
         else:
-            functions = None
-        structure["functions"] = [
+            functions_result = None
+        functions_struct: list[dict[str, Any]] = [
             {
-                "id": f.id,
+                "id": cast("int", cast("Any", f).id),
                 "name": f.name,
                 "class_id": f.class_id,
                 "parameters": f.parameters,
@@ -493,23 +525,25 @@ class CodeProcessor:
                 "is_async": f.is_async,
                 "lines": f"{f.start_line}-{f.end_line}",
             }
-            for f in (functions.scalars() if functions else [])
+            for f in (functions_result.scalars() if functions_result else [])
         ]
+        structure["functions"] = functions_struct
 
         # Get imports
-        imports = await self.db_session.execute(
-            select(Import).where(Import.file_id == file_record.id),
+        imports_result = await self.db_session.execute(
+            select(Import).where(Import.file_id == cast("int", file_record.id)),
         )
-        structure["imports"] = [
+        imports_struct: list[dict[str, Any]] = [
             {
-                "id": i.id,
+                "id": cast("int", cast("Any", i).id),
                 "statement": i.import_statement,
                 "from": i.module_name,
                 "names": i.imported_names,
                 "line": i.line_number,
             }
-            for i in imports.scalars()
+            for i in imports_result.scalars()
         ]
+        structure["imports"] = imports_struct
 
         return structure
 
@@ -529,7 +563,7 @@ class CodeProcessor:
         """
         logger.info("Extracting references for file %s", file_record.path)
 
-        stats = {
+        stats: dict[str, Any] = {
             "total": 0,
             "imports": 0,
             "calls": 0,
@@ -580,15 +614,15 @@ class CodeProcessor:
                 # Update statistics
                 stats["total"] = len(db_references)
                 for ref in db_references:
-                    ref_type = ref.get("reference_type", "")
+                    ref_type = cast("str", ref.get("reference_type", ""))
                     if ref_type == "import":
-                        stats["imports"] += 1
+                        stats["imports"] = cast("int", stats["imports"]) + 1
                     elif ref_type == "call":
-                        stats["calls"] += 1
+                        stats["calls"] = cast("int", stats["calls"]) + 1
                     elif ref_type == "inherit":
-                        stats["inherits"] += 1
+                        stats["inherits"] = cast("int", stats["inherits"]) + 1
                     elif ref_type == "type_hint":
-                        stats["type_hints"] += 1
+                        stats["type_hints"] = cast("int", stats["type_hints"]) + 1
 
             logger.info(
                 "Extracted %d references: %d imports, %d calls, %d inherits, %d type hints",
@@ -601,7 +635,7 @@ class CodeProcessor:
 
         except Exception as e:
             logger.exception("Error extracting references for %s", file_record.path)
-            stats["errors"].append(str(e))
+            cast("list[str]", stats["errors"]).append(str(e))
 
         return stats
 
@@ -609,10 +643,10 @@ class CodeProcessor:
         self, entities: list[Any], key: str = "name"
     ) -> dict[str, int]:
         """Build a mapping of entity names to IDs."""
-        entity_map = {}
+        entity_map: dict[str, int] = {}
         for e in entities:
             if isinstance(e, dict) and key in e and "id" in e:
-                entity_map[e[key]] = e["id"]
+                entity_map[cast("str", e[key])] = cast("int", e["id"])
         return entity_map
 
     async def _load_entity_maps_from_db(
@@ -628,21 +662,27 @@ class CodeProcessor:
             select(Module).where(Module.file_id == file_id)
         )
         modules = result.scalars().all()
-        module_map = {m.name: m.id for m in modules}
+        module_map: dict[str, int] = {
+            cast("str", m.name): cast("int", cast("Any", m).id) for m in modules
+        }
 
         # Get classes (through modules)
         result = await self.db_session.execute(
             select(Class).join(Module).where(Module.file_id == file_id)
         )
         classes = result.scalars().all()
-        class_map = {c.name: c.id for c in classes}
+        class_map: dict[str, int] = {
+            cast("str", c.name): cast("int", cast("Any", c).id) for c in classes
+        }
 
         # Get functions (through modules)
         result = await self.db_session.execute(
             select(Function).join(Module).where(Module.file_id == file_id)
         )
         functions = result.scalars().all()
-        function_map = {f.name: f.id for f in functions}
+        function_map: dict[str, int] = {
+            cast("str", f.name): cast("int", cast("Any", f).id) for f in functions
+        }
 
         return module_map, class_map, function_map
 
@@ -657,10 +697,10 @@ class CodeProcessor:
         """Resolve source entity name to ID."""
         if source_type == "module":
             return next(iter(module_map.values())) if module_map else None
-        elif source_type == "class":
+        if source_type == "class":
             class_name = source_name.split(".")[-1]
             return class_map.get(class_name)
-        elif source_type == "function":
+        if source_type == "function":
             func_name = source_name.split(".")[-1]
             return function_map.get(func_name)
         return None
@@ -676,8 +716,8 @@ class CodeProcessor:
         """Process a single reference and return resolved data."""
         try:
             source_id = self._resolve_source_entity_id(
-                ref["source_name"],
-                ref["source_type"],
+                cast("str", ref["source_name"]),
+                cast("str", ref["source_type"]),
                 module_map,
                 class_map,
                 function_map,
@@ -693,8 +733,8 @@ class CodeProcessor:
 
             # Resolve target entity
             target_id, target_file_id = await self._resolve_target_entity(
-                ref["target_name"],
-                ref["target_type"],
+                cast("str", ref["target_name"]),
+                cast("str", ref["target_type"]),
             )
 
             if not target_id:
@@ -708,13 +748,13 @@ class CodeProcessor:
             return {
                 "source_type": ref["source_type"],
                 "source_id": source_id,
-                "source_file_id": file_record.id,
+                "source_file_id": cast("int", file_record.id),
                 "source_line": ref.get("source_line"),
                 "target_type": ref["target_type"],
                 "target_id": target_id,
                 "target_file_id": target_file_id,
                 "reference_type": ref["reference_type"],
-                "context": ref.get("context", "")[:500],
+                "context": cast("str", ref.get("context", ""))[:500],
             }
 
         except (KeyError, AttributeError, ValueError) as e:
@@ -745,11 +785,11 @@ class CodeProcessor:
         # Load from DB if needed
         if not module_map and not class_map and not function_map:
             module_map, class_map, function_map = await self._load_entity_maps_from_db(
-                file_record.id
+                cast("int", file_record.id)
             )
 
         # Process references
-        resolved = []
+        resolved: list[dict[str, Any]] = []
         for ref in raw_references:
             resolved_ref = await self._process_single_reference(
                 ref, file_record, module_map, class_map, function_map
@@ -781,7 +821,9 @@ class CodeProcessor:
             )
             module = result.scalar_one_or_none()
             if module:
-                return module.id, module.file_id
+                return cast("int", cast("Any", module).id), cast(
+                    "int", cast("Any", module).file_id
+                )
 
         elif target_type == "class":
             # Extract class name from full path
@@ -793,11 +835,13 @@ class CodeProcessor:
             if cls:
                 # Get file ID through module
                 module_result = await self.db_session.execute(
-                    select(Module).where(Module.id == cls.module_id)
+                    select(Module).where(Module.id == cast("Any", cls).module_id)
                 )
                 module = module_result.scalar_one_or_none()
                 if module:
-                    return cls.id, module.file_id
+                    return cast("int", cast("Any", cls).id), cast(
+                        "int", cast("Any", module).file_id
+                    )
 
         elif target_type == "function":
             # Extract function name from full path
@@ -809,11 +853,13 @@ class CodeProcessor:
             if func:
                 # Get file ID through module
                 module_result = await self.db_session.execute(
-                    select(Module).where(Module.id == func.module_id)
+                    select(Module).where(Module.id == cast("Any", func).module_id)
                 )
                 module = module_result.scalar_one_or_none()
                 if module:
-                    return func.id, module.file_id
+                    return cast("int", cast("Any", func).id), cast(
+                        "int", cast("Any", module).file_id
+                    )
 
         return None, None
 

@@ -71,6 +71,15 @@ class GitHubClient:
             )
             await asyncio.sleep(wait_seconds)
 
+    def _ensure_client(self) -> httpx.AsyncClient:
+        """Ensure the HTTPX AsyncClient is initialized."""
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                headers=self._get_headers(),
+                timeout=30.0,
+            )
+        return self._client
+
     def _update_rate_limit(self, response: httpx.Response) -> None:
         """Update rate limit info from response headers."""
         if "X-RateLimit-Remaining" in response.headers:
@@ -96,7 +105,8 @@ class GitHubClient:
         await self._check_rate_limit()
 
         url = f"{self.base_url}{endpoint}"
-        response = await self._client.request(method, url, **kwargs)
+        client = self._ensure_client()
+        response = await client.request(method, url, **kwargs)
 
         self._update_rate_limit(response)
 
