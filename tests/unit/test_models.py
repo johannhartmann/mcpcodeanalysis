@@ -1,11 +1,13 @@
 """Tests for database models."""
 
 import contextlib
+from collections.abc import Generator
 from datetime import UTC, datetime
 
 import pytest
+from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from src.database.models import (
     Class,
@@ -21,13 +23,13 @@ from src.database.models import (
 
 
 @pytest.fixture
-def db_session(sync_engine):
+def db_session(sync_engine: Engine) -> Generator[Session, None, None]:
     """Create a database session for testing."""
     connection = sync_engine.connect()
     transaction = connection.begin()
 
-    Session = sessionmaker(bind=connection)  # noqa: N806
-    session = Session()
+    session_maker = sessionmaker(bind=connection)
+    session = session_maker()
 
     yield session
 
@@ -41,7 +43,7 @@ def db_session(sync_engine):
 class TestRepository:
     """Test Repository model."""
 
-    def test_create_repository(self, db_session) -> None:
+    def test_create_repository(self, db_session: Session) -> None:
         """Test creating a repository."""
         repo = Repository(
             github_url="https://github.com/test/repo",
@@ -57,7 +59,7 @@ class TestRepository:
         assert repo.last_synced is not None
         assert repo.created_at is not None
 
-    def test_unique_github_url(self, db_session) -> None:
+    def test_unique_github_url(self, db_session: Session) -> None:
         """Test unique constraint on github_url."""
         repo1 = Repository(
             github_url="https://github.com/test/repo",
@@ -78,7 +80,7 @@ class TestRepository:
         with pytest.raises(IntegrityError):
             db_session.commit()
 
-    def test_repository_relationships(self, db_session) -> None:
+    def test_repository_relationships(self, db_session: Session) -> None:
         """Test repository relationships."""
         repo = Repository(
             github_url="https://github.com/test/repo",
@@ -131,7 +133,7 @@ class TestRepository:
 class TestFile:
     """Test File model."""
 
-    def test_create_file(self, db_session) -> None:
+    def test_create_file(self, db_session: Session) -> None:
         """Test creating a file."""
         repo = Repository(
             github_url="https://github.com/test/repo",
@@ -156,7 +158,7 @@ class TestFile:
         assert file.branch == "main"
         assert file.is_deleted is False
 
-    def test_file_unique_constraint(self, db_session) -> None:
+    def test_file_unique_constraint(self, db_session: Session) -> None:
         """Test unique constraint on repository_id, path, branch."""
         repo = Repository(
             github_url="https://github.com/test/repo",
@@ -198,7 +200,7 @@ class TestFile:
 class TestModule:
     """Test Module model."""
 
-    def test_create_module(self, db_session) -> None:
+    def test_create_module(self, db_session: Session) -> None:
         """Test creating a module."""
         repo = Repository(
             github_url="https://github.com/test/repo",
@@ -233,7 +235,7 @@ class TestModule:
 class TestClass:
     """Test Class model."""
 
-    def test_create_class(self, db_session) -> None:
+    def test_create_class(self, db_session: Session) -> None:
         """Test creating a class."""
         repo = Repository(
             github_url="https://github.com/test/repo",
@@ -272,7 +274,7 @@ class TestClass:
 class TestFunction:
     """Test Function model."""
 
-    def test_create_function(self, db_session) -> None:
+    def test_create_function(self, db_session: Session) -> None:
         """Test creating a module-level function."""
         repo = Repository(
             github_url="https://github.com/test/repo",
@@ -313,7 +315,7 @@ class TestFunction:
         assert func.is_async is True
         assert len(func.parameters) == 2
 
-    def test_create_method(self, db_session) -> None:
+    def test_create_method(self, db_session: Session) -> None:
         """Test creating a class method."""
         repo = Repository(
             github_url="https://github.com/test/repo",
@@ -364,7 +366,7 @@ class TestFunction:
 class TestImport:
     """Test Import model."""
 
-    def test_create_import(self, db_session) -> None:
+    def test_create_import(self, db_session: Session) -> None:
         """Test creating an import."""
         repo = Repository(
             github_url="https://github.com/test/repo",
@@ -396,7 +398,7 @@ class TestImport:
 class TestCommit:
     """Test Commit model."""
 
-    def test_create_commit(self, db_session) -> None:
+    def test_create_commit(self, db_session: Session) -> None:
         """Test creating a commit."""
         repo = Repository(
             github_url="https://github.com/test/repo",
@@ -428,7 +430,7 @@ class TestCommit:
 class TestCodeEmbedding:
     """Test CodeEmbedding model."""
 
-    def test_create_embedding(self, db_session) -> None:
+    def test_create_embedding(self, db_session: Session) -> None:
         """Test creating a code embedding."""
         repo = Repository(
             github_url="https://github.com/test/repo",
@@ -471,7 +473,7 @@ class TestCodeEmbedding:
 class TestSearchHistory:
     """Test SearchHistory model."""
 
-    def test_create_search_history(self, db_session) -> None:
+    def test_create_search_history(self, db_session: Session) -> None:
         """Test creating a search history entry."""
         search = SearchHistory(
             query="find all authentication functions",

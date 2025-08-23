@@ -2,6 +2,7 @@
 
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import pytest
 from pydantic import SecretStr, ValidationError
@@ -47,6 +48,7 @@ class TestRepositoryConfig:
             url="https://github.com/owner/private-repo",
             access_token=SecretStr("ghp_test_token"),
         )
+        assert config.access_token is not None
         assert config.access_token.get_secret_value() == "ghp_test_token"
 
 
@@ -126,12 +128,12 @@ class TestQueryConfig:
     # since we're now using Dynaconf for configuration management
     """Test Settings model."""
 
-    def test_from_yaml(self, test_config_file, monkeypatch) -> None:
+    def test_from_yaml(self, test_config_file: Path, monkeypatch: Any) -> None:
         """Test loading settings from YAML."""
         # This test is disabled as we're now using Dynaconf
         pytest.skip("Settings class replaced with Dynaconf")
 
-    def test_env_var_expansion(self, monkeypatch) -> None:
+    def test_env_var_expansion(self, monkeypatch: Any) -> None:
         """Test environment variable expansion in YAML."""
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         monkeypatch.setenv("GITHUB_TOKEN", "ghp_test")
@@ -157,7 +159,9 @@ repositories:
         # This test is now handled by Dynaconf
         pytest.skip("Database URL generation handled by Dynaconf")
 
-    def test_get_database_url_from_config(self, monkeypatch, tmp_path) -> None:
+    def test_get_database_url_from_config(
+        self, monkeypatch: Any, tmp_path: Path
+    ) -> None:
         """Test database URL from configuration."""
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         # Clear POSTGRES_PASSWORD from environment to test database config password
@@ -191,7 +195,7 @@ repositories:
 class TestSettingsSingleton:
     """Test settings singleton functionality."""
 
-    def test_get_settings(self, test_config_file, monkeypatch) -> None:
+    def test_get_settings(self, test_config_file: Path, monkeypatch: Any) -> None:
         """Test get_settings singleton."""
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         monkeypatch.setenv("CONFIG_PATH", str(test_config_file))
@@ -201,7 +205,7 @@ class TestSettingsSingleton:
 
         # Skipping as get_settings is removed
 
-    def test_reload_settings(self, test_config_file, monkeypatch) -> None:
+    def test_reload_settings(self, test_config_file: Path, monkeypatch: Any) -> None:
         """Test reload_settings."""
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         monkeypatch.setenv("CONFIG_PATH", str(test_config_file))

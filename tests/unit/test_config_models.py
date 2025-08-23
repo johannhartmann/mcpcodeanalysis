@@ -1,6 +1,7 @@
 """Tests for configuration models."""
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 from pydantic import SecretStr, ValidationError
@@ -46,6 +47,8 @@ class TestRepositoryConfig:
             url="https://github.com/owner/private-repo",
             access_token=SecretStr("ghp_test_token"),
         )
+        # Guard Optional for mypy
+        assert config.access_token is not None
         assert config.access_token.get_secret_value() == "ghp_test_token"
 
 
@@ -132,18 +135,33 @@ class TestQueryConfig:
         with pytest.raises(ValidationError):
             QueryConfig(similarity_threshold=1.5)  # Out of range
 
+    def test_settings_load(self, test_settings: Any) -> None:
+        """Type-annotated shim for mypy."""
+        # Keep previous behavior
+        assert test_settings is not None
+        assert hasattr(test_settings, "database")
+        assert hasattr(test_settings, "scanner")
+
+    def test_database_url_generation(self, test_settings: Any) -> None:
+        """Type-annotated shim for mypy."""
+        from src.config import get_database_url
+
+        url = get_database_url()
+        assert url.startswith("postgresql://")
+        assert "test_code_analysis" in url
+
 
 # Tests for Dynaconf settings can be added here if needed
 class TestDynaconfSettings:
     """Test Dynaconf settings integration."""
 
-    def test_settings_load(self, test_settings):
+    def test_settings_load(self, test_settings: Any) -> None:
         """Test that settings load correctly."""
         assert test_settings is not None
         assert hasattr(test_settings, "database")
         assert hasattr(test_settings, "scanner")
 
-    def test_database_url_generation(self, test_settings):
+    def test_database_url_generation(self, test_settings: Any) -> None:
         """Test database URL generation."""
         from src.config import get_database_url
 
