@@ -5,7 +5,7 @@ from typing import Any
 
 import numpy as np
 from langchain_openai import OpenAIEmbeddings
-from sqlalchemy import func, select, text
+from sqlalchemy import Select, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -224,7 +224,7 @@ class VectorSearch:
         file_id: int | None,
         limit: int,
         threshold: float | None,
-    ):
+    ) -> Select:
         """Build the SQL query for vector search.
 
         Args:
