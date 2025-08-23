@@ -4,6 +4,7 @@ import asyncio
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -92,21 +93,39 @@ def scan(repository_url: str, branch: str, embeddings: bool) -> None:
 
         try:
             # Scan repository
-            result = await server.scan_repository(
+            result_raw = await server.scan_repository(
                 repository_url,
                 branch=branch,
                 generate_embeddings=embeddings,
             )
 
-            # Print results
-            click.echo("Repository scanned successfully!")
-            click.echo(f"Repository ID: {result['repository_id']}")
-            click.echo(f"Files scanned: {result['files_scanned']}")
-            click.echo(f"Files parsed: {result.get('files_parsed', 0)}")
+            # Normalize result to a dict
+            result: dict[str, Any] = {}
+            if isinstance(result_raw, dict):
+                result = result_raw
 
-            if "embeddings" in result:
+            # Print results (best-effort based on available keys)
+            click.echo("Repository scanned successfully!")
+            repo_id = result.get("repository_id") or (
+                result.get("scan_result", {}) or {}
+            ).get("repository_id")
+            if repo_id is not None:
+                click.echo(f"Repository ID: {repo_id}")
+
+            files_scanned = result.get("files_scanned")
+            if files_scanned is not None:
+                click.echo(f"Files scanned: {files_scanned}")
+
+            files_parsed = result.get("files_parsed", 0)
+            click.echo(f"Files parsed: {files_parsed}")
+
+            embeddings_info = result.get("embeddings")
+            if (
+                isinstance(embeddings_info, dict)
+                and "total_embeddings" in embeddings_info
+            ):
                 click.echo(
-                    f"Embeddings created: {result['embeddings']['total_embeddings']}",
+                    f"Embeddings created: {embeddings_info['total_embeddings']}",
                 )
 
         finally:
@@ -145,17 +164,31 @@ def search(query: str, repository_id: int, limit: int) -> None:
 
         try:
             # Search
-            results = await server.search(query, repository_id, limit)
+            results_raw = await server.search(query, repository_id, limit)
+
+            # Ensure iterable of dict-like results
+            results: list[dict[str, Any]] = []
+            if isinstance(results_raw, list):
+                results = [r for r in results_raw if isinstance(r, dict)]
 
             # Print results
             click.echo(f"Found {len(results)} results for '{query}':\n")
 
             for i, result in enumerate(results, 1):
-                entity = result["entity"]
-                click.echo(f"{i}. {entity['type']}: {entity['name']}")
-                click.echo(f"   File: {entity['file_path']}")
-                click.echo(f"   Lines: {entity['start_line']}-{entity['end_line']}")
-                click.echo(f"   Similarity: {result['similarity']:.3f}")
+                entity = result.get("entity", {})
+                if not isinstance(entity, dict):
+                    entity = {}
+                t = entity.get("type", "?")
+                name = entity.get("name", "?")
+                file_path = entity.get("file_path", "?")
+                start = entity.get("start_line", "?")
+                end = entity.get("end_line", "?")
+                similarity = result.get("similarity")
+                click.echo(f"{i}. {t}: {name}")
+                click.echo(f"   File: {file_path}")
+                click.echo(f"   Lines: {start}-{end}")
+                if isinstance(similarity, (int | float)):
+                    click.echo(f"   Similarity: {float(similarity):.3f}")
                 click.echo()
 
         finally:
