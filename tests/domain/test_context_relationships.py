@@ -18,7 +18,7 @@ from src.domain.indexer import DomainIndexer
 
 
 @pytest.mark.asyncio
-async def test_save_context_relationships(async_session: AsyncSession):
+async def test_save_context_relationships(async_session: AsyncSession) -> None:
     """Test saving context relationships."""
     # Create test domain entities
     entity1 = DomainEntity(
@@ -157,7 +157,9 @@ async def test_save_context_relationships(async_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_analyze_and_save_context_relationships(async_session: AsyncSession):
+async def test_analyze_and_save_context_relationships(
+    async_session: AsyncSession,
+) -> None:
     """Test full flow of analyzing and saving context relationships."""
     # Create test domain entities
     entities = []
@@ -251,7 +253,9 @@ async def test_analyze_and_save_context_relationships(async_session: AsyncSessio
 
 
 @pytest.mark.asyncio
-async def test_duplicate_context_relationships_not_saved(async_session: AsyncSession):
+async def test_duplicate_context_relationships_not_saved(
+    async_session: AsyncSession,
+) -> None:
     """Test that duplicate context relationships are not saved."""
     # Create bounded contexts
     context1 = BoundedContext(

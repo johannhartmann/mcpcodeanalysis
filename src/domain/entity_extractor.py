@@ -1,7 +1,7 @@
 """LLM-based domain entity extraction from code."""
 
 import json
-from typing import Any
+from typing import Any, cast
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
@@ -42,8 +42,8 @@ class DomainEntityExtractor:
                     msg = "OpenAI API key not found"
                     raise ValueError(msg)  # noqa: TRY301
 
-                self.llm = ChatOpenAI(
-                    openai_api_key=openai_key,
+                llm_client = cast("Any", ChatOpenAI)
+                self.llm = llm_client(
                     model=settings.llm.model,
                     temperature=settings.llm.temperature,
                 )
@@ -78,7 +78,7 @@ class DomainEntityExtractor:
                 config={"configurable": {"response_format": {"type": "json_object"}}},
             )
 
-            result = json.loads(response.content)
+            result = json.loads(str(response.content))
             return self._process_extraction_result(result, code_chunk)
 
         except Exception as e:
@@ -118,7 +118,7 @@ class DomainEntityExtractor:
                 config={"configurable": {"response_format": {"type": "json_object"}}},
             )
 
-            result = json.loads(response.content)
+            result = json.loads(str(response.content))
             return self._process_relationship_result(result)
 
         except Exception:
@@ -396,7 +396,7 @@ Output JSON with this structure:
         """Create semantic chunks that preserve code structure."""
         lines = code.split("\n")
         chunks = []
-        current_chunk = []
+        current_chunk: list[str] = []
         current_size = 0
 
         for line in lines:
@@ -409,7 +409,7 @@ Output JSON with this structure:
                 chunks.append(chunk_text)
 
                 # Keep overlap
-                overlap_lines = []
+                overlap_lines: list[str] = []
                 overlap_size = 0
                 for overlap_line in reversed(current_chunk):
                     overlap_size += len(overlap_line) + 1

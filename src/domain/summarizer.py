@@ -1,7 +1,7 @@
 """Hierarchical summarization of code using domain knowledge."""
 
 import json
-from typing import Any
+from typing import Any, cast
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
@@ -57,8 +57,10 @@ class HierarchicalSummarizer:
                     msg = "OpenAI API key not found"
                     raise ValueError(msg)  # noqa: TRY301
 
-                self.llm = ChatOpenAI(
-                    openai_api_key=openai_key,
+                # Treat ChatOpenAI client as Any for type stability
+                llm_client = cast("Any", ChatOpenAI)
+                self.llm = llm_client(
+                    api_key=openai_key,
                     model=settings.llm.model,
                     temperature=settings.llm.temperature,
                 )
@@ -318,7 +320,7 @@ class HierarchicalSummarizer:
         result = await self.db_session.execute(
             select(DomainEntity).where(DomainEntity.id.in_(entity_ids)),
         )
-        domain_entities = result.scalars().all()
+        domain_entities: list[DomainEntity] = list(result.scalars().all())
 
         # Generate summary
         summary_data = await self._generate_context_summary(
@@ -354,7 +356,7 @@ class HierarchicalSummarizer:
         result = await self.db_session.execute(
             select(DomainEntity).limit(10),  # Placeholder
         )
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def _generate_function_summary(
         self,
@@ -378,7 +380,7 @@ class HierarchicalSummarizer:
 
         # Domain context
         if domain_entities:
-            entity_names = [e.name for e in domain_entities[:5]]
+            entity_names = [str(e.name) for e in domain_entities[:5]]
             context_parts.append(f"Related domain entities: {', '.join(entity_names)}")
 
         context = "\n".join(context_parts)
@@ -407,12 +409,17 @@ Output as JSON:
                 HumanMessage(content=prompt),
             ]
 
+            # mypy: response.content is Any; coerce to str before json loads
+
             response = await self.llm.ainvoke(
                 messages,
                 config={"configurable": {"response_format": {"type": "json_object"}}},
             )
 
-            return json.loads(response.content)
+            result: dict[str, Any] = cast(
+                "dict[str, Any]", json.loads(str(response.content))
+            )
+            return result
 
         except Exception:
             logger.exception("Error generating function summary: %s")
@@ -430,19 +437,21 @@ Output as JSON:
     ) -> dict[str, Any]:
         """Generate summary for a class using LLM."""
         # Aggregate method summaries
-        method_concepts = set()
+        method_concepts: set[str] = set()
         method_descriptions = []
 
         for summary in method_summaries[:10]:  # Limit to prevent token overflow
             method_concepts.update(summary.domain_concepts)
             method_descriptions.append(summary.business_summary)
 
+        safe_method_descriptions: list[str] = [str(d) for d in method_descriptions[:5]]
+        related_domain_names: list[str] = [str(e.name) for e in domain_entities[:5]]
         context = f"""Class: {class_obj.name}
 Base classes: {class_obj.base_classes}
-Docstring: {class_obj.docstring or 'None'}
+Docstring: {class_obj.docstring or "None"}
 Number of methods: {len(method_summaries)}
-Key methods: {', '.join(method_descriptions[:5])}
-Related domain entities: {', '.join([e.name for e in domain_entities[:5]])}"""
+Key methods: {', '.join(safe_method_descriptions)}
+Related domain entities: {', '.join(related_domain_names)}"""
 
         prompt = f"""Analyze this class and generate a hierarchical summary:
 {context}
@@ -468,7 +477,9 @@ Output as JSON:
                 config={"configurable": {"response_format": {"type": "json_object"}}},
             )
 
-            result = json.loads(response.content)
+            result: dict[str, Any] = cast(
+                "dict[str, Any]", json.loads(str(response.content))
+            )
             # Add method concepts
             result["domain_concepts"] = list(
                 set(result.get("domain_concepts", [])) | method_concepts,
@@ -492,16 +503,18 @@ Output as JSON:
     ) -> dict[str, Any]:
         """Generate summary for a module using LLM."""
         # Aggregate concepts
-        all_concepts = set()
+        all_concepts: set[str] = set()
         for summary in class_summaries + function_summaries:
             all_concepts.update(summary.domain_concepts)
 
+        concepts_list: list[str] = list(all_concepts)[:20]
+        related_names: list[str] = [str(e.name) for e in domain_entities[:10]]
         context = f"""Module: {module.name}
-File: {module.file.path if module.file else 'Unknown'}
+File: {module.file.path if module.file else "Unknown"}
 Classes: {len(class_summaries)}
 Functions: {len(function_summaries)}
-Domain concepts found: {', '.join(list(all_concepts)[:20])}
-Related domain entities: {', '.join([e.name for e in domain_entities[:10]])}"""
+Domain concepts found: {', '.join(concepts_list)}
+Related domain entities: {', '.join(related_names)}"""
 
         prompt = f"""Analyze this module and generate a high-level summary:
 {context}
@@ -527,7 +540,10 @@ Output as JSON:
                 config={"configurable": {"response_format": {"type": "json_object"}}},
             )
 
-            return json.loads(response.content)
+            result: dict[str, Any] = cast(
+                "dict[str, Any]", json.loads(str(response.content))
+            )
+            return result
 
         except Exception:
             logger.exception("Error generating module summary: %s")
@@ -544,17 +560,20 @@ Output as JSON:
     ) -> dict[str, Any]:
         """Generate summary for a bounded context."""
         # Collect entity information
-        entity_types = {}
+        entity_types: dict[str, int] = {}
         for entity in domain_entities:
-            entity_types[entity.entity_type] = (
-                entity_types.get(entity.entity_type, 0) + 1
-            )
+            key = str(entity.entity_type)
+            entity_types[key] = entity_types.get(key, 0) + 1
 
+        core_concepts_list: list[str] = [
+            str(c) for c in list(context.core_concepts)[:10]
+        ]
+        entity_types_items: list[str] = [f"{k!s}: {v}" for k, v in entity_types.items()]
         context_info = f"""Bounded Context: {context.name}
 Description: {context.description}
-Core concepts: {', '.join(context.core_concepts[:10])}
+Core concepts: {', '.join(core_concepts_list)}
 Number of entities: {len(domain_entities)}
-Entity types: {', '.join([f'{k}: {v}' for k, v in entity_types.items()])}
+Entity types: {', '.join(entity_types_items)}
 Cohesion score: {context.cohesion_score:.2f}
 Coupling score: {context.coupling_score:.2f}"""
 
@@ -562,7 +581,7 @@ Coupling score: {context.coupling_score:.2f}"""
 {context_info}
 
 Key entities:
-{chr(10).join([f'- {e.name} ({e.entity_type}): {e.description}' for e in domain_entities[:15]])}
+{chr(10).join([f'- {e.name!s} ({e.entity_type!s}): {e.description!s}' for e in domain_entities[:15]])}
 
 Generate:
 1. A business-oriented summary of what this context handles
@@ -588,7 +607,10 @@ Output as JSON:
                 config={"configurable": {"response_format": {"type": "json_object"}}},
             )
 
-            return json.loads(response.content)
+            result: dict[str, Any] = cast(
+                "dict[str, Any]", json.loads(str(response.content))
+            )
+            return result
 
         except Exception:
             logger.exception("Error generating context summary: %s")
