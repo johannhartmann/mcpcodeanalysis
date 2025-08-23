@@ -1,5 +1,7 @@
 """Tests for dependency analysis tools."""
 
+from __future__ import annotations
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -11,13 +13,13 @@ from src.mcp_server.tools.analysis_tools import AnalysisTools
 
 
 @pytest.fixture
-def mock_db_session():
+def mock_db_session() -> AsyncSession:
     """Create mock database session."""
     return AsyncMock(spec=AsyncSession)
 
 
 @pytest.fixture
-def mock_mcp():
+def mock_mcp() -> FastMCP:
     """Create mock FastMCP instance."""
     mcp = MagicMock(spec=FastMCP)
     mcp.tool = MagicMock(side_effect=lambda **kwargs: lambda func: func)
@@ -25,7 +27,7 @@ def mock_mcp():
 
 
 @pytest.fixture
-def analysis_tools(mock_db_session, mock_mcp):
+def analysis_tools(mock_db_session: AsyncSession, mock_mcp: FastMCP) -> AnalysisTools:
     """Create analysis tools fixture."""
     with patch("src.mcp_server.tools.analysis_tools.settings") as mock_settings:
         mock_settings.openai_api_key.get_secret_value.return_value = "test-key"
@@ -37,12 +39,19 @@ class TestDependencyTools:
 
     @pytest.mark.asyncio
     async def test_analyze_dependencies_file_not_found(
-        self, analysis_tools, mock_db_session
-    ):
+        self,
+        analysis_tools: AnalysisTools,
+        mock_db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test analyzing dependencies when file is not found."""
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
-        mock_db_session.execute.return_value = mock_result
+        monkeypatch.setattr(
+            mock_db_session,
+            "execute",
+            AsyncMock(return_value=mock_result),
+        )
 
         result = await analysis_tools.analyze_dependencies("nonexistent.py")
 
@@ -50,8 +59,11 @@ class TestDependencyTools:
 
     @pytest.mark.asyncio
     async def test_analyze_dependencies_with_imports(
-        self, analysis_tools, mock_db_session
-    ):
+        self,
+        analysis_tools: AnalysisTools,
+        mock_db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test analyzing dependencies with various import types."""
         # Mock file
         mock_file = MagicMock(spec=File)
@@ -74,7 +86,7 @@ class TestDependencyTools:
             ("..common", "utils", "..common", False, True),
         ]
 
-        for i, (module, names, alias, is_stdlib, is_local) in enumerate(import_data):
+        for _i, (module, names, alias, is_stdlib, is_local) in enumerate(import_data):
             imp = MagicMock(spec=Import)
             imp.module_name = module
             imp.imported_names = names
@@ -114,12 +126,18 @@ class TestDependencyTools:
         ]
 
         # Setup mock sequence
-        mock_db_session.execute.side_effect = [
-            file_result,
-            imports_result,
-            *module_results,
-            *file_results,
-        ]
+        monkeypatch.setattr(
+            mock_db_session,
+            "execute",
+            AsyncMock(
+                side_effect=[
+                    file_result,
+                    imports_result,
+                    *module_results,
+                    *file_results,
+                ]
+            ),
+        )
 
         result = await analysis_tools.analyze_dependencies("/src/utils/helpers.py")
 
@@ -152,8 +170,11 @@ class TestDependencyTools:
 
     @pytest.mark.asyncio
     async def test_analyze_dependencies_module_only(
-        self, analysis_tools, mock_db_session
-    ):
+        self,
+        analysis_tools: AnalysisTools,
+        mock_db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test analyzing dependencies for a module file."""
         # Mock module file
         mock_file = MagicMock(spec=File)
@@ -174,7 +195,7 @@ class TestDependencyTools:
 
         # Mock imports from all files in the module
         module_imports = []
-        for i, (imp_module, is_local) in enumerate(
+        for _i, (imp_module, is_local) in enumerate(
             [
                 ("logging", False),
                 ("src.models", True),
@@ -219,13 +240,19 @@ class TestDependencyTools:
             MagicMock(scalar_one_or_none=lambda: mock_utils_file),
         ]
 
-        mock_db_session.execute.side_effect = [
-            file_result,
-            module_result,
-            imports_result,
-            *module_resolutions,
-            *file_resolutions,
-        ]
+        monkeypatch.setattr(
+            mock_db_session,
+            "execute",
+            AsyncMock(
+                side_effect=[
+                    file_result,
+                    module_result,
+                    imports_result,
+                    *module_resolutions,
+                    *file_resolutions,
+                ]
+            ),
+        )
 
         result = await analysis_tools.analyze_dependencies("/src/services/__init__.py")
 
@@ -238,8 +265,11 @@ class TestDependencyTools:
 
     @pytest.mark.asyncio
     async def test_find_circular_dependencies_none_found(
-        self, analysis_tools, mock_db_session
-    ):
+        self,
+        analysis_tools: AnalysisTools,
+        mock_db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test finding circular dependencies when none exist."""
         # Mock files in repository
         files = []
@@ -259,7 +289,7 @@ class TestDependencyTools:
         # views.py imports models
         # controllers.py imports models and views
         import_results = [
-            MagicMock(scalars=lambda: MagicMock(all=lambda: [])),  # models imports
+            MagicMock(scalars=lambda: MagicMock(all=list)),  # models imports
             MagicMock(
                 scalars=lambda: MagicMock(
                     all=lambda: [
@@ -283,7 +313,11 @@ class TestDependencyTools:
             ),  # controllers imports
         ]
 
-        mock_db_session.execute.side_effect = [files_result, *import_results]
+        monkeypatch.setattr(
+            mock_db_session,
+            "execute",
+            AsyncMock(side_effect=[files_result, *import_results]),
+        )
 
         result = await analysis_tools.find_circular_dependencies(repository_id=10)
 
@@ -293,8 +327,11 @@ class TestDependencyTools:
 
     @pytest.mark.asyncio
     async def test_find_circular_dependencies_with_cycles(
-        self, analysis_tools, mock_db_session
-    ):
+        self,
+        analysis_tools: AnalysisTools,
+        mock_db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test finding circular dependencies with multiple cycles."""
         # Mock files
         files = []
@@ -319,7 +356,7 @@ class TestDependencyTools:
         # Cycle 1: user.py -> permissions.py -> user.py
         # Cycle 2: order.py -> product.py -> pricing.py -> order.py
 
-        def create_import(module_name, file_id):
+        def create_import(module_name: str, file_id: int) -> Import:
             imp = MagicMock(spec=Import)
             imp.module_name = module_name
             imp.is_local = True
@@ -359,7 +396,11 @@ class TestDependencyTools:
             ),
         ]
 
-        mock_db_session.execute.side_effect = [files_result, *import_results]
+        monkeypatch.setattr(
+            mock_db_session,
+            "execute",
+            AsyncMock(side_effect=[files_result, *import_results]),
+        )
 
         result = await analysis_tools.find_circular_dependencies(repository_id=10)
 
@@ -386,7 +427,12 @@ class TestDependencyTools:
         assert "/src/services/pricing.py" in cycle2["cycle"]
 
     @pytest.mark.asyncio
-    async def test_analyze_import_graph_complex(self, analysis_tools, mock_db_session):
+    async def test_analyze_import_graph_complex(
+        self,
+        analysis_tools: AnalysisTools,
+        mock_db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test analyzing complex import graph with metrics."""
         # Mock repository files
         files = []
@@ -419,9 +465,14 @@ class TestDependencyTools:
         }
 
         import_results = []
-        for module_id, imported_ids in import_patterns.items():
+        for imported_ids in import_patterns.values():
             imports = [
-                create_import(f"src.module{imp_id}", imp_id + 1)
+                MagicMock(
+                    spec=Import,
+                    module_name=f"src.module{imp_id}",
+                    is_local=True,
+                    imported_file_id=imp_id + 1,
+                )
                 for imp_id in imported_ids
             ]
             import_results.append(
@@ -430,14 +481,18 @@ class TestDependencyTools:
                 )
             )
 
-        def create_import(module_name, file_id):
+        def create_import(module_name: str, file_id: int) -> Import:
             imp = MagicMock(spec=Import)
             imp.module_name = module_name
             imp.is_local = True
             imp.imported_file_id = file_id
             return imp
 
-        mock_db_session.execute.side_effect = [files_result, *import_results]
+        monkeypatch.setattr(
+            mock_db_session,
+            "execute",
+            AsyncMock(side_effect=[files_result, *import_results]),
+        )
 
         result = await analysis_tools.analyze_import_graph(repository_id=10)
 
@@ -457,8 +512,11 @@ class TestDependencyTools:
 
     @pytest.mark.asyncio
     async def test_analyze_dependencies_with_relative_imports(
-        self, analysis_tools, mock_db_session
-    ):
+        self,
+        analysis_tools: AnalysisTools,
+        mock_db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test analyzing dependencies with complex relative imports."""
         # Mock file in nested structure
         mock_file = MagicMock(spec=File)
@@ -478,7 +536,7 @@ class TestDependencyTools:
             ("...common", "constants", "grandparent package import"),
         ]
 
-        for module, names, desc in relative_imports:
+        for module, names, _desc in relative_imports:
             imp = MagicMock(spec=Import)
             imp.module_name = module
             imp.imported_names = names
@@ -518,12 +576,18 @@ class TestDependencyTools:
             MagicMock(scalar_one_or_none=lambda: mock_utils_file),
         ]
 
-        mock_db_session.execute.side_effect = [
-            file_result,
-            imports_result,
-            *module_results,
-            *file_results,
-        ]
+        monkeypatch.setattr(
+            mock_db_session,
+            "execute",
+            AsyncMock(
+                side_effect=[
+                    file_result,
+                    imports_result,
+                    *module_results,
+                    *file_results,
+                ]
+            ),
+        )
 
         result = await analysis_tools.analyze_dependencies(
             "/src/services/auth/handlers.py"

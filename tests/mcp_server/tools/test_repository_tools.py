@@ -1,7 +1,16 @@
 """Tests for repository management tools."""
 
-from datetime import datetime, timezone
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, patch
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+else:
+    Generator = object  # type: ignore[assignment]
+
 
 import pytest
 from fastmcp import FastMCP
@@ -12,21 +21,27 @@ from src.mcp_server.tools.repository_management import RepositoryManagementTools
 
 
 @pytest.fixture
-def mock_db_session():
-    """Create mock database session."""
+def mock_db_session() -> Any:
+    """Create mock database session.
+
+    Typed as Any to allow mocking of overloaded/coroutine methods (e.g., execute, commit)
+    without mypy complaining about Mock-specific attributes like return_value/side_effect.
+    """
     return AsyncMock(spec=AsyncSession)
 
 
 @pytest.fixture
-def mock_mcp():
+def mock_mcp() -> FastMCP:
     """Create mock FastMCP instance."""
+    from typing import cast as _cast
+
     mcp = MagicMock(spec=FastMCP)
     mcp.tool = MagicMock(side_effect=lambda **kwargs: lambda func: func)
-    return mcp
+    return _cast("FastMCP", mcp)
 
 
 @pytest.fixture
-def mock_embeddings():
+def mock_embeddings() -> Generator[MagicMock, None, None]:
     """Create mock embeddings."""
     with patch("langchain_openai.OpenAIEmbeddings") as mock_class:
         mock_instance = MagicMock()
@@ -36,7 +51,9 @@ def mock_embeddings():
 
 
 @pytest.fixture
-def repo_tools(mock_db_session, mock_mcp, mock_embeddings):
+def repo_tools(
+    mock_db_session: Any, mock_mcp: FastMCP, mock_embeddings: MagicMock
+) -> RepositoryManagementTools:
     """Create repository management tools fixture."""
     with (
         patch("src.embeddings.embedding_generator.settings") as mock_gen_settings,
@@ -56,7 +73,7 @@ class TestRepositoryManagementTools:
     """Tests for repository management tools."""
 
     @pytest.mark.asyncio
-    async def test_register_tools(self, repo_tools, mock_mcp):
+    async def test_register_tools(self, repo_tools: Any, mock_mcp: Any) -> None:
         """Test tool registration."""
         await repo_tools.register_tools()
 
@@ -78,7 +95,9 @@ class TestRepositoryManagementTools:
             assert tool in tool_names
 
     @pytest.mark.asyncio
-    async def test_add_repository_new(self, repo_tools, mock_db_session):
+    async def test_add_repository_new(
+        self, repo_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test adding a new repository."""
         # Mock no existing repository
         mock_result = MagicMock()
@@ -116,7 +135,9 @@ class TestRepositoryManagementTools:
         mock_db_session.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_add_repository_already_exists(self, repo_tools, mock_db_session):
+    async def test_add_repository_already_exists(
+        self, repo_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test adding a repository that already exists."""
         # Mock existing repository
         mock_repo = MagicMock(spec=Repository)
@@ -137,7 +158,9 @@ class TestRepositoryManagementTools:
         assert "already exists" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_add_repository_with_access_token(self, repo_tools, mock_db_session):
+    async def test_add_repository_with_access_token(
+        self, repo_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test adding a private repository with access token."""
         # Mock no existing repository
         mock_result = MagicMock()
@@ -172,7 +195,9 @@ class TestRepositoryManagementTools:
         assert added_repo.access_token == "ghp_testtoken123"
 
     @pytest.mark.asyncio
-    async def test_list_repositories_empty(self, repo_tools, mock_db_session):
+    async def test_list_repositories_empty(
+        self, repo_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test listing repositories when none exist."""
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = []
@@ -184,15 +209,17 @@ class TestRepositoryManagementTools:
         assert result["total"] == 0
 
     @pytest.mark.asyncio
-    async def test_list_repositories_with_stats(self, repo_tools, mock_db_session):
+    async def test_list_repositories_with_stats(
+        self, repo_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test listing repositories with statistics."""
         # Mock repositories
         repos = []
         for i, (name, owner, last_synced) in enumerate(
             [
-                ("repo1", "owner1", datetime.now(timezone.utc)),
+                ("repo1", "owner1", datetime.now(UTC)),
                 ("repo2", "owner2", None),
-                ("repo3", "owner3", datetime(2024, 1, 1, tzinfo=timezone.utc)),
+                ("repo3", "owner3", datetime(2024, 1, 1, tzinfo=UTC)),
             ]
         ):
             repo = MagicMock(spec=Repository)
@@ -202,7 +229,7 @@ class TestRepositoryManagementTools:
             repo.github_url = f"https://github.com/{owner}/{name}"
             repo.default_branch = "main"
             repo.last_synced = last_synced
-            repo.created_at = datetime(2023, 1, 1, tzinfo=timezone.utc)
+            repo.created_at = datetime(2023, 1, 1, tzinfo=UTC)
             repos.append(repo)
 
         repo_result = MagicMock()
@@ -245,7 +272,9 @@ class TestRepositoryManagementTools:
         assert repo3["stats"]["file_count"] == 0
 
     @pytest.mark.asyncio
-    async def test_update_repository_not_found(self, repo_tools, mock_db_session):
+    async def test_update_repository_not_found(
+        self, repo_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test updating non-existent repository."""
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
@@ -260,7 +289,9 @@ class TestRepositoryManagementTools:
         assert "not found" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_update_repository_success(self, repo_tools, mock_db_session):
+    async def test_update_repository_success(
+        self, repo_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test successfully updating repository."""
         # Mock existing repository
         mock_repo = MagicMock(spec=Repository)
@@ -289,7 +320,9 @@ class TestRepositoryManagementTools:
         mock_db_session.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_remove_repository_not_found(self, repo_tools, mock_db_session):
+    async def test_remove_repository_not_found(
+        self, repo_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test removing non-existent repository."""
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
@@ -301,7 +334,9 @@ class TestRepositoryManagementTools:
         assert "not found" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_remove_repository_success(self, repo_tools, mock_db_session):
+    async def test_remove_repository_success(
+        self, repo_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test successfully removing repository."""
         # Mock existing repository
         mock_repo = MagicMock(spec=Repository)
@@ -323,7 +358,9 @@ class TestRepositoryManagementTools:
         mock_db_session.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_repository_stats_not_found(self, repo_tools, mock_db_session):
+    async def test_get_repository_stats_not_found(
+        self, repo_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test getting stats for non-existent repository."""
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
@@ -335,13 +372,15 @@ class TestRepositoryManagementTools:
         assert "not found" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_get_repository_stats_detailed(self, repo_tools, mock_db_session):
+    async def test_get_repository_stats_detailed(
+        self, repo_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test getting detailed repository statistics."""
         # Mock repository
         mock_repo = MagicMock(spec=Repository)
         mock_repo.id = 1
         mock_repo.name = "test-repo"
-        mock_repo.last_synced = datetime.now(timezone.utc)
+        mock_repo.last_synced = datetime.now(UTC)
 
         repo_result = MagicMock()
         repo_result.scalar_one_or_none.return_value = mock_repo
@@ -430,7 +469,9 @@ class TestRepositoryManagementTools:
         assert stats["most_complex_functions"][0]["complexity"] == 25
 
     @pytest.mark.asyncio
-    async def test_scan_repository_not_found(self, repo_tools, mock_db_session):
+    async def test_scan_repository_not_found(
+        self, repo_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test scanning non-existent repository."""
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
@@ -442,7 +483,9 @@ class TestRepositoryManagementTools:
         assert "not found" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_scan_repository_full_scan(self, repo_tools, mock_db_session):
+    async def test_scan_repository_full_scan(
+        self, repo_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test full repository scan."""
         # Mock repository
         mock_repo = MagicMock(spec=Repository)
@@ -486,13 +529,15 @@ class TestRepositoryManagementTools:
         )
 
     @pytest.mark.asyncio
-    async def test_sync_repository_incremental(self, repo_tools, mock_db_session):
+    async def test_sync_repository_incremental(
+        self, repo_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test incremental repository sync."""
         # Mock repository with last sync time
         mock_repo = MagicMock(spec=Repository)
         mock_repo.id = 1
         mock_repo.name = "test-repo"
-        mock_repo.last_synced = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        mock_repo.last_synced = datetime(2024, 1, 1, tzinfo=UTC)
 
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = mock_repo
@@ -520,7 +565,9 @@ class TestRepositoryManagementTools:
         assert result["sync_result"]["files_changed"] == 25
 
     @pytest.mark.asyncio
-    async def test_add_repository_scanner_error(self, repo_tools, mock_db_session):
+    async def test_add_repository_scanner_error(
+        self, repo_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test handling scanner error when adding repository."""
         # Mock no existing repository
         mock_result = MagicMock()
@@ -550,8 +597,8 @@ class TestRepositoryManagementTools:
 
     @pytest.mark.asyncio
     async def test_list_repositories_filter_by_language(
-        self, repo_tools, mock_db_session
-    ):
+        self, repo_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test listing repositories filtered by language."""
         # This would be a future enhancement - placeholder test
         repos = []

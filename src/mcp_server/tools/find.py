@@ -53,7 +53,11 @@ class FindTool:
                 if module and hasattr(module, "file_id"):
                     file = await self.session.get(File, module.file_id)
                 if file and hasattr(file, "repository_id"):
-                    repo = await self.repo_repo.get_by_id(file.repository_id)
+                    from typing import cast
+
+                    repo = await self.repo_repo.get_by_id(
+                        cast("int", file.repository_id)
+                    )
 
                 definition = {
                     "name": entity.name,
@@ -179,7 +183,11 @@ class FindTool:
 
         for import_record in results:
             # Get repository info
-            repo = await self.repo_repo.get_by_id(import_record.repository_id)
+            from typing import cast
+
+            repo = await self.repo_repo.get_by_id(
+                cast("int", import_record.repository_id)
+            )
 
             if repository and repo and repo.name != repository:
                 continue
@@ -208,6 +216,8 @@ class FindTool:
         """Find usages in code (simplified version)."""
         # This is a simplified implementation
         # A full implementation would use AST analysis to find actual usages
+
+        from typing import cast
 
         usages: list[dict[str, Any]] = []
 
@@ -242,7 +252,7 @@ class FindTool:
                         await self.session.get(File, module.file_id) if module else None
                     )
                     repo = (
-                        await self.repo_repo.get_by_id(file.repository_id)
+                        await self.repo_repo.get_by_id(cast("int", file.repository_id))
                         if file
                         else None
                     )

@@ -11,13 +11,13 @@ from src.mcp_server.tools.code_analysis import CodeAnalysisTools
 
 
 @pytest.fixture
-def mock_db_session():
+def mock_db_session() -> AsyncSession:
     """Create mock database session."""
     return AsyncMock(spec=AsyncSession)
 
 
 @pytest.fixture
-def mock_mcp():
+def mock_mcp() -> FastMCP:
     """Create mock FastMCP instance."""
     mcp = MagicMock(spec=FastMCP)
     mcp.tool = MagicMock(side_effect=lambda **kwargs: lambda func: func)
@@ -25,9 +25,87 @@ def mock_mcp():
 
 
 @pytest.fixture
-def analysis_tools(mock_db_session, mock_mcp):
+def analysis_tools(
+    mock_db_session: AsyncSession, mock_mcp: FastMCP
+) -> CodeAnalysisTools:
     """Create code analysis tools fixture."""
     return CodeAnalysisTools(mock_db_session, mock_mcp)
+
+
+# Helper builders to reduce statements in tests
+
+
+def build_file_module_and_results() -> tuple[MagicMock, MagicMock]:
+    mock_file = MagicMock(spec=File)
+    mock_file.id = 1
+    mock_file.path = "/src/models/user.py"
+    mock_file.language = "python"
+    mock_file.size = 5000
+    mock_file.lines = 200
+
+    file_result = MagicMock()
+    file_result.scalar_one_or_none.return_value = mock_file
+
+    mock_module = MagicMock(spec=Module)
+    mock_module.name = "src.models.user"
+    mock_module.docstring = "User model module"
+
+    module_result = MagicMock()
+    module_result.scalar_one_or_none.return_value = mock_module
+
+    return file_result, module_result
+
+
+def build_classes_and_result() -> MagicMock:
+    classes = []
+    for i, (name, docstring, methods) in enumerate(
+        [
+            ("User", "Main user model", 15),
+            ("UserProfile", "User profile extension", 8),
+            ("UserPermissions", "User permissions", 5),
+        ]
+    ):
+        cls = MagicMock(spec=Class)
+        cls.name = name
+        cls.docstring = docstring
+        cls.method_count = methods
+        cls.start_line = 20 + i * 50
+        cls.end_line = cls.start_line + 40
+        cls.parent_id = None
+        cls.is_abstract = i == 2
+        classes.append(cls)
+
+    classes_result = MagicMock()
+    classes_result.scalars.return_value.all.return_value = classes
+    return classes_result
+
+
+def build_functions_and_result() -> MagicMock:
+    functions = []
+    func_data = [
+        ("create_user", "Create new user", None, 10),
+        ("validate_email", "Validate email format", None, 15),
+        ("get_user_by_id", "Retrieve user by ID", None, 180),
+        ("__init__", "Initialize user", "User", 25),
+        ("save", "Save user to database", "User", 35),
+        ("delete", "Delete user", "User", 45),
+    ]
+
+    for name, docstring, parent_class, line in func_data:
+        func = MagicMock(spec=Function)
+        func.name = name
+        func.docstring = docstring
+        func.start_line = line
+        func.end_line = line + 8
+        func.is_method = parent_class is not None
+        func.is_async = name == "save"
+        func.complexity_score = 5 if name != "validate_email" else 12
+        func.parent_class = parent_class
+        functions.append(func)
+
+    functions_result = MagicMock()
+    functions_result.scalars.return_value.all.return_value = functions
+    return functions_result
 
 
 class TestStructureTools:
@@ -35,93 +113,49 @@ class TestStructureTools:
 
     @pytest.mark.asyncio
     async def test_get_code_structure_file_not_found(
-        self, analysis_tools, mock_db_session
-    ):
+        self,
+        analysis_tools: CodeAnalysisTools,
+        mock_db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test getting structure for non-existent file."""
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
-        mock_db_session.execute.return_value = mock_result
+        monkeypatch.setattr(
+            mock_db_session,
+            "execute",
+            AsyncMock(return_value=mock_result),
+        )
 
         result = await analysis_tools.get_code_structure("nonexistent.py")
 
         assert result["error"] == "File not found: nonexistent.py"
 
     @pytest.mark.asyncio
-    async def test_get_code_structure_complete(self, analysis_tools, mock_db_session):
+    async def test_get_code_structure_complete(
+        self,
+        analysis_tools: CodeAnalysisTools,
+        mock_db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test getting complete code structure for a file."""
-        # Mock file
-        mock_file = MagicMock(spec=File)
-        mock_file.id = 1
-        mock_file.path = "/src/models/user.py"
-        mock_file.language = "python"
-        mock_file.size = 5000
-        mock_file.lines = 200
+        # Mock file, module, classes, and functions via helpers
+        file_result, module_result = build_file_module_and_results()
+        classes_result = build_classes_and_result()
+        functions_result = build_functions_and_result()
 
-        file_result = MagicMock()
-        file_result.scalar_one_or_none.return_value = mock_file
-
-        # Mock module
-        mock_module = MagicMock(spec=Module)
-        mock_module.name = "src.models.user"
-        mock_module.docstring = "User model module"
-
-        module_result = MagicMock()
-        module_result.scalar_one_or_none.return_value = mock_module
-
-        # Mock classes
-        classes = []
-        for i, (name, docstring, methods) in enumerate(
-            [
-                ("User", "Main user model", 15),
-                ("UserProfile", "User profile extension", 8),
-                ("UserPermissions", "User permissions", 5),
-            ]
-        ):
-            cls = MagicMock(spec=Class)
-            cls.name = name
-            cls.docstring = docstring
-            cls.method_count = methods
-            cls.start_line = 20 + i * 50
-            cls.end_line = cls.start_line + 40
-            cls.parent_id = None
-            cls.is_abstract = i == 2  # Last one is abstract
-            classes.append(cls)
-
-        classes_result = MagicMock()
-        classes_result.scalars.return_value.all.return_value = classes
-
-        # Mock functions
-        functions = []
-        func_data = [
-            ("create_user", "Create new user", None, 10),
-            ("validate_email", "Validate email format", None, 15),
-            ("get_user_by_id", "Retrieve user by ID", None, 180),
-            ("__init__", "Initialize user", classes[0].name, 25),
-            ("save", "Save user to database", classes[0].name, 35),
-            ("delete", "Delete user", classes[0].name, 45),
-        ]
-
-        for name, docstring, parent_class, line in func_data:
-            func = MagicMock(spec=Function)
-            func.name = name
-            func.docstring = docstring
-            func.start_line = line
-            func.end_line = line + 8
-            func.is_method = parent_class is not None
-            func.is_async = name == "save"
-            func.complexity_score = 5 if name != "validate_email" else 12
-            func.parent_class = parent_class
-            functions.append(func)
-
-        functions_result = MagicMock()
-        functions_result.scalars.return_value.all.return_value = functions
-
-        mock_db_session.execute.side_effect = [
-            file_result,
-            module_result,
-            classes_result,
-            functions_result,
-        ]
+        monkeypatch.setattr(
+            mock_db_session,
+            "execute",
+            AsyncMock(
+                side_effect=[
+                    file_result,
+                    module_result,
+                    classes_result,
+                    functions_result,
+                ]
+            ),
+        )
 
         result = await analysis_tools.get_code_structure("/src/models/user.py")
 
@@ -150,8 +184,11 @@ class TestStructureTools:
 
     @pytest.mark.asyncio
     async def test_get_code_structure_nested_classes(
-        self, analysis_tools, mock_db_session
-    ):
+        self,
+        analysis_tools: CodeAnalysisTools,
+        mock_db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test getting code structure with nested classes."""
         # Mock file
         mock_file = MagicMock(spec=File)
@@ -200,12 +237,18 @@ class TestStructureTools:
         functions_result = MagicMock()
         functions_result.scalars.return_value.all.return_value = []
 
-        mock_db_session.execute.side_effect = [
-            file_result,
-            module_result,
-            classes_result,
-            functions_result,
-        ]
+        monkeypatch.setattr(
+            mock_db_session,
+            "execute",
+            AsyncMock(
+                side_effect=[
+                    file_result,
+                    module_result,
+                    classes_result,
+                    functions_result,
+                ]
+            ),
+        )
 
         result = await analysis_tools.get_code_structure("/src/patterns/builder.py")
 
@@ -219,7 +262,12 @@ class TestStructureTools:
         assert all(c["name"] in ["EngineBuilder", "WheelBuilder"] for c in nested)
 
     @pytest.mark.asyncio
-    async def test_get_module_structure(self, analysis_tools, mock_db_session):
+    async def test_get_module_structure(
+        self,
+        analysis_tools: CodeAnalysisTools,
+        mock_db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test getting structure for an entire module."""
         # Mock module
         mock_module = MagicMock(spec=Module)
@@ -247,7 +295,7 @@ class TestStructureTools:
 
         # Mock submodules
         submodules = []
-        for i, name in enumerate(["validators", "handlers"]):
+        for _i, name in enumerate(["validators", "handlers"]):
             sub = MagicMock(spec=Module)
             sub.name = f"src.services.{name}"
             sub.docstring = f"{name} submodule"
@@ -260,12 +308,18 @@ class TestStructureTools:
         stats_result = MagicMock()
         stats_result.one.return_value = (10, 50, 200)  # classes, functions, total_lines
 
-        mock_db_session.execute.side_effect = [
-            module_result,
-            files_result,
-            submodules_result,
-            stats_result,
-        ]
+        monkeypatch.setattr(
+            mock_db_session,
+            "execute",
+            AsyncMock(
+                side_effect=[
+                    module_result,
+                    files_result,
+                    submodules_result,
+                    stats_result,
+                ]
+            ),
+        )
 
         result = await analysis_tools.get_module_structure("src.services")
 
@@ -289,8 +343,11 @@ class TestStructureTools:
 
     @pytest.mark.asyncio
     async def test_analyze_file_structure_complexity(
-        self, analysis_tools, mock_db_session
-    ):
+        self,
+        analysis_tools: CodeAnalysisTools,
+        mock_db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test analyzing file structure with complexity metrics."""
         # Mock file
         mock_file = MagicMock(spec=File)
@@ -331,12 +388,18 @@ class TestStructureTools:
         module_result = MagicMock()
         module_result.scalar_one_or_none.return_value = None
 
-        mock_db_session.execute.side_effect = [
-            file_result,
-            module_result,
-            classes_result,
-            functions_result,
-        ]
+        monkeypatch.setattr(
+            mock_db_session,
+            "execute",
+            AsyncMock(
+                side_effect=[
+                    file_result,
+                    module_result,
+                    classes_result,
+                    functions_result,
+                ]
+            ),
+        )
 
         result = await analysis_tools.analyze_file_complexity("/src/complex_module.py")
 
@@ -357,8 +420,11 @@ class TestStructureTools:
 
     @pytest.mark.asyncio
     async def test_get_file_dependencies_structure(
-        self, analysis_tools, mock_db_session
-    ):
+        self,
+        analysis_tools: CodeAnalysisTools,
+        mock_db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test getting file dependencies as a structure."""
         # Mock file
         mock_file = MagicMock(spec=File)
@@ -373,7 +439,6 @@ class TestStructureTools:
 
         imports = []
         import_structure = [
-            # (module, items, is_relative, level)
             ("fastapi", ["FastAPI", "Request", "Response"], False, 0),
             ("src.models", ["User", "Product"], False, 0),
             ("src.services.user_service", ["UserService"], False, 0),
@@ -394,7 +459,11 @@ class TestStructureTools:
         imports_result = MagicMock()
         imports_result.scalars.return_value.all.return_value = imports
 
-        mock_db_session.execute.side_effect = [file_result, imports_result]
+        monkeypatch.setattr(
+            mock_db_session,
+            "execute",
+            AsyncMock(side_effect=[file_result, imports_result]),
+        )
 
         result = await analysis_tools.get_file_dependencies_structure(
             "/src/api/handler.py"
@@ -423,8 +492,11 @@ class TestStructureTools:
 
     @pytest.mark.asyncio
     async def test_get_project_structure_overview(
-        self, analysis_tools, mock_db_session
-    ):
+        self,
+        analysis_tools: CodeAnalysisTools,
+        mock_db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test getting high-level project structure overview."""
         # Mock repository stats
         stats_result = MagicMock()
@@ -474,12 +546,18 @@ class TestStructureTools:
             )
         )
 
-        mock_db_session.execute.side_effect = [
-            stats_result,
-            lang_result,
-            packages_result,
-            complexity_result,
-        ]
+        monkeypatch.setattr(
+            mock_db_session,
+            "execute",
+            AsyncMock(
+                side_effect=[
+                    stats_result,
+                    lang_result,
+                    packages_result,
+                    complexity_result,
+                ]
+            ),
+        )
 
         result = await analysis_tools.get_project_structure_overview(repository_id=1)
 

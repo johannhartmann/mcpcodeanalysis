@@ -56,7 +56,7 @@ class GetPackageCouplingRequest(BaseModel):
 
 
 async def analyze_packages(
-    request: AnalyzePackagesRequest, db_session
+    request: AnalyzePackagesRequest, db_session: Any
 ) -> dict[str, Any]:
     """Analyze the package structure of a repository.
 
@@ -87,7 +87,7 @@ async def analyze_packages(
 
 
 async def get_package_tree(
-    request: GetPackageTreeRequest, db_session
+    request: GetPackageTreeRequest, db_session: Any
 ) -> dict[str, Any]:
     """Get the hierarchical package structure of a repository.
 
@@ -105,7 +105,7 @@ async def get_package_tree(
 
 
 async def get_package_details(
-    request: GetPackageDetailsRequest, db_session
+    request: GetPackageDetailsRequest, db_session: Any
 ) -> dict[str, Any]:
     """Get detailed information about a specific package.
 
@@ -124,10 +124,12 @@ async def get_package_details(
             }
 
         # Get metrics
-        metrics = await pkg_repo.get_package_metrics(package.id)
+        from typing import cast
+
+        metrics = await pkg_repo.get_package_metrics(cast("int", package.id))
 
         # Get dependencies summary
-        deps = await pkg_repo.get_package_dependencies(package.id)
+        deps = await pkg_repo.get_package_dependencies(cast("int", package.id))
 
         return {
             "status": "success",
@@ -170,7 +172,7 @@ async def get_package_details(
 
 
 async def get_package_dependencies(
-    request: GetPackageDependenciesRequest, db_session
+    request: GetPackageDependenciesRequest, db_session: Any
 ) -> dict[str, Any]:
     """Get dependencies for a specific package.
 
@@ -178,6 +180,8 @@ async def get_package_dependencies(
     """
     try:
         pkg_repo = PackageRepository(db_session)
+        from typing import cast
+
         package = await pkg_repo.get_package_by_path(
             request.repository_id, request.package_path
         )
@@ -188,7 +192,9 @@ async def get_package_dependencies(
                 "error": f"Package '{request.package_path}' not found",
             }
 
-        deps = await pkg_repo.get_package_dependencies(package.id, request.direction)
+        deps = await pkg_repo.get_package_dependencies(
+            cast("int", package.id), request.direction
+        )
 
         return {
             "status": "success",
@@ -203,7 +209,7 @@ async def get_package_dependencies(
 
 
 async def find_circular_dependencies(
-    request: FindCircularDependenciesRequest, db_session
+    request: FindCircularDependenciesRequest, db_session: Any
 ) -> dict[str, Any]:
     """Find circular dependencies between packages.
 
@@ -226,7 +232,7 @@ async def find_circular_dependencies(
 
 
 async def get_package_coupling_metrics(
-    request: GetPackageCouplingRequest, db_session
+    request: GetPackageCouplingRequest, db_session: Any
 ) -> dict[str, Any]:
     """Get coupling metrics for all packages in a repository.
 

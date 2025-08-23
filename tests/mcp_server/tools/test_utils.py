@@ -1,6 +1,9 @@
 """Tests for MCP tools utility functions and helpers."""
 
-from datetime import datetime, timezone
+# mypy: disallow-any-generics=False
+
+
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -21,7 +24,7 @@ from src.mcp_server.tools.utils import (
 
 
 @pytest.fixture
-def mock_db_session():
+def mock_db_session() -> AsyncMock:
     """Create mock database session."""
     return AsyncMock(spec=AsyncSession)
 
@@ -29,7 +32,7 @@ def mock_db_session():
 class TestToolUtils:
     """Tests for tool utility functions."""
 
-    def test_format_file_path_absolute(self):
+    def test_format_file_path_absolute(self) -> None:
         """Test formatting absolute file paths."""
         assert format_file_path("/src/models/user.py") == "/src/models/user.py"
         assert (
@@ -37,13 +40,13 @@ class TestToolUtils:
             == "/home/user/project/file.py"
         )
 
-    def test_format_file_path_relative(self):
+    def test_format_file_path_relative(self) -> None:
         """Test formatting relative file paths."""
         assert format_file_path("src/models/user.py") == "src/models/user.py"
         assert format_file_path("./src/file.py") == "src/file.py"
         assert format_file_path("../parent/file.py") == "../parent/file.py"
 
-    def test_format_file_path_with_repo_root(self):
+    def test_format_file_path_with_repo_root(self) -> None:
         """Test formatting file paths with repository root."""
         assert format_file_path("/repo/src/file.py", repo_root="/repo") == "src/file.py"
         assert (
@@ -53,7 +56,7 @@ class TestToolUtils:
             == "src/file.py"
         )
 
-    def test_format_function_signature(self):
+    def test_format_function_signature(self) -> None:
         """Test formatting function signatures."""
         # Simple function
         assert (
@@ -85,7 +88,7 @@ class TestToolUtils:
             == "process_data(data: List[str], config: Dict[str, Any]) -> Optional[Result]"
         )
 
-    def test_format_function_signature_with_defaults(self):
+    def test_format_function_signature_with_defaults(self) -> None:
         """Test formatting function signatures with default values."""
         assert (
             format_function_signature(
@@ -96,34 +99,32 @@ class TestToolUtils:
             == "create_user(name: str, age: int = 18, active: bool = True) -> User"
         )
 
-    def test_format_timestamp(self):
+    def test_format_timestamp(self) -> None:
         """Test formatting timestamps."""
         # Recent timestamp (less than a minute)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         assert format_timestamp(now) == "just now"
 
         # Minutes ago
-        minutes_ago = datetime.now(timezone.utc).replace(
-            minute=datetime.now(timezone.utc).minute - 5
-        )
+        minutes_ago = datetime.now(UTC).replace(minute=datetime.now(UTC).minute - 5)
         result = format_timestamp(minutes_ago)
         assert "5 minutes ago" in result or "4 minutes ago" in result
 
         # Hours ago
         from datetime import timedelta
 
-        hours_ago = datetime.now(timezone.utc) - timedelta(hours=3)
+        hours_ago = datetime.now(UTC) - timedelta(hours=3)
         assert "3 hours ago" in format_timestamp(hours_ago)
 
         # Days ago
-        days_ago = datetime.now(timezone.utc) - timedelta(days=2)
+        days_ago = datetime.now(UTC) - timedelta(days=2)
         assert "2 days ago" in format_timestamp(days_ago)
 
         # Specific date for old timestamps
-        old_date = datetime(2023, 1, 15, 10, 30, tzinfo=timezone.utc)
+        old_date = datetime(2023, 1, 15, 10, 30, tzinfo=UTC)
         assert format_timestamp(old_date) == "2023-01-15 10:30"
 
-    def test_validate_entity_type(self):
+    def test_validate_entity_type(self) -> None:
         """Test entity type validation."""
         valid_types = ["function", "class", "module", "file"]
         for entity_type in valid_types:
@@ -133,7 +134,7 @@ class TestToolUtils:
         for entity_type in invalid_types:
             assert validate_entity_type(entity_type) is False
 
-    def test_validate_file_path(self):
+    def test_validate_file_path(self) -> None:
         """Test file path validation."""
         # Valid paths
         valid_paths = [
@@ -157,7 +158,7 @@ class TestToolUtils:
         for path in invalid_paths:
             assert validate_file_path(path) is False
 
-    def test_parse_entity_reference(self):
+    def test_parse_entity_reference(self) -> None:
         """Test parsing entity references."""
         # Function reference
         result = parse_entity_reference("function:process_data")
@@ -180,7 +181,7 @@ class TestToolUtils:
         assert parse_entity_reference("") == (None, None, None)
         assert parse_entity_reference("function:") == (None, None, None)
 
-    def test_paginate_results(self):
+    def test_paginate_results(self) -> None:
         """Test result pagination."""
         items = list(range(100))
 
@@ -211,7 +212,7 @@ class TestToolUtils:
         assert page_invalid["items"] == []
         assert page_invalid["page"] == 20
 
-    def test_paginate_results_custom_size(self):
+    def test_paginate_results_custom_size(self) -> None:
         """Test pagination with custom page sizes."""
         items = list(range(50))
 
@@ -227,7 +228,9 @@ class TestToolUtils:
         assert small_page["pages"] == 10
 
     @pytest.mark.asyncio
-    async def test_get_entity_by_type_and_id_function(self, mock_db_session):
+    async def test_get_entity_by_type_and_id_function(
+        self, mock_db_session: AsyncMock
+    ) -> None:
         """Test getting entity by type and ID for functions."""
         # Mock function
         mock_function = MagicMock(spec=Function)
@@ -244,7 +247,9 @@ class TestToolUtils:
         assert result == mock_function
 
     @pytest.mark.asyncio
-    async def test_get_entity_by_type_and_id_not_found(self, mock_db_session):
+    async def test_get_entity_by_type_and_id_not_found(
+        self, mock_db_session: AsyncMock
+    ) -> None:
         """Test getting entity that doesn't exist."""
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
@@ -256,58 +261,53 @@ class TestToolUtils:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_get_entity_by_type_and_id_invalid_type(self, mock_db_session):
+    async def test_get_entity_by_type_and_id_invalid_type(
+        self, mock_db_session: AsyncMock
+    ) -> None:
         """Test getting entity with invalid type."""
         with pytest.raises(ValueError, match="Invalid entity type"):
             await get_entity_by_type_and_id(mock_db_session, "invalid_type", 10)
 
     @pytest.mark.asyncio
-    async def test_get_file_content_safe(self):
+    async def test_get_file_content_safe(self) -> None:
         """Test safely reading file content."""
-        # Mock successful file read
-        with patch("builtins.open", create=True) as mock_open:
-            mock_open.return_value.__enter__.return_value.read.return_value = (
-                "def hello():\n    return 'world'"
-            )
-
+        # Mock successful file read via Path.read_text used by implementation
+        with patch(
+            "pathlib.Path.read_text", return_value="def hello():\n    return 'world'"
+        ) as mock_read:
             content = await get_file_content_safe("/src/test.py")
 
             assert content == "def hello():\n    return 'world'"
-            mock_open.assert_called_once_with("/src/test.py", "r", encoding="utf-8")
+            assert mock_read.called
 
     @pytest.mark.asyncio
-    async def test_get_file_content_safe_not_found(self):
+    async def test_get_file_content_safe_not_found(self) -> None:
         """Test reading non-existent file."""
         with patch("builtins.open", side_effect=FileNotFoundError()):
             content = await get_file_content_safe("/nonexistent.py")
             assert content is None
 
     @pytest.mark.asyncio
-    async def test_get_file_content_safe_permission_error(self):
+    async def test_get_file_content_safe_permission_error(self) -> None:
         """Test reading file with permission error."""
         with patch("builtins.open", side_effect=PermissionError()):
             content = await get_file_content_safe("/restricted.py")
             assert content is None
 
     @pytest.mark.asyncio
-    async def test_get_file_content_safe_max_size(self):
+    async def test_get_file_content_safe_max_size(self) -> None:
         """Test reading file with size limit."""
         large_content = "x" * 2_000_000  # 2MB
 
-        with patch("builtins.open", create=True) as mock_open:
-            # Mock read() to respect the size parameter
-            mock_file = mock_open.return_value.__enter__.return_value
-            mock_file.read.side_effect = lambda size=None: (
-                large_content[:size] if size else large_content
-            )
-
-            # Should truncate at 1MB by default
+        # Patch Path.read_text to return a large content blob, implementation slices it
+        with patch("pathlib.Path.read_text", return_value=large_content):
             content = await get_file_content_safe("/large.py", max_size=1_000_000)
 
+            assert content is not None
             assert len(content) == 1_000_000
             assert content == large_content[:1_000_000]
 
-    def test_format_error_response(self):
+    def test_format_error_response(self) -> None:
         """Test formatting error responses."""
         from src.mcp_server.tools.utils import format_error_response
 
@@ -328,7 +328,7 @@ class TestToolUtils:
         result = format_error_response("Permission denied", code="PERMISSION_DENIED")
         assert result["code"] == "PERMISSION_DENIED"
 
-    def test_sanitize_output(self):
+    def test_sanitize_output(self) -> None:
         """Test output sanitization."""
         from src.mcp_server.tools.utils import sanitize_output
 
@@ -348,7 +348,7 @@ class TestToolUtils:
         assert sanitized["token"] == "[REDACTED]"
         assert sanitized["normal_field"] == "visible"
 
-    def test_calculate_similarity_score(self):
+    def test_calculate_similarity_score(self) -> None:
         """Test similarity score calculation."""
         from src.mcp_server.tools.utils import calculate_similarity_score
 
@@ -365,7 +365,7 @@ class TestToolUtils:
         # Case insensitive option
         assert calculate_similarity_score("Hello", "hello", case_sensitive=False) == 1.0
 
-    def test_parse_code_location(self):
+    def test_parse_code_location(self) -> None:
         """Test parsing code location strings."""
         from src.mcp_server.tools.utils import parse_code_location
 

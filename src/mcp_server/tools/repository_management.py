@@ -1,6 +1,6 @@
 """Repository management tools for MCP server."""
 
-from typing import Any
+from typing import Any, cast
 
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field, SecretStr
@@ -147,7 +147,7 @@ class RepositoryManagementTools:
                 }
 
             except Exception as e:
-                logger.exception("Failed to add repository: %s")
+                logger.exception("Failed to add repository", error=str(e))
                 return {
                     "success": False,
                     "error": str(e),
@@ -202,7 +202,9 @@ class RepositoryManagementTools:
                         # Get embedding count
                         if self.embedding_service:
                             vector_search = VectorSearch(self.db_session)
-                            stats = await vector_search.get_repository_stats(repo.id)
+                            stats = await vector_search.get_repository_stats(
+                                cast("int", repo.id)
+                            )
                             repo_info["stats"] = {
                                 "files": file_count.scalar() or 0,
                                 "embeddings": stats["total_embeddings"],
@@ -222,7 +224,7 @@ class RepositoryManagementTools:
                 }
 
             except Exception as e:
-                logger.exception("Failed to list repositories: %s")
+                logger.exception("Failed to list repositories", error=str(e))
                 return {
                     "success": False,
                     "error": str(e),
@@ -257,10 +259,10 @@ class RepositoryManagementTools:
 
                 # Create repository config
                 repo_config = RepositoryConfig(
-                    url=repo.github_url,
-                    branch=repo.default_branch,
+                    url=cast("str", repo.github_url),
+                    branch=cast("str | None", repo.default_branch),
                     access_token=(
-                        SecretStr(repo.access_token_id)
+                        SecretStr(cast("str", repo.access_token_id))
                         if repo.access_token_id
                         else None
                     ),
@@ -293,7 +295,7 @@ class RepositoryManagementTools:
                 }
 
             except Exception as e:
-                logger.exception("Failed to scan repository: %s")
+                logger.exception("Failed to scan repository", error=str(e))
                 return {
                     "success": False,
                     "error": str(e),
@@ -349,7 +351,7 @@ class RepositoryManagementTools:
                 }
 
             except Exception as e:
-                logger.exception("Failed to update embeddings: %s")
+                logger.exception("Failed to update embeddings", error=str(e))
                 return {
                     "success": False,
                     "error": str(e),
@@ -383,7 +385,7 @@ class RepositoryManagementTools:
                         "error": f"Repository {request.repository_id} not found",
                     }
 
-                stats = {
+                stats: dict[str, Any] = {
                     "repository": {
                         "id": repo.id,
                         "name": repo.name,
@@ -402,7 +404,7 @@ class RepositoryManagementTools:
                     select(func.count(File.id)).where(
                         and_(
                             File.repository_id == request.repository_id,
-                            not File.is_deleted,
+                            File.is_deleted.is_(False),
                         ),
                     ),
                 )
@@ -439,7 +441,7 @@ class RepositoryManagementTools:
                     .where(
                         and_(
                             File.repository_id == request.repository_id,
-                            not File.is_deleted,
+                            File.is_deleted.is_(False),
                         ),
                     )
                     .group_by(File.language),
@@ -486,7 +488,7 @@ class RepositoryManagementTools:
                 }
 
             except Exception as e:
-                logger.exception("Failed to get repository stats: %s")
+                logger.exception("Failed to get repository stats", error=str(e))
                 return {
                     "success": False,
                     "error": str(e),
@@ -541,7 +543,7 @@ class RepositoryManagementTools:
                 }
 
             except Exception as e:
-                logger.exception("Failed to delete repository: %s")
+                logger.exception("Failed to delete repository", error=str(e))
                 await self.db_session.rollback()
                 return {
                     "success": False,

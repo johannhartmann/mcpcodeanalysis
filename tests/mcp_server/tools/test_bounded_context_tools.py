@@ -1,5 +1,6 @@
 """Tests for bounded context analysis tools."""
 
+from typing import Any, Tuple  # noqa: UP035
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -16,21 +17,125 @@ from src.mcp_server.tools.domain_tools import DomainTools
 
 
 @pytest.fixture
-def mock_db_session():
+def mock_db_session() -> AsyncSession:
     """Create mock database session."""
     return AsyncMock(spec=AsyncSession)
 
 
 @pytest.fixture
-def mock_mcp():
+def mock_mcp() -> FastMCP:
     """Create mock FastMCP instance."""
     mcp = MagicMock(spec=FastMCP)
     mcp.tool = MagicMock(side_effect=lambda **kwargs: lambda func: func)
     return mcp
 
 
+# Helper builders to reduce statements in tests
+
+
+def build_bounded_context_with_memberships() -> Tuple[BoundedContext, MagicMock]:
+    mock_context = MagicMock(spec=BoundedContext)
+    mock_context.id = 1
+    mock_context.name = "OrderContext"
+    mock_context.description = "Order management bounded context"
+    mock_context.ubiquitous_language = [
+        "Order",
+        "OrderItem",
+        "Customer",
+        "Payment",
+        "Shipping",
+    ]
+    mock_context.core_concepts = [
+        "Order fulfillment",
+        "Payment processing",
+        "Inventory management",
+    ]
+    mock_context.cohesion_score = 0.85
+    mock_context.coupling_score = 0.3
+    mock_context.modularity_score = 0.75
+
+    memberships = []
+    for _i, (_entity_type, count) in enumerate(
+        [
+            ("aggregate_root", 2),
+            ("entity", 5),
+            ("value_object", 3),
+            ("domain_service", 1),
+        ]
+    ):
+        for j in range(count):
+            membership = MagicMock(spec=BoundedContextMembership)
+            membership.domain_entity_id = _i * 10 + j
+            memberships.append(membership)
+    mock_context.memberships = memberships
+
+    context_result = MagicMock()
+    context_result.scalar_one_or_none.return_value = mock_context
+    return mock_context, context_result
+
+
+def build_entities_and_result() -> tuple[list[DomainEntity], MagicMock]:
+    entities = []
+    entity_types = [
+        ("aggregate_root", "Order", 2),
+        ("entity", "OrderItem", 5),
+        ("value_object", "Money", 3),
+        ("domain_service", "PricingService", 1),
+    ]
+
+    for entity_type, base_name, count in entity_types:
+        for i in range(count):
+            entity = MagicMock(spec=DomainEntity)
+            entity.name = f"{base_name}{i}" if count > 1 else base_name
+            entity.entity_type = entity_type
+            entity.description = f"{entity_type} for {base_name}"
+            entities.append(entity)
+
+    entity_result = MagicMock()
+    entity_result.scalars.return_value.all.return_value = entities
+    return entities, entity_result
+
+
+def build_internal_and_external_relationship_results(
+    entities: list[DomainEntity],
+) -> tuple[MagicMock, MagicMock]:
+    # Internal
+    internal_rels = []
+    for i in range(3):
+        rel = MagicMock()
+        rel.source_entity = entities[i]
+        rel.target_entity = entities[i + 1]
+        rel.relationship_type = ["aggregates", "uses", "depends_on"][i % 3]
+        internal_rels.append(rel)
+    rel_result = MagicMock()
+    rel_result.scalars.return_value.all.return_value = internal_rels
+
+    # External
+    external_entity = MagicMock(spec=DomainEntity)
+    external_entity.name = "ExternalPaymentGateway"
+
+    external_rels = []
+    for i in range(2):
+        rel = MagicMock()
+        rel.source_entity = entities[i]
+        rel.target_entity = external_entity
+        rel.relationship_type = "integrates_with"
+        external_rels.append(rel)
+
+    ext_rel_result = MagicMock()
+    ext_rel_result.scalars.return_value.all.return_value = external_rels
+
+    return rel_result, ext_rel_result
+
+
+def build_summary_none_result() -> MagicMock:
+    summary_result = MagicMock()
+    summary_result.scalar_one_or_none.return_value = None
+    return summary_result
+
+
 @pytest.fixture
-def domain_tools(mock_db_session, mock_mcp):
+def domain_tools(mock_db_session: Any, mock_mcp: Any) -> DomainTools:
     """Create domain tools fixture for bounded context tests."""
     return DomainTools(mock_db_session, mock_mcp)
 
@@ -40,108 +145,33 @@ class TestBoundedContextTools:
 
     @pytest.mark.asyncio
     async def test_analyze_bounded_context_with_relationships(
-        self, domain_tools, mock_db_session
-    ):
+        self,
+        domain_tools: DomainTools,
+        mock_db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test analyzing bounded context with complex relationships."""
-        # Mock bounded context
-        mock_context = MagicMock(spec=BoundedContext)
-        mock_context.id = 1
-        mock_context.name = "OrderContext"
-        mock_context.description = "Order management bounded context"
-        mock_context.ubiquitous_language = [
-            "Order",
-            "OrderItem",
-            "Customer",
-            "Payment",
-            "Shipping",
-        ]
-        mock_context.core_concepts = [
-            "Order fulfillment",
-            "Payment processing",
-            "Inventory management",
-        ]
-        mock_context.cohesion_score = 0.85
-        mock_context.coupling_score = 0.3
-        mock_context.modularity_score = 0.75
+        # Mock bounded context, entities, and relationships via helpers
+        mock_context, context_result = build_bounded_context_with_memberships()
+        entities, entity_result = build_entities_and_result()
+        rel_result, ext_rel_result = build_internal_and_external_relationship_results(
+            entities
+        )
+        summary_result = build_summary_none_result()
 
-        # Mock memberships with various entity types
-        memberships = []
-        for i, (entity_type, count) in enumerate(
-            [
-                ("aggregate_root", 2),
-                ("entity", 5),
-                ("value_object", 3),
-                ("domain_service", 1),
-            ]
-        ):
-            for j in range(count):
-                membership = MagicMock(spec=BoundedContextMembership)
-                membership.domain_entity_id = i * 10 + j
-                memberships.append(membership)
-
-        mock_context.memberships = memberships
-
-        context_result = MagicMock()
-        context_result.scalar_one_or_none.return_value = mock_context
-
-        # Mock entities with different types
-        entities = []
-        entity_types = [
-            ("aggregate_root", "Order", 2),
-            ("entity", "OrderItem", 5),
-            ("value_object", "Money", 3),
-            ("domain_service", "PricingService", 1),
-        ]
-
-        for entity_type, base_name, count in entity_types:
-            for i in range(count):
-                entity = MagicMock(spec=DomainEntity)
-                entity.name = f"{base_name}{i}" if count > 1 else base_name
-                entity.entity_type = entity_type
-                entity.description = f"{entity_type} for {base_name}"
-                entities.append(entity)
-
-        entity_result = MagicMock()
-        entity_result.scalars.return_value.all.return_value = entities
-
-        # Mock internal relationships
-        internal_rels = []
-        for i in range(3):
-            rel = MagicMock()
-            rel.source_entity = entities[i]
-            rel.target_entity = entities[i + 1]
-            rel.relationship_type = ["aggregates", "uses", "depends_on"][i % 3]
-            internal_rels.append(rel)
-
-        rel_result = MagicMock()
-        rel_result.scalars.return_value.all.return_value = internal_rels
-
-        # Mock external relationships
-        external_entity = MagicMock(spec=DomainEntity)
-        external_entity.name = "ExternalPaymentGateway"
-
-        external_rels = []
-        for i in range(2):
-            rel = MagicMock()
-            rel.source_entity = entities[i]
-            rel.target_entity = external_entity
-            rel.relationship_type = "integrates_with"
-            external_rels.append(rel)
-
-        ext_rel_result = MagicMock()
-        ext_rel_result.scalars.return_value.all.return_value = external_rels
-
-        # No summary for this test
-        summary_result = MagicMock()
-        summary_result.scalar_one_or_none.return_value = None
-
-        mock_db_session.execute.side_effect = [
-            context_result,
-            entity_result,
-            rel_result,
-            ext_rel_result,
-            summary_result,
-        ]
+        monkeypatch.setattr(
+            mock_db_session,
+            "execute",
+            AsyncMock(
+                side_effect=[
+                    context_result,
+                    entity_result,
+                    rel_result,
+                    ext_rel_result,
+                    summary_result,
+                ]
+            ),
+        )
 
         result = await domain_tools.analyze_bounded_context("OrderContext")
 
@@ -157,12 +187,15 @@ class TestBoundedContextTools:
 
     @pytest.mark.asyncio
     async def test_find_bounded_contexts_with_filtering(
-        self, domain_tools, mock_db_session
-    ):
+        self,
+        domain_tools: DomainTools,
+        mock_db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test finding bounded contexts with entity count filtering."""
         # Create contexts with varying entity counts
         contexts = []
-        for i, (name, entity_count, cohesion, ctx_type) in enumerate(
+        for _i, (name, entity_count, cohesion, ctx_type) in enumerate(
             [
                 ("UserContext", 10, 0.95, "core"),
                 ("NotificationContext", 2, 0.7, "supporting"),  # Below threshold
@@ -183,7 +216,11 @@ class TestBoundedContextTools:
         context_result = MagicMock()
         context_result.scalars.return_value.all.return_value = contexts
 
-        mock_db_session.execute.return_value = context_result
+        monkeypatch.setattr(
+            mock_db_session,
+            "execute",
+            AsyncMock(return_value=context_result),
+        )
 
         # Test with default min_entities (3)
         result = await domain_tools.find_bounded_contexts()
@@ -202,8 +239,11 @@ class TestBoundedContextTools:
 
     @pytest.mark.asyncio
     async def test_generate_context_map_with_all_relationship_types(
-        self, domain_tools, mock_db_session
-    ):
+        self,
+        domain_tools: DomainTools,
+        mock_db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test generating context map with all relationship types."""
         # Create contexts
         contexts = []
@@ -250,7 +290,11 @@ class TestBoundedContextTools:
         rel_result = MagicMock()
         rel_result.scalars.return_value.all.return_value = relationships
 
-        mock_db_session.execute.side_effect = [context_result, rel_result]
+        monkeypatch.setattr(
+            mock_db_session,
+            "execute",
+            AsyncMock(side_effect=[context_result, rel_result]),
+        )
 
         # Test JSON format
         result = await domain_tools.generate_context_map("json")
@@ -273,8 +317,11 @@ class TestBoundedContextTools:
 
     @pytest.mark.asyncio
     async def test_generate_context_map_plantuml_format(
-        self, domain_tools, mock_db_session
-    ):
+        self,
+        domain_tools: DomainTools,
+        mock_db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test generating context map in PlantUML format."""
         # Create contexts
         ctx1 = MagicMock(spec=BoundedContext)
@@ -298,7 +345,11 @@ class TestBoundedContextTools:
         rel_result = MagicMock()
         rel_result.scalars.return_value.all.return_value = [rel]
 
-        mock_db_session.execute.side_effect = [context_result, rel_result]
+        monkeypatch.setattr(
+            mock_db_session,
+            "execute",
+            AsyncMock(side_effect=[context_result, rel_result]),
+        )
 
         result = await domain_tools.generate_context_map("plantuml")
 
@@ -314,8 +365,11 @@ class TestBoundedContextTools:
 
     @pytest.mark.asyncio
     async def test_suggest_ddd_refactoring_context_boundary_violation(
-        self, domain_tools, mock_db_session
-    ):
+        self,
+        domain_tools: DomainTools,
+        mock_db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test DDD refactoring suggestion for context boundary violations."""
         # Mock file
         mock_file = MagicMock()
@@ -326,7 +380,7 @@ class TestBoundedContextTools:
 
         # Mock entities from different contexts
         entities = []
-        for i, (name, ctx_name) in enumerate(
+        for _i, (name, _ctx_name) in enumerate(
             [
                 ("Order", "OrderContext"),
                 ("OrderItem", "OrderContext"),
@@ -335,7 +389,7 @@ class TestBoundedContextTools:
             ]
         ):
             entity = MagicMock(spec=DomainEntity)
-            entity.id = i
+            entity.id = _i
             entity.name = name
             entity.entity_type = "entity"
             entity.business_rules = ["Rule"]
@@ -349,10 +403,11 @@ class TestBoundedContextTools:
         # Mock context memberships
         contexts = {}
         memberships = []
-        for i, (entity, ctx_name) in enumerate(
+        for _i, (entity, ctx_name) in enumerate(
             zip(
                 entities,
                 ["OrderContext", "OrderContext", "CustomerContext", "ProductContext"],
+                strict=False,
             )
         ):
             if ctx_name not in contexts:
@@ -368,11 +423,17 @@ class TestBoundedContextTools:
         membership_result = MagicMock()
         membership_result.scalars.return_value.all.return_value = memberships
 
-        mock_db_session.execute.side_effect = [
-            file_result,
-            entity_result,
-            membership_result,
-        ]
+        monkeypatch.setattr(
+            mock_db_session,
+            "execute",
+            AsyncMock(
+                side_effect=[
+                    file_result,
+                    entity_result,
+                    membership_result,
+                ]
+            ),
+        )
 
         result = await domain_tools.suggest_ddd_refactoring("mixed_contexts.py")
 
@@ -391,8 +452,11 @@ class TestBoundedContextTools:
 
     @pytest.mark.asyncio
     async def test_find_aggregate_roots_with_complex_aggregates(
-        self, domain_tools, mock_db_session
-    ):
+        self,
+        domain_tools: DomainTools,
+        mock_db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test finding aggregate roots with complex member relationships."""
         # Mock bounded context
         mock_context = MagicMock(spec=BoundedContext)
@@ -440,8 +504,8 @@ class TestBoundedContextTools:
             ("Discount", "value_object"),
         ]
 
-        def create_members(member_list):
-            members = []
+        def create_members(member_list: list[tuple[str, str]]) -> list[DomainEntity]:
+            members: list[DomainEntity] = []
             for name, entity_type in member_list:
                 member = MagicMock(spec=DomainEntity)
                 member.name = name
@@ -472,15 +536,21 @@ class TestBoundedContextTools:
             )
         )
 
-        mock_db_session.execute.side_effect = [
-            context_result,
-            membership_result,
-            agg_result,
-            customer_member_result,
-            file_result1,
-            order_member_result,
-            file_result2,
-        ]
+        monkeypatch.setattr(
+            mock_db_session,
+            "execute",
+            AsyncMock(
+                side_effect=[
+                    context_result,
+                    membership_result,
+                    agg_result,
+                    customer_member_result,
+                    file_result1,
+                    order_member_result,
+                    file_result2,
+                ]
+            ),
+        )
 
         result = await domain_tools.find_aggregate_roots("ComplexContext")
 
@@ -500,8 +570,11 @@ class TestBoundedContextTools:
 
     @pytest.mark.asyncio
     async def test_generate_context_map_empty_relationships(
-        self, domain_tools, mock_db_session
-    ):
+        self,
+        domain_tools: DomainTools,
+        mock_db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test generating context map with no relationships."""
         # Create isolated contexts
         contexts = []
@@ -522,7 +595,11 @@ class TestBoundedContextTools:
         rel_result = MagicMock()
         rel_result.scalars.return_value.all.return_value = []
 
-        mock_db_session.execute.side_effect = [context_result, rel_result]
+        monkeypatch.setattr(
+            mock_db_session,
+            "execute",
+            AsyncMock(side_effect=[context_result, rel_result]),
+        )
 
         # Test Mermaid format with isolated contexts
         result = await domain_tools.generate_context_map("mermaid")

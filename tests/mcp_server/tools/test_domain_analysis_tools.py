@@ -1,5 +1,6 @@
 """Tests for domain-driven design analysis tools."""
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -17,13 +18,13 @@ from src.mcp_server.tools.domain_tools import DomainTools
 
 
 @pytest.fixture
-def mock_db_session():
+def mock_db_session() -> Any:
     """Create mock database session."""
     return AsyncMock(spec=AsyncSession)
 
 
 @pytest.fixture
-def mock_mcp():
+def mock_mcp() -> Any:
     """Create mock FastMCP instance."""
     mcp = MagicMock(spec=FastMCP)
     mcp.tool = MagicMock(side_effect=lambda **kwargs: lambda func: func)
@@ -31,7 +32,7 @@ def mock_mcp():
 
 
 @pytest.fixture
-def domain_tools(mock_db_session, mock_mcp):
+def domain_tools(mock_db_session: Any, mock_mcp: Any) -> DomainTools:
     """Create domain tools fixture."""
     return DomainTools(mock_db_session, mock_mcp)
 
@@ -40,7 +41,9 @@ class TestDomainTools:
     """Tests for DomainTools class."""
 
     @pytest.mark.asyncio
-    async def test_register_tools(self, domain_tools, mock_mcp):
+    async def test_register_tools(
+        self: "TestDomainTools", domain_tools: DomainTools, mock_mcp: Any
+    ) -> None:
         """Test tool registration."""
         await domain_tools.register_tools()
 
@@ -61,8 +64,10 @@ class TestDomainTools:
 
     @pytest.mark.asyncio
     async def test_extract_domain_model_file_not_found(
-        self, domain_tools, mock_db_session
-    ):
+        self: "TestDomainTools",
+        domain_tools: DomainTools,
+        mock_db_session: Any,
+    ) -> None:
         """Test extracting domain model when file is not found."""
         # Mock no file found
         mock_result = MagicMock()
@@ -76,7 +81,9 @@ class TestDomainTools:
         assert result["relationships"] == []
 
     @pytest.mark.asyncio
-    async def test_extract_domain_model_cached(self, domain_tools, mock_db_session):
+    async def test_extract_domain_model_cached(
+        self: Any, domain_tools: DomainTools, mock_db_session: Any
+    ) -> None:
         """Test extracting domain model from cache."""
         # Mock file
         mock_file = MagicMock()
@@ -126,8 +133,10 @@ class TestDomainTools:
 
     @pytest.mark.asyncio
     async def test_extract_domain_model_new_extraction(
-        self, domain_tools, mock_db_session
-    ):
+        self: "TestDomainTools",
+        domain_tools: DomainTools,
+        mock_db_session: Any,
+    ) -> None:
         """Test extracting new domain model."""
         # Mock file
         mock_file = MagicMock()
@@ -181,7 +190,9 @@ class TestDomainTools:
             assert result["relationships"] == []
 
     @pytest.mark.asyncio
-    async def test_find_aggregate_roots_no_context(self, domain_tools, mock_db_session):
+    async def test_find_aggregate_roots_no_context(
+        self: Any, domain_tools: DomainTools, mock_db_session: Any
+    ) -> None:
         """Test finding aggregate roots without context filter."""
         # Mock aggregate roots
         mock_agg1 = MagicMock(spec=DomainEntity)
@@ -231,8 +242,8 @@ class TestDomainTools:
 
     @pytest.mark.asyncio
     async def test_find_aggregate_roots_with_context(
-        self, domain_tools, mock_db_session
-    ):
+        self: Any, domain_tools: DomainTools, mock_db_session: Any
+    ) -> None:
         """Test finding aggregate roots within a specific context."""
         # Mock bounded context
         mock_context = MagicMock(spec=BoundedContext)
@@ -260,7 +271,7 @@ class TestDomainTools:
             context_result,
             membership_result,
             agg_result,
-            MagicMock(scalars=MagicMock(return_value=MagicMock(all=lambda: []))),
+            MagicMock(scalars=MagicMock(return_value=MagicMock(all=list))),
             MagicMock(__iter__=MagicMock(return_value=iter([]))),
         ]
 
@@ -271,8 +282,8 @@ class TestDomainTools:
 
     @pytest.mark.asyncio
     async def test_analyze_bounded_context_not_found(
-        self, domain_tools, mock_db_session
-    ):
+        self: Any, domain_tools: DomainTools, mock_db_session: Any
+    ) -> None:
         """Test analyzing bounded context that doesn't exist."""
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
@@ -283,7 +294,9 @@ class TestDomainTools:
         assert result["error"] == "Bounded context not found: NonExistentContext"
 
     @pytest.mark.asyncio
-    async def test_analyze_bounded_context_success(self, domain_tools, mock_db_session):
+    async def test_analyze_bounded_context_success(
+        self: Any, domain_tools: DomainTools, mock_db_session: Any
+    ) -> None:
         """Test successful bounded context analysis."""
         # Mock bounded context
         mock_context = MagicMock(spec=BoundedContext)
@@ -357,8 +370,8 @@ class TestDomainTools:
 
     @pytest.mark.asyncio
     async def test_suggest_ddd_refactoring_file_not_found(
-        self, domain_tools, mock_db_session
-    ):
+        self: Any, domain_tools: DomainTools, mock_db_session: Any
+    ) -> None:
         """Test DDD refactoring suggestions when file not found."""
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
@@ -371,8 +384,8 @@ class TestDomainTools:
 
     @pytest.mark.asyncio
     async def test_suggest_ddd_refactoring_missing_aggregate(
-        self, domain_tools, mock_db_session
-    ):
+        self: Any, domain_tools: DomainTools, mock_db_session: Any
+    ) -> None:
         """Test DDD refactoring suggestions for missing aggregate root."""
         # Mock file
         mock_file = MagicMock()
@@ -412,8 +425,8 @@ class TestDomainTools:
 
     @pytest.mark.asyncio
     async def test_suggest_ddd_refactoring_bloated_entity(
-        self, domain_tools, mock_db_session
-    ):
+        self: Any, domain_tools: DomainTools, mock_db_session: Any
+    ) -> None:
         """Test DDD refactoring suggestions for bloated entities."""
         # Mock file
         mock_file = MagicMock()
@@ -452,7 +465,9 @@ class TestDomainTools:
         assert "too many responsibilities" in bloated_suggestions[0]["message"]
 
     @pytest.mark.asyncio
-    async def test_find_bounded_contexts(self, domain_tools, mock_db_session):
+    async def test_find_bounded_contexts(
+        self: Any, domain_tools: DomainTools, mock_db_session: Any
+    ) -> None:
         """Test finding bounded contexts."""
         # Mock contexts
         mock_context1 = MagicMock(spec=BoundedContext)
@@ -503,7 +518,9 @@ class TestDomainTools:
         assert result[1]["name"] == "ShippingContext"
 
     @pytest.mark.asyncio
-    async def test_generate_context_map_json(self, domain_tools, mock_db_session):
+    async def test_generate_context_map_json(
+        self: Any, domain_tools: DomainTools, mock_db_session: Any
+    ) -> None:
         """Test generating context map in JSON format."""
         # Mock contexts
         mock_context1 = MagicMock(spec=BoundedContext)
@@ -548,7 +565,9 @@ class TestDomainTools:
         assert result["relationships"][0]["type"] == "customer_supplier"
 
     @pytest.mark.asyncio
-    async def test_generate_context_map_mermaid(self, domain_tools, mock_db_session):
+    async def test_generate_context_map_mermaid(
+        self: Any, domain_tools: DomainTools, mock_db_session: Any
+    ) -> None:
         """Test generating context map in Mermaid format."""
         # Mock contexts
         mock_context1 = MagicMock(spec=BoundedContext)
@@ -589,8 +608,8 @@ class TestDomainTools:
 
     @pytest.mark.asyncio
     async def test_generate_context_map_unsupported_format(
-        self, domain_tools, mock_db_session
-    ):
+        self: Any, domain_tools: DomainTools, mock_db_session: Any
+    ) -> None:
         """Test generating context map with unsupported format."""
         result = await domain_tools.generate_context_map("invalid")
 
@@ -598,8 +617,8 @@ class TestDomainTools:
 
     @pytest.mark.asyncio
     async def test_extract_domain_model_exception_handling(
-        self, domain_tools, mock_db_session
-    ):
+        self: Any, domain_tools: DomainTools, mock_db_session: Any
+    ) -> None:
         """Test exception handling in extract_domain_model."""
         mock_db_session.execute.side_effect = Exception("Database error")
 
@@ -611,8 +630,8 @@ class TestDomainTools:
 
     @pytest.mark.asyncio
     async def test_find_aggregate_roots_exception_handling(
-        self, domain_tools, mock_db_session
-    ):
+        self: Any, domain_tools: DomainTools, mock_db_session: Any
+    ) -> None:
         """Test exception handling in find_aggregate_roots."""
         mock_db_session.execute.side_effect = Exception("Database error")
 
