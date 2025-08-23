@@ -1,5 +1,6 @@
 """Code interpreter for generating natural language descriptions."""
 
+import os
 from typing import Any
 
 from langchain_core.prompts import PromptTemplate
@@ -16,15 +17,15 @@ class CodeInterpreter:
 
     def __init__(self) -> None:
         # Use gpt-4.1 as default model for interpretations
-        import os
-
         model = getattr(settings, "llm", {}).get("model", "gpt-4.1")
         temperature = getattr(settings, "llm", {}).get("temperature", 0.3)
 
-        self.llm = ChatOpenAI(
+        # Treat ChatOpenAI as dynamically typed to avoid signature drift issues
+        llm_cls: Any = ChatOpenAI
+        self.llm: Any = llm_cls(
             model=model,
             temperature=temperature,
-            openai_api_key=os.getenv("OPENAI_API_KEY"),
+            api_key=os.getenv("OPENAI_API_KEY"),
         )
 
         # Prompts for different entity types
@@ -93,6 +94,21 @@ Provide a clear, concise description (3-5 sentences) explaining:
 Description:""",
         )
 
+    @staticmethod
+    def _to_text(value: Any) -> str:
+        """Best-effort extraction of text from LLM responses.
+
+        - If `value` is a string, return it.
+        - If object has a `.content` attribute, use it (stringifying if needed).
+        - Otherwise, coerce to string.
+        """
+        if isinstance(value, str):
+            return value
+        if hasattr(value, "content"):
+            content = value.content
+            return content if isinstance(content, str) else str(content)
+        return str(value)
+
     async def interpret_function(
         self,
         code: str,
@@ -115,10 +131,9 @@ Description:""",
                 return_type=return_type or "None",
                 docstring=docstring or "No docstring provided",
             )
-            result = await self.llm.ainvoke(prompt_value)
-            result = result.content if hasattr(result, "content") else str(result)
-
-            return result.strip()
+            response = await self.llm.ainvoke(prompt_value)
+            text = self._to_text(response)
+            return text.strip()
 
         except Exception:
             logger.exception("Error interpreting function %s", name)
@@ -134,17 +149,21 @@ Description:""",
     ) -> str:
         """Generate natural language interpretation of a class."""
         try:
+            # Limit code length to ensure the rendered code block stays <= 3000 characters
+            max_block_len = 3000
+            safe_code = code[
+                : max_block_len - 2
+            ]  # account for leading/trailing newlines in the template code fence
             prompt_value = self.class_prompt.format(
-                code=code[:3000],  # Limit code length
+                code=safe_code,
                 name=name,
                 base_classes=", ".join(base_classes) if base_classes else "None",
                 docstring=docstring or "No docstring provided",
                 methods=", ".join(methods[:10]) if methods else "None",
             )
-            result = await self.llm.ainvoke(prompt_value)
-            result = result.content if hasattr(result, "content") else str(result)
-
-            return result.strip()
+            response = await self.llm.ainvoke(prompt_value)
+            text = self._to_text(response)
+            return text.strip()
 
         except Exception:
             logger.exception("Error interpreting class %s", name)
@@ -167,10 +186,9 @@ Description:""",
                 classes=", ".join(classes[:10]) if classes else "None",
                 functions=", ".join(functions[:10]) if functions else "None",
             )
-            result = await self.llm.ainvoke(prompt_value)
-            result = result.content if hasattr(result, "content") else str(result)
-
-            return result.strip()
+            response = await self.llm.ainvoke(prompt_value)
+            text = self._to_text(response)
+            return text.strip()
 
         except Exception:
             logger.exception("Error interpreting module %s", name)
@@ -182,7 +200,7 @@ Description:""",
         entity_type: str,
     ) -> list[str]:
         """Interpret multiple entities in batch."""
-        interpretations = []
+        interpretations: list[str] = []
 
         for entity in entities:
             if entity_type == "function":

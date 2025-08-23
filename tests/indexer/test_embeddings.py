@@ -1,7 +1,9 @@
 """Tests for embedding generation module."""
 
 import hashlib
+from collections.abc import Generator
 from pathlib import Path
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import numpy as np
@@ -13,7 +15,7 @@ from src.utils.exceptions import EmbeddingError
 
 
 @pytest.fixture
-def mock_settings():
+def mock_settings() -> Generator[Any, None, None]:
     """Mock settings for testing."""
     with patch("src.indexer.embeddings.settings") as mock:
         mock.embeddings.model = "text-embedding-ada-002"
@@ -26,7 +28,7 @@ def mock_settings():
 
 
 @pytest.fixture
-def mock_openai_client():
+def mock_openai_client() -> Generator[Any, None, None]:
     """Mock OpenAI client."""
     with patch("src.indexer.embeddings.openai.AsyncOpenAI") as mock_class:
         mock_client = AsyncMock()
@@ -41,7 +43,7 @@ def mock_openai_client():
 
 
 @pytest.fixture
-def mock_tiktoken():
+def mock_tiktoken() -> Generator[Any, None, None]:
     """Mock tiktoken encoder."""
     with patch("src.indexer.embeddings.tiktoken.encoding_for_model") as mock_encoding:
         mock_encoder = MagicMock()
@@ -52,7 +54,9 @@ def mock_tiktoken():
 
 
 @pytest.fixture
-def embedding_generator(mock_settings, mock_openai_client, mock_tiktoken):
+def embedding_generator(
+    mock_settings: Any, mock_openai_client: Any, mock_tiktoken: Any
+) -> EmbeddingGenerator:
     """Create EmbeddingGenerator instance with mocked dependencies."""
     with (
         patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}),
@@ -63,14 +67,13 @@ def embedding_generator(mock_settings, mock_openai_client, mock_tiktoken):
 
 @pytest.mark.asyncio
 async def test_embedding_generator_initialization(
-    mock_settings, mock_openai_client, mock_tiktoken
-):
+    mock_settings: Any, mock_openai_client: Any, mock_tiktoken: Any
+) -> None:
     """Test EmbeddingGenerator initialization."""
     with (
         patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}),
         patch("src.indexer.embeddings.Path.mkdir") as mock_mkdir,
     ):
-
         generator = EmbeddingGenerator()
 
         assert generator.config == mock_settings.embeddings
@@ -82,8 +85,8 @@ async def test_embedding_generator_initialization(
 
 @pytest.mark.asyncio
 async def test_embedding_generator_no_cache(
-    mock_settings, mock_openai_client, mock_tiktoken
-):
+    mock_settings: Any, mock_openai_client: Any, mock_tiktoken: Any
+) -> None:
     """Test EmbeddingGenerator with caching disabled."""
     mock_settings.embeddings.use_cache = False
 
@@ -93,7 +96,9 @@ async def test_embedding_generator_no_cache(
 
 
 @pytest.mark.asyncio
-async def test_generate_embedding_success(embedding_generator, mock_openai_client):
+async def test_generate_embedding_success(
+    embedding_generator: EmbeddingGenerator, mock_openai_client: Any
+) -> None:
     """Test successful embedding generation."""
     text = "This is a test function"
 
@@ -111,9 +116,13 @@ async def test_generate_embedding_success(embedding_generator, mock_openai_clien
 
 
 @pytest.mark.asyncio
-async def test_generate_embedding_api_error(embedding_generator, mock_openai_client):
+async def test_generate_embedding_api_error(
+    embedding_generator: EmbeddingGenerator, mock_openai_client: Any
+) -> None:
     """Test embedding generation with API error."""
-    mock_openai_client.embeddings.create.side_effect = openai.APIError("API Error")
+    mock_openai_client.embeddings.create.side_effect = openai.APIError(
+        message="API Error", request=cast("Any", None), body=None
+    )
 
     with pytest.raises(EmbeddingError) as exc_info:
         await embedding_generator.generate_embedding("test text")
@@ -122,15 +131,19 @@ async def test_generate_embedding_api_error(embedding_generator, mock_openai_cli
 
 
 @pytest.mark.asyncio
-async def test_generate_embedding_retry(embedding_generator, mock_openai_client):
+async def test_generate_embedding_retry(
+    embedding_generator: EmbeddingGenerator, mock_openai_client: Any
+) -> None:
     """Test embedding generation with retry logic."""
     # First two calls fail, third succeeds
     mock_response = MagicMock()
     mock_response.data = [MagicMock(embedding=[0.2] * 1536)]
 
     mock_openai_client.embeddings.create.side_effect = [
-        openai.APIError("Temporary error"),
-        openai.APIError("Another error"),
+        openai.APIError(
+            message="Temporary error", request=cast("Any", None), body=None
+        ),
+        openai.APIError(message="Another error", request=cast("Any", None), body=None),
         mock_response,
     ]
 
@@ -141,7 +154,9 @@ async def test_generate_embedding_retry(embedding_generator, mock_openai_client)
 
 
 @pytest.mark.asyncio
-async def test_generate_embeddings_batch(embedding_generator, mock_openai_client):
+async def test_generate_embeddings_batch(
+    embedding_generator: EmbeddingGenerator, mock_openai_client: Any
+) -> None:
     """Test batch embedding generation."""
     texts = ["text1", "text2", "text3"]
 
@@ -165,15 +180,15 @@ async def test_generate_embeddings_batch(embedding_generator, mock_openai_client
 
 @pytest.mark.asyncio
 async def test_generate_embeddings_batch_with_cache(
-    embedding_generator, mock_openai_client
-):
+    embedding_generator: EmbeddingGenerator, mock_openai_client: Any
+) -> None:
     """Test batch embedding generation with cached values."""
     texts = ["cached_text", "new_text1", "new_text2"]
 
     # Mock cache to return embedding for first text
     cached_embedding = np.array([0.5] * 1536, dtype=np.float32)
 
-    async def mock_get_cached(text):
+    async def mock_get_cached(text: str) -> np.ndarray | None:
         if text == "cached_text":
             return cached_embedding
         return None
@@ -192,7 +207,6 @@ async def test_generate_embeddings_batch_with_cache(
         ),
         patch.object(embedding_generator, "_cache_embedding", new_callable=AsyncMock),
     ):
-
         results = await embedding_generator.generate_embeddings_batch(texts)
 
     assert len(results) == 3
@@ -206,19 +220,23 @@ async def test_generate_embeddings_batch_with_cache(
 
 @pytest.mark.asyncio
 async def test_generate_embeddings_batch_partial_failure(
-    embedding_generator, mock_openai_client
-):
+    embedding_generator: EmbeddingGenerator, mock_openai_client: Any
+) -> None:
     """Test batch embedding with partial failure fallback."""
     texts = ["text1", "text2", "text3"]
 
     # Mock batch call to fail
-    mock_openai_client.embeddings.create.side_effect = openai.APIError("Batch failed")
+    mock_openai_client.embeddings.create.side_effect = openai.APIError(
+        message="Batch failed", request=cast("Any", None), body=None
+    )
 
     # Mock individual calls
-    individual_responses = [
+    _individual_responses = [
         MagicMock(data=[MagicMock(embedding=[0.1] * 1536)]),
         MagicMock(data=[MagicMock(embedding=[0.2] * 1536)]),
-        openai.APIError("Individual call failed"),  # One fails
+        openai.APIError(
+            message="Individual call failed", request=cast("Any", None), body=None
+        ),  # One fails
     ]
 
     with patch.object(embedding_generator, "generate_embedding") as mock_individual:
@@ -237,7 +255,9 @@ async def test_generate_embeddings_batch_partial_failure(
 
 
 @pytest.mark.asyncio
-async def test_count_tokens(embedding_generator, mock_tiktoken):
+async def test_count_tokens(
+    embedding_generator: EmbeddingGenerator, mock_tiktoken: Any
+) -> None:
     """Test token counting."""
     text = "This is a test"
     mock_tiktoken.encode.return_value = [1, 2, 3, 4, 5]
@@ -249,7 +269,9 @@ async def test_count_tokens(embedding_generator, mock_tiktoken):
 
 
 @pytest.mark.asyncio
-async def test_truncate_text_no_truncation(embedding_generator, mock_tiktoken):
+async def test_truncate_text_no_truncation(
+    embedding_generator: EmbeddingGenerator, mock_tiktoken: Any
+) -> None:
     """Test text truncation when text is within limit."""
     text = "Short text"
     mock_tiktoken.encode.return_value = [1, 2, 3]
@@ -262,7 +284,9 @@ async def test_truncate_text_no_truncation(embedding_generator, mock_tiktoken):
 
 
 @pytest.mark.asyncio
-async def test_truncate_text_with_truncation(embedding_generator, mock_tiktoken):
+async def test_truncate_text_with_truncation(
+    embedding_generator: EmbeddingGenerator, mock_tiktoken: Any
+) -> None:
     """Test text truncation when text exceeds limit."""
     text = "This is a very long text that needs truncation"
     mock_tiktoken.encode.return_value = list(range(20))
@@ -276,7 +300,9 @@ async def test_truncate_text_with_truncation(embedding_generator, mock_tiktoken)
 
 
 @pytest.mark.asyncio
-async def test_generate_code_embeddings_raw_only(embedding_generator):
+async def test_generate_code_embeddings_raw_only(
+    embedding_generator: EmbeddingGenerator,
+) -> None:
     """Test generating raw code embeddings only."""
     embedding_generator.config.generate_interpreted = False
 
@@ -301,7 +327,9 @@ async def test_generate_code_embeddings_raw_only(embedding_generator):
 
 
 @pytest.mark.asyncio
-async def test_generate_code_embeddings_with_interpretation(embedding_generator):
+async def test_generate_code_embeddings_with_interpretation(
+    embedding_generator: EmbeddingGenerator,
+) -> None:
     """Test generating both raw and interpreted embeddings."""
     code = "def greet(name): return f'Hello {name}'"
     description = "Function that greets a person by name"
@@ -335,7 +363,9 @@ async def test_generate_code_embeddings_with_interpretation(embedding_generator)
 
 
 @pytest.mark.asyncio
-async def test_get_cached_embedding_exists(embedding_generator, tmp_path):
+async def test_get_cached_embedding_exists(
+    embedding_generator: EmbeddingGenerator, tmp_path: Path
+) -> None:
     """Test retrieving cached embedding."""
     embedding_generator.cache_dir = tmp_path
 
@@ -354,7 +384,9 @@ async def test_get_cached_embedding_exists(embedding_generator, tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_get_cached_embedding_not_exists(embedding_generator, tmp_path):
+async def test_get_cached_embedding_not_exists(
+    embedding_generator: EmbeddingGenerator, tmp_path: Path
+) -> None:
     """Test retrieving non-existent cached embedding."""
     embedding_generator.cache_dir = tmp_path
 
@@ -364,7 +396,9 @@ async def test_get_cached_embedding_not_exists(embedding_generator, tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_get_cached_embedding_no_cache_dir(embedding_generator):
+async def test_get_cached_embedding_no_cache_dir(
+    embedding_generator: EmbeddingGenerator,
+) -> None:
     """Test cached embedding when caching is disabled."""
     embedding_generator.cache_dir = None
 
@@ -374,7 +408,9 @@ async def test_get_cached_embedding_no_cache_dir(embedding_generator):
 
 
 @pytest.mark.asyncio
-async def test_get_cached_embedding_corrupted(embedding_generator, tmp_path):
+async def test_get_cached_embedding_corrupted(
+    embedding_generator: EmbeddingGenerator, tmp_path: Path
+) -> None:
     """Test handling corrupted cache file."""
     embedding_generator.cache_dir = tmp_path
 
@@ -391,7 +427,9 @@ async def test_get_cached_embedding_corrupted(embedding_generator, tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_cache_embedding_success(embedding_generator, tmp_path):
+async def test_cache_embedding_success(
+    embedding_generator: EmbeddingGenerator, tmp_path: Path
+) -> None:
     """Test successfully caching an embedding."""
     embedding_generator.cache_dir = tmp_path
 
@@ -412,7 +450,9 @@ async def test_cache_embedding_success(embedding_generator, tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_cache_embedding_no_cache_dir(embedding_generator):
+async def test_cache_embedding_no_cache_dir(
+    embedding_generator: EmbeddingGenerator,
+) -> None:
     """Test caching when cache is disabled."""
     embedding_generator.cache_dir = None
 
@@ -421,7 +461,9 @@ async def test_cache_embedding_no_cache_dir(embedding_generator):
 
 
 @pytest.mark.asyncio
-async def test_cache_embedding_write_error(embedding_generator, tmp_path):
+async def test_cache_embedding_write_error(
+    embedding_generator: EmbeddingGenerator, tmp_path: Path
+) -> None:
     """Test handling cache write errors."""
     embedding_generator.cache_dir = tmp_path
 
@@ -437,7 +479,9 @@ async def test_cache_embedding_write_error(embedding_generator, tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_large_batch_processing(embedding_generator, mock_openai_client):
+async def test_large_batch_processing(
+    embedding_generator: EmbeddingGenerator, mock_openai_client: Any
+) -> None:
     """Test processing large batches that exceed batch size."""
     # Create 25 texts (batch size is 10)
     texts = [f"text_{i}" for i in range(25)]
@@ -456,7 +500,6 @@ async def test_large_batch_processing(embedding_generator, mock_openai_client):
         patch.object(embedding_generator, "_get_cached_embedding", return_value=None),
         patch.object(embedding_generator, "_cache_embedding", new_callable=AsyncMock),
     ):
-
         results = await embedding_generator.generate_embeddings_batch(texts)
 
     assert len(results) == 25
@@ -470,7 +513,9 @@ async def test_large_batch_processing(embedding_generator, mock_openai_client):
 
 
 @pytest.mark.asyncio
-async def test_embedding_dimension_validation(embedding_generator, mock_openai_client):
+async def test_embedding_dimension_validation(
+    embedding_generator: EmbeddingGenerator, mock_openai_client: Any
+) -> None:
     """Test that embeddings have correct dimensions."""
     # Mock response with wrong dimension
     mock_response = MagicMock()

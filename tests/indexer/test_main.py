@@ -1,15 +1,17 @@
 """Tests for the main indexing functionality."""
 
+from collections.abc import Generator
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
-from src.indexer.main import IndexerService
+from src.indexer.main import IndexerService, main
 
 
 @pytest.fixture
-def mock_dependencies():
+def mock_dependencies() -> Generator[dict[str, Any], None, None]:
     """Mock all dependencies for IndexerService."""
     with (
         patch("src.indexer.main.EmbeddingGenerator") as mock_embed,
@@ -19,7 +21,6 @@ def mock_dependencies():
         patch("src.indexer.main.init_database") as mock_init_db,
         patch("src.indexer.main.get_session_factory") as mock_session_factory,
     ):
-
         # Setup mocks
         mock_embed_instance = MagicMock()
         mock_embed_instance.generate_code_embeddings = AsyncMock(
@@ -62,7 +63,9 @@ def mock_dependencies():
 
 
 @pytest.mark.asyncio
-async def test_indexer_service_initialization(mock_dependencies):
+async def test_indexer_service_initialization(
+    mock_dependencies: dict[str, Any],
+) -> None:
     """Test IndexerService initialization."""
     service = IndexerService()
 
@@ -75,12 +78,12 @@ async def test_indexer_service_initialization(mock_dependencies):
 
 
 @pytest.mark.asyncio
-async def test_indexer_service_start(mock_dependencies):
+async def test_indexer_service_start(mock_dependencies: dict[str, Any]) -> None:
     """Test starting the indexer service."""
     service = IndexerService()
 
     # Mock run_indexing to avoid infinite loop
-    with patch.object(service, "run_indexing", new_callable=AsyncMock) as mock_run:
+    with patch.object(service, "run_indexing", new_callable=AsyncMock) as _mock_run:
         await service.start()
 
         assert service.running is True
@@ -89,7 +92,7 @@ async def test_indexer_service_start(mock_dependencies):
 
 
 @pytest.mark.asyncio
-async def test_indexer_service_stop(mock_dependencies):
+async def test_indexer_service_stop(mock_dependencies: dict[str, Any]) -> None:
     """Test stopping the indexer service."""
     service = IndexerService()
 
@@ -106,7 +109,7 @@ async def test_indexer_service_stop(mock_dependencies):
 
 
 @pytest.mark.asyncio
-async def test_process_unindexed_entities(mock_dependencies):
+async def test_process_unindexed_entities(mock_dependencies: dict[str, Any]) -> None:
     """Test processing unindexed entities."""
     service = IndexerService()
 
@@ -132,7 +135,9 @@ async def test_process_unindexed_entities(mock_dependencies):
 
 
 @pytest.mark.asyncio
-async def test_index_file_success(mock_dependencies, temp_repo_dir):
+async def test_index_file_success(
+    mock_dependencies: dict[str, Any], temp_repo_dir: Path
+) -> None:
     """Test successful file indexing."""
     service = IndexerService()
 
@@ -208,7 +213,6 @@ class TestClass:
         patch("src.indexer.main.RepositoryRepo") as mock_repo_cls,
         patch.object(service, "process_chunk", new_callable=AsyncMock) as mock_process,
     ):
-
         # Setup path mocks
         mock_path = MagicMock()
         mock_path.exists.return_value = True
@@ -228,7 +232,7 @@ class TestClass:
 
 
 @pytest.mark.asyncio
-async def test_index_file_missing_repository(mock_dependencies):
+async def test_index_file_missing_repository(mock_dependencies: dict[str, Any]) -> None:
     """Test indexing when repository is not found."""
     service = IndexerService()
 
@@ -251,7 +255,9 @@ async def test_index_file_missing_repository(mock_dependencies):
 
 
 @pytest.mark.asyncio
-async def test_index_file_missing_physical_file(mock_dependencies):
+async def test_index_file_missing_physical_file(
+    mock_dependencies: dict[str, Any],
+) -> None:
     """Test indexing when physical file doesn't exist."""
     service = IndexerService()
 
@@ -272,7 +278,6 @@ async def test_index_file_missing_physical_file(mock_dependencies):
         patch("src.indexer.main.Path") as mock_path_cls,
         patch("src.indexer.main.RepositoryRepo") as mock_repo_cls,
     ):
-
         mock_path = MagicMock()
         mock_path.exists.return_value = False
         mock_path_cls.return_value = mock_path
@@ -286,7 +291,7 @@ async def test_index_file_missing_physical_file(mock_dependencies):
 
 
 @pytest.mark.asyncio
-async def test_process_chunk_function(mock_dependencies):
+async def test_process_chunk_function(mock_dependencies: dict[str, Any]) -> None:
     """Test processing a function chunk."""
     service = IndexerService()
 
@@ -313,7 +318,6 @@ async def test_process_chunk_function(mock_dependencies):
         patch("src.indexer.main.EmbeddingRepo") as mock_repo_cls,
         patch.object(service, "_map_chunk_to_entity") as mock_map,
     ):
-
         mock_repo_cls.return_value = mock_embedding_repo
         mock_map.return_value = ("function", 1)
 
@@ -339,7 +343,7 @@ async def test_process_chunk_function(mock_dependencies):
 
 
 @pytest.mark.asyncio
-async def test_process_chunk_class(mock_dependencies):
+async def test_process_chunk_class(mock_dependencies: dict[str, Any]) -> None:
     """Test processing a class chunk."""
     service = IndexerService()
 
@@ -365,7 +369,6 @@ async def test_process_chunk_class(mock_dependencies):
         patch("src.indexer.main.EmbeddingRepo") as mock_repo_cls,
         patch.object(service, "_map_chunk_to_entity") as mock_map,
     ):
-
         mock_repo_cls.return_value = mock_embedding_repo
         mock_map.return_value = ("class", 2)
 
@@ -387,7 +390,7 @@ async def test_process_chunk_class(mock_dependencies):
 
 
 @pytest.mark.asyncio
-async def test_process_chunk_module(mock_dependencies):
+async def test_process_chunk_module(mock_dependencies: dict[str, Any]) -> None:
     """Test processing a module chunk."""
     service = IndexerService()
 
@@ -413,7 +416,6 @@ async def test_process_chunk_module(mock_dependencies):
         patch("src.indexer.main.EmbeddingRepo") as mock_repo_cls,
         patch.object(service, "_map_chunk_to_entity") as mock_map,
     ):
-
         mock_repo_cls.return_value = mock_embedding_repo
         mock_map.return_value = ("module", 3)
 
@@ -435,7 +437,7 @@ async def test_process_chunk_module(mock_dependencies):
 
 
 @pytest.mark.asyncio
-async def test_process_chunk_error_handling(mock_dependencies):
+async def test_process_chunk_error_handling(mock_dependencies: dict[str, Any]) -> None:
     """Test error handling in chunk processing."""
     service = IndexerService()
 
@@ -454,7 +456,7 @@ async def test_process_chunk_error_handling(mock_dependencies):
 
 
 @pytest.mark.asyncio
-async def test_map_chunk_to_entity():
+async def test_map_chunk_to_entity() -> None:
     """Test mapping chunks to entity types and IDs."""
     service = IndexerService()
 
@@ -484,7 +486,7 @@ async def test_map_chunk_to_entity():
 
 
 @pytest.mark.asyncio
-async def test_run_indexing_loop(mock_dependencies):
+async def test_run_indexing_loop(mock_dependencies: dict[str, Any]) -> None:
     """Test the main indexing loop."""
     service = IndexerService()
     service.running = True
@@ -492,7 +494,7 @@ async def test_run_indexing_loop(mock_dependencies):
     # Mock to stop after one iteration
     call_count = 0
 
-    async def mock_process():
+    async def mock_process() -> None:
         nonlocal call_count
         call_count += 1
         if call_count > 1:
@@ -500,17 +502,16 @@ async def test_run_indexing_loop(mock_dependencies):
 
     with (
         patch.object(service, "process_unindexed_entities", side_effect=mock_process),
-        patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+        patch("asyncio.sleep", new_callable=AsyncMock) as _mock_sleep,
     ):
-
         await service.run_indexing()
 
         assert call_count > 0
-        mock_sleep.assert_called()
+        _mock_sleep.assert_called()
 
 
 @pytest.mark.asyncio
-async def test_run_indexing_error_recovery(mock_dependencies):
+async def test_run_indexing_error_recovery(mock_dependencies: dict[str, Any]) -> None:
     """Test error recovery in indexing loop."""
     service = IndexerService()
     service.running = True
@@ -518,36 +519,34 @@ async def test_run_indexing_error_recovery(mock_dependencies):
     # Mock to raise error then stop
     call_count = 0
 
-    async def mock_process():
+    async def mock_process() -> None:
         nonlocal call_count
         call_count += 1
         if call_count == 1:
-            raise Exception("Test error")
+            raise RuntimeError("Test error")
         service.running = False
 
     with (
         patch.object(service, "process_unindexed_entities", side_effect=mock_process),
-        patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+        patch("asyncio.sleep", new_callable=AsyncMock) as _mock_sleep,
     ):
-
         await service.run_indexing()
 
         # Should recover from error and continue
         assert call_count == 2
         # Should have extra sleep after error
-        assert mock_sleep.call_count >= 2
+        assert _mock_sleep.call_count >= 2
 
 
 @pytest.mark.asyncio
-async def test_main_entry_point(mock_dependencies):
+async def test_main_entry_point(mock_dependencies: dict[str, Any]) -> None:
     """Test the main entry point function."""
     with (
         patch("src.indexer.main.IndexerService") as mock_service_cls,
         patch("src.indexer.main.setup_logging") as mock_setup_logging,
-        patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+        patch("asyncio.sleep", new_callable=AsyncMock) as _mock_sleep,
         patch("signal.signal") as mock_signal,
     ):
-
         mock_service = AsyncMock()
         mock_service.running = False  # Stop immediately
         mock_service_cls.return_value = mock_service
@@ -561,16 +560,14 @@ async def test_main_entry_point(mock_dependencies):
 
 
 @pytest.mark.asyncio
-async def test_signal_handler(mock_dependencies):
+async def test_signal_handler(mock_dependencies: dict[str, Any]) -> None:
     """Test signal handler functionality."""
     service = IndexerService()
 
     # Test signal handler calls stop
-    with patch("asyncio.create_task") as mock_create_task:
-        from src.indexer.main import main
-
+    with patch("asyncio.create_task") as _mock_create_task:
         # Create a signal handler
-        def get_signal_handler():
+        def get_signal_handler() -> Any:
             with (
                 patch("src.indexer.main.IndexerService") as mock_service_cls,
                 patch("signal.signal") as mock_signal,
@@ -580,7 +577,7 @@ async def test_signal_handler(mock_dependencies):
                 # Capture the signal handler
                 signal_handler = None
 
-                def capture_handler(sig, handler):
+                def capture_handler(sig: int, handler: Any) -> None:
                     nonlocal signal_handler
                     if sig == signal.SIGINT:
                         signal_handler = handler
@@ -589,8 +586,6 @@ async def test_signal_handler(mock_dependencies):
 
                 # Run main briefly to set up handlers
                 import signal
-
-                from src.indexer.main import main
 
                 # Can't easily test the full flow, but we verified the structure
                 return signal_handler
