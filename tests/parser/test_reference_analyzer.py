@@ -2,6 +2,7 @@
 
 import ast
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -9,7 +10,7 @@ from src.parser.reference_analyzer import ReferenceAnalyzer, ReferenceType
 
 
 @pytest.fixture
-def sample_code():
+def sample_code() -> str:
     """Sample Python code for testing."""
     return '''
 import os
@@ -43,7 +44,7 @@ if __name__ == "__main__":
 '''
 
 
-def test_reference_analyzer_basic(sample_code):
+def test_reference_analyzer_basic(sample_code: str) -> None:
     """Test basic reference analysis."""
     tree = ast.parse(sample_code)
     analyzer = ReferenceAnalyzer("test_module", Path("test.py"))
@@ -53,7 +54,7 @@ def test_reference_analyzer_basic(sample_code):
     assert len(references) > 0
 
     # Group by type
-    by_type = {}
+    by_type: dict[str, list[dict[str, Any]]] = {}
     for ref in references:
         ref_type = ref["reference_type"]
         if ref_type not in by_type:
@@ -83,7 +84,7 @@ def test_reference_analyzer_basic(sample_code):
     assert any(ref["target_name"].endswith("len") for ref in call_refs)
 
 
-def test_reference_analyzer_imports():
+def test_reference_analyzer_imports() -> None:
     """Test import reference extraction."""
     code = """
 import os
@@ -113,7 +114,7 @@ from ..parent import parent_module
     assert "typing.List" in import_names
 
 
-def test_reference_analyzer_class_inheritance():
+def test_reference_analyzer_class_inheritance() -> None:
     """Test class inheritance reference extraction."""
     code = """
 class BaseClass:
@@ -147,7 +148,7 @@ class MultipleInheritance(BaseClass, dict):
     assert any("dict" in target for target in inherit_targets)
 
 
-def test_reference_analyzer_function_calls():
+def test_reference_analyzer_function_calls() -> None:
     """Test function call reference extraction."""
     code = """
 def helper():
@@ -179,7 +180,7 @@ def main():
     assert any("len" in target for target in call_targets)
 
 
-def test_reference_analyzer_type_hints():
+def test_reference_analyzer_type_hints() -> None:
     """Test type hint reference extraction."""
     code = """
 from typing import List, Dict, Optional

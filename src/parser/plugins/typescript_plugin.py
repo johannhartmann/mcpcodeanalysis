@@ -1,12 +1,6 @@
 """TypeScript language plugin implementation."""
 
-try:
-    from src.parser.typescript_parser import TypeScriptCodeParser
-
-    TYPESCRIPT_PARSER_AVAILABLE = True
-except ImportError:
-    TYPESCRIPT_PARSER_AVAILABLE = False
-    TypeScriptCodeParser = None
+from collections.abc import Callable
 
 from src.logger import get_logger
 from src.parser.base_parser import BaseParser
@@ -14,6 +8,24 @@ from src.parser.language_config import LanguageConfig, LanguageRegistry
 from src.parser.language_plugin import LanguagePlugin
 
 logger = get_logger(__name__)
+
+# Prepare a factory to create the TypeScript parser without tripping mypy on
+# BaseParser's constructor signature.
+TypeScriptParserFactory: Callable[[], BaseParser] | None = None
+
+try:
+    from src.parser.typescript_parser import (
+        TypeScriptCodeParser as _TypeScriptCodeParser,
+    )
+
+    TYPESCRIPT_PARSER_AVAILABLE = True
+
+    def _make_ts_parser() -> BaseParser:
+        return _TypeScriptCodeParser()
+
+    TypeScriptParserFactory = _make_ts_parser
+except ImportError:
+    TYPESCRIPT_PARSER_AVAILABLE = False
 
 
 class TypeScriptLanguagePlugin(LanguagePlugin):
@@ -42,13 +54,13 @@ class TypeScriptLanguagePlugin(LanguagePlugin):
 
     def create_parser(self) -> BaseParser:
         """Create TypeScript parser instance."""
-        if not TYPESCRIPT_PARSER_AVAILABLE or TypeScriptCodeParser is None:
+        if not TYPESCRIPT_PARSER_AVAILABLE or TypeScriptParserFactory is None:
             logger.error(
                 "TypeScript parser not available. Install tree-sitter-typescript to enable TypeScript support."
             )
             msg = "TypeScript parser not available"
             raise ImportError(msg)
-        return TypeScriptCodeParser()
+        return TypeScriptParserFactory()
 
     def get_complexity_nodes(self) -> set[str]:
         """Get TypeScript-specific complexity node types.

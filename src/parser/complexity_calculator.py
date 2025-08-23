@@ -1,5 +1,11 @@
 """Cyclomatic complexity calculator for code analysis."""
 
+# Note: To avoid recursion during plugin initialization, ComplexityCalculator can be
+# constructed with use_plugin=False. This prevents querying the LanguagePluginRegistry
+# when calculators are created inside TreeSitter-based parsers that may be instantiated
+# during plugin registration.
+
+
 from typing import ClassVar
 
 import tree_sitter
@@ -187,12 +193,22 @@ class ComplexityCalculator:
         "try_statement",  # Try blocks
     }
 
-    def __init__(self, language: str = "python") -> None:
-        """Initialize calculator for specific language."""
+    def __init__(self, language: str = "python", use_plugin: bool = True) -> None:
+        """Initialize calculator for specific language.
+
+        Args:
+            language: Logical language name.
+            use_plugin: When False, avoid consulting the plugin registry to prevent
+                recursion during early initialization. Falls back to built-in sets.
+        """
         self.language = language.lower()
 
-        # Get complexity nodes from language plugin
-        plugin = LanguagePluginRegistry.get_plugin(self.language)
+        if use_plugin:
+            # Get complexity nodes from language plugin
+            plugin = LanguagePluginRegistry.get_plugin(self.language)
+        else:
+            plugin = None
+
         if plugin:
             self.COMPLEXITY_NODES = plugin.get_complexity_nodes()
         # Fallback to language-specific complexity nodes

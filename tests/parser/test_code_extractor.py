@@ -1,6 +1,7 @@
 """Tests for code extractor."""
 
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -9,13 +10,13 @@ from src.parser.code_extractor import CodeExtractor
 
 
 @pytest.fixture
-def code_extractor():
+def code_extractor() -> CodeExtractor:
     """Create code extractor fixture."""
     return CodeExtractor()
 
 
 @pytest.fixture
-def sample_entities():
+def sample_entities() -> dict[str, Any]:
     """Sample extracted entities."""
     return {
         "modules": [
@@ -87,16 +88,16 @@ def sample_entities():
 class TestCodeExtractor:
     """Tests for CodeExtractor class."""
 
-    def test_init(self, code_extractor) -> None:
+    def test_init(self, code_extractor: CodeExtractor) -> None:
         """Test code extractor initialization."""
         assert code_extractor.parsers is not None
         assert ".py" in code_extractor.parsers
 
     def test_extract_from_file_success(
         self,
-        code_extractor,
-        tmp_path,
-        sample_entities,
+        code_extractor: CodeExtractor,
+        tmp_path: Path,
+        sample_entities: dict[str, Any],
     ) -> None:
         """Test successful entity extraction."""
         test_file = tmp_path / "test.py"
@@ -111,7 +112,9 @@ class TestCodeExtractor:
 
             assert result == sample_entities
 
-    def test_extract_from_file_unsupported(self, code_extractor, tmp_path) -> None:
+    def test_extract_from_file_unsupported(
+        self, code_extractor: CodeExtractor, tmp_path: Path
+    ) -> None:
         """Test extraction from unsupported file type."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("Not a Python file")
@@ -119,7 +122,9 @@ class TestCodeExtractor:
         result = code_extractor.extract_from_file(test_file, file_id=1)
         assert result is None
 
-    def test_extract_from_file_error(self, code_extractor, tmp_path) -> None:
+    def test_extract_from_file_error(
+        self, code_extractor: CodeExtractor, tmp_path: Path
+    ) -> None:
         """Test extraction with parser error."""
         test_file = tmp_path / "test.py"
         test_file.write_text("# Test file")
@@ -132,7 +137,9 @@ class TestCodeExtractor:
             result = code_extractor.extract_from_file(test_file, file_id=1)
             assert result is None
 
-    def test_get_entity_content(self, code_extractor, tmp_path) -> None:
+    def test_get_entity_content(
+        self, code_extractor: CodeExtractor, tmp_path: Path
+    ) -> None:
         """Test getting entity content."""
         test_file = tmp_path / "test.py"
         test_content = """def test_function():
@@ -148,11 +155,15 @@ class TestClass:
             code_extractor.parsers[".py"],
             "get_code_chunk",
         ) as mock_get_chunk:
-            mock_get_chunk.side_effect = lambda f, start, end, context=0: (
-                test_content.split("\n")[start - 1 : end]
-                if context == 0
-                else test_content
-            )
+
+            def _fake_get_chunk(f: Path, start: int, end: int, context: int = 0) -> str:
+                return (
+                    "\n".join(test_content.split("\n")[start - 1 : end])
+                    if context == 0
+                    else test_content
+                )
+
+            mock_get_chunk.side_effect = _fake_get_chunk
 
             # Get raw content
             raw, contextual = code_extractor.get_entity_content(
@@ -174,7 +185,9 @@ class TestClass:
             )
             assert contextual == test_content
 
-    def test_build_entity_description_module(self, code_extractor) -> None:
+    def test_build_entity_description_module(
+        self, code_extractor: CodeExtractor
+    ) -> None:
         """Test building module description."""
         module_data = {
             "name": "test_module",
@@ -191,7 +204,9 @@ class TestClass:
         assert "test/module.py" in description
         assert "Purpose: This is a test module" in description
 
-    def test_build_entity_description_class(self, code_extractor) -> None:
+    def test_build_entity_description_class(
+        self, code_extractor: CodeExtractor
+    ) -> None:
         """Test building class description."""
         class_data = {
             "name": "TestClass",
@@ -211,7 +226,9 @@ class TestClass:
         assert "(abstract)" in description
         assert "Purpose: Abstract test class" in description
 
-    def test_build_entity_description_function(self, code_extractor) -> None:
+    def test_build_entity_description_function(
+        self, code_extractor: CodeExtractor
+    ) -> None:
         """Test building function description."""
         func_data = {
             "name": "test_function",
@@ -237,7 +254,9 @@ class TestClass:
         assert "(async, generator)" in description
         assert "Purpose: Test function" in description
 
-    def test_build_entity_description_method(self, code_extractor) -> None:
+    def test_build_entity_description_method(
+        self, code_extractor: CodeExtractor
+    ) -> None:
         """Test building method description."""
         method_data = {
             "name": "method",
@@ -257,7 +276,7 @@ class TestClass:
         assert "Method 'method'" in description
         assert "(property)" in description
 
-    def test_aggregate_class_info(self, code_extractor) -> None:
+    def test_aggregate_class_info(self, code_extractor: CodeExtractor) -> None:
         """Test aggregating class information."""
         class_data = {
             "name": "TestClass",
@@ -283,7 +302,7 @@ class TestClass:
         assert "- Method 'method9'" in result
         assert "... and 5 more methods" in result
 
-    def test_aggregate_module_info(self, code_extractor) -> None:
+    def test_aggregate_module_info(self, code_extractor: CodeExtractor) -> None:
         """Test aggregating module information."""
         module_data = {
             "name": "test_module",

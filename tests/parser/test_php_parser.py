@@ -9,18 +9,18 @@ from src.utils.exceptions import ParserError
 
 
 @pytest.fixture
-def php_parser():
+def php_parser() -> PHPCodeParser:
     """Create PHP parser fixture."""
     return PHPCodeParser()
 
 
 @pytest.fixture
-def sample_php_file():
+def sample_php_file() -> Path:
     """Path to sample PHP file."""
     return Path(__file__).parent.parent / "fixtures" / "sample.php"
 
 
-def test_parse_php_file(php_parser, sample_php_file):
+def test_parse_php_file(php_parser: PHPCodeParser, sample_php_file: Path) -> None:
     """Test parsing a complete PHP file."""
     result = php_parser.parse_file(sample_php_file)
 
@@ -33,7 +33,7 @@ def test_parse_php_file(php_parser, sample_php_file):
     assert "functions" in result
 
 
-def test_extract_imports(php_parser, sample_php_file):
+def test_extract_imports(php_parser: PHPCodeParser, sample_php_file: Path) -> None:
     """Test extracting use statements from PHP."""
     result = php_parser.parse_file(sample_php_file)
     imports = result["imports"]
@@ -54,7 +54,7 @@ def test_extract_imports(php_parser, sample_php_file):
     assert aliased[0]["imported_names"] == ["UtilHelper"]
 
 
-def test_extract_classes(php_parser, sample_php_file):
+def test_extract_classes(php_parser: PHPCodeParser, sample_php_file: Path) -> None:
     """Test extracting class definitions from PHP."""
     result = php_parser.parse_file(sample_php_file)
     classes = result["classes"]
@@ -76,11 +76,12 @@ def test_extract_classes(php_parser, sample_php_file):
 
     # Check traits usage
     sample_class = next((c for c in classes if c["name"] == "SampleClass"), None)
+    assert sample_class is not None
     assert "traits" in sample_class
     assert "LoggerTrait" in sample_class["traits"]
 
 
-def test_extract_traits(php_parser, sample_php_file):
+def test_extract_traits(php_parser: PHPCodeParser, sample_php_file: Path) -> None:
     """Test extracting trait definitions from PHP."""
     result = php_parser.parse_file(sample_php_file)
 
@@ -103,12 +104,13 @@ def test_extract_traits(php_parser, sample_php_file):
     assert log_method["return_type"] == "void"
 
 
-def test_extract_methods(php_parser, sample_php_file):
+def test_extract_methods(php_parser: PHPCodeParser, sample_php_file: Path) -> None:
     """Test extracting methods from PHP classes."""
     result = php_parser.parse_file(sample_php_file)
     classes = result["classes"]
 
     sample_class = next((c for c in classes if c["name"] == "SampleClass"), None)
+    assert sample_class is not None
     methods = sample_class["methods"]
 
     assert len(methods) > 0
@@ -135,7 +137,7 @@ def test_extract_methods(php_parser, sample_php_file):
     assert "Process data" in process_method["docstring"]
 
 
-def test_extract_functions(php_parser, sample_php_file):
+def test_extract_functions(php_parser: PHPCodeParser, sample_php_file: Path) -> None:
     """Test extracting standalone functions from PHP."""
     result = php_parser.parse_file(sample_php_file)
     functions = result["functions"]
@@ -161,7 +163,9 @@ def test_extract_functions(php_parser, sample_php_file):
     assert format_func["parameters"][1]["default"] == '"END"'
 
 
-def test_extract_entities(php_parser, sample_php_file, tmp_path):
+def test_extract_entities(
+    php_parser: PHPCodeParser, sample_php_file: Path, tmp_path: Path
+) -> None:
     """Test extracting all entities for database storage."""
     # Create a temporary file ID
     file_id = 1
@@ -189,7 +193,7 @@ def test_extract_entities(php_parser, sample_php_file, tmp_path):
     assert len(entities["imports"]) >= 4
 
 
-def test_parse_invalid_file(php_parser, tmp_path):
+def test_parse_invalid_file(php_parser: PHPCodeParser, tmp_path: Path) -> None:
     """Test parsing a non-existent file."""
     invalid_file = tmp_path / "nonexistent.php"
 
@@ -197,7 +201,7 @@ def test_parse_invalid_file(php_parser, tmp_path):
         php_parser.parse_file(invalid_file)
 
 
-def test_get_code_chunk(php_parser, sample_php_file):
+def test_get_code_chunk(php_parser: PHPCodeParser, sample_php_file: Path) -> None:
     """Test getting code chunks from PHP file."""
     # Get a specific chunk (e.g., lines 50-60)
     chunk = php_parser.get_code_chunk(sample_php_file, 50, 60)

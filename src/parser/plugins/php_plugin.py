@@ -1,5 +1,7 @@
 """PHP language plugin implementation."""
 
+from typing import cast
+
 from src.parser.base_parser import BaseParser
 from src.parser.language_config import LanguageConfig, LanguageRegistry
 from src.parser.language_plugin import LanguagePlugin
@@ -32,7 +34,7 @@ class PHPLanguagePlugin(LanguagePlugin):
 
     def create_parser(self) -> BaseParser:
         """Create PHP parser instance."""
-        return PHPCodeParser()
+        return cast("BaseParser", PHPCodeParser())
 
     def get_complexity_nodes(self) -> set[str]:
         """Get PHP-specific complexity node types.

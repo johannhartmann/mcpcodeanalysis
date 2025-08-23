@@ -9,12 +9,12 @@ from src.parser.python_parser import PythonCodeParser
 
 
 @pytest.fixture
-def python_parser():
+def python_parser() -> PythonCodeParser:
     """Create Python parser instance."""
     return PythonCodeParser()
 
 
-def test_property_detection(python_parser):
+def test_property_detection(python_parser: PythonCodeParser) -> None:
     """Test detection of property methods."""
     code = """
 class MyClass:
@@ -68,7 +68,7 @@ class MyClass:
         Path(f.name).unlink()
 
 
-def test_static_and_class_methods(python_parser):
+def test_static_and_class_methods(python_parser: PythonCodeParser) -> None:
     """Test detection of static and class methods."""
     code = """
 class MyClass:
@@ -111,7 +111,7 @@ class MyClass:
         Path(f.name).unlink()
 
 
-def test_generator_detection(python_parser):
+def test_generator_detection(python_parser: PythonCodeParser) -> None:
     """Test detection of generator functions."""
     code = """
 def simple_generator():
@@ -185,7 +185,7 @@ class MyClass:
         Path(f.name).unlink()
 
 
-def test_async_functions(python_parser):
+def test_async_functions(python_parser: PythonCodeParser) -> None:
     """Test detection of async functions."""
     code = """
 async def async_function():
@@ -232,7 +232,7 @@ class MyClass:
         Path(f.name).unlink()
 
 
-def test_complex_decorators(python_parser):
+def test_complex_decorators(python_parser: PythonCodeParser) -> None:
     """Test functions with multiple decorators."""
     code = """
 import functools

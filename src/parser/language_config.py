@@ -1,11 +1,27 @@
 """Language configuration for multi-language support."""
 
-from dataclasses import dataclass
-from typing import ClassVar
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, ClassVar, Literal, overload
+
+if TYPE_CHECKING:
+    from os import PathLike
 
 from src.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+def _default_features() -> dict[str, bool]:
+    return {
+        "classes": False,
+        "functions": False,
+        "imports": False,
+        "modules": False,
+        "docstrings": False,
+        "type_hints": False,
+    }
 
 
 @dataclass
@@ -16,18 +32,7 @@ class LanguageConfig:
     display_name: str
     extensions: list[str]
     parser_available: bool = False
-    features: dict[str, bool] = None
-
-    def __post_init__(self) -> None:
-        if self.features is None:
-            self.features = {
-                "classes": False,
-                "functions": False,
-                "imports": False,
-                "modules": False,
-                "docstrings": False,
-                "type_hints": False,
-            }
+    features: dict[str, bool] = field(default_factory=_default_features)
 
 
 class LanguageRegistry:
@@ -191,6 +196,29 @@ class LanguageRegistry:
         ),
     }
 
+    @overload
+    @classmethod
+    def get_language(
+        cls,
+        name: Literal[
+            "python",
+            "javascript",
+            "typescript",
+            "java",
+            "go",
+            "rust",
+            "cpp",
+            "c",
+            "csharp",
+            "ruby",
+            "php",
+        ],
+    ) -> LanguageConfig: ...
+
+    @overload
+    @classmethod
+    def get_language(cls, name: str) -> LanguageConfig | None: ...
+
     @classmethod
     def get_language(cls, name: str) -> LanguageConfig | None:
         """Get language configuration by name."""
@@ -243,7 +271,7 @@ class LanguageRegistry:
         )
 
     @classmethod
-    def update_language(cls, name: str, **kwargs) -> None:
+    def update_language(cls, name: str, **kwargs: object) -> None:
         """Update an existing language configuration."""
         lang = cls._languages.get(name.lower())
         if lang:
@@ -265,7 +293,7 @@ class LanguageRegistry:
         return extension.lower() in cls.get_available_extensions()
 
     @classmethod
-    def detect_language(cls, file_path) -> str | None:
+    def detect_language(cls, file_path: str | PathLike[str]) -> str | None:
         """Detect language from file path.
 
         Args:
@@ -274,14 +302,8 @@ class LanguageRegistry:
         Returns:
             Language name or None if not supported
         """
-        # Handle both Path objects and strings
-        if hasattr(file_path, "suffix"):
-            extension = file_path.suffix
-        else:
-            # Extract extension from string path
-            from pathlib import Path
+        from pathlib import Path
 
-            extension = Path(str(file_path)).suffix
-
+        extension = Path(file_path).suffix
         config = cls.get_language_by_extension(extension)
         return config.name if config else None

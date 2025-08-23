@@ -227,7 +227,7 @@ class LanguagePluginRegistry:
         ]
 
     @classmethod
-    def get_plugin_info(cls) -> dict[str, dict[str, any]]:
+    def get_plugin_info(cls) -> dict[str, dict[str, Any]]:
         """Get information about all registered plugins.
 
         Returns:

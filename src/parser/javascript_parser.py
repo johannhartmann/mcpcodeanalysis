@@ -167,13 +167,8 @@ class JavaScriptCodeParser(BaseParser):
             return references
 
         try:
-            # Use TreeSitter parser to extract module info and references
-            module_info = self.js_parser.extract_module_info(tree, content.encode())
-
-            # Get references from the TreeSitter parser
-            js_references = self.js_parser.extract_references(
-                tree, content.encode(), module_info
-            )
+            # Get references from the TreeSitter JavaScript parser
+            js_references = self.js_parser.extract_references(tree, content.encode())
 
             # Convert TreeSitter references to standard format
             for ref in js_references:

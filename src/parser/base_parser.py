@@ -153,6 +153,11 @@ class BaseParser(ABC):
     def get_file_extensions(self) -> set[str]:
         """Get supported file extensions."""
 
+    @abstractmethod
+    def extract_entities(self, file_path: Path, file_id: int) -> dict[str, list[Any]]:
+        """Extract code entities for database storage."""
+        raise NotImplementedError
+
     def parse_file(self, file_path: Path) -> ParseResult:
         """Parse a file and extract code elements."""
         logger.info("Parsing file: %s", file_path)

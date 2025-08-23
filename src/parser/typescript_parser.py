@@ -11,7 +11,7 @@ except ImportError:
     TYPESCRIPT_AVAILABLE = False
 
 import tree_sitter
-from tree_sitter import Tree
+from tree_sitter import Node, Tree
 
 from src.logger import get_logger
 from src.parser.base_parser import BaseParser, ElementType, ParsedElement
@@ -74,7 +74,7 @@ class TypeScriptCodeParser(BaseParser):
 
     def _extract_imports(self, tree: Tree, content: str) -> list[str]:
         """Extract import statements from TypeScript parse tree."""
-        imports = []
+        imports: list[str] = []
 
         if not tree or not tree.root_node:
             return imports
@@ -88,7 +88,9 @@ class TypeScriptCodeParser(BaseParser):
 
         return imports
 
-    def _extract_imports_direct(self, node, content: str, imports: list[str]) -> None:
+    def _extract_imports_direct(
+        self, node: Node, content: str, imports: list[str]
+    ) -> None:
         """Extract imports using direct TreeSitter traversal."""
         if node.type == "import_statement":
             import_text = self._get_node_text(node, content).strip()
@@ -99,10 +101,12 @@ class TypeScriptCodeParser(BaseParser):
             self._extract_imports_direct(child, content, imports)
 
     def _extract_references(
-        self, tree: Tree, content: str  # noqa: ARG002
+        self,
+        tree: Tree,
+        content: str,  # noqa: ARG002
     ) -> list[dict[str, Any]]:
         """Extract code references from TypeScript parse tree."""
-        references = []
+        references: list[dict[str, Any]] = []
 
         if not tree or not tree.root_node:
             return references
@@ -117,7 +121,9 @@ class TypeScriptCodeParser(BaseParser):
 
         return references
 
-    def _extract_classes_direct(self, node, content: str, root: ParsedElement) -> None:
+    def _extract_classes_direct(
+        self, node: Node, content: str, root: ParsedElement
+    ) -> None:
         """Extract classes using direct TreeSitter node traversal."""
         if node.type == "class_declaration":
             # Find class name
@@ -152,7 +158,7 @@ class TypeScriptCodeParser(BaseParser):
             self._extract_classes_direct(child, content, root)
 
     def _extract_functions_direct(
-        self, node, content: str, root: ParsedElement
+        self, node: Node, content: str, root: ParsedElement
     ) -> None:
         """Extract standalone functions using direct TreeSitter node traversal."""
         if node.type in ("function_declaration", "function_expression"):
@@ -191,7 +197,7 @@ class TypeScriptCodeParser(BaseParser):
             self._extract_functions_direct(child, content, root)
 
     def _extract_methods_from_class(
-        self, class_node, content: str, cls_element: ParsedElement
+        self, class_node: Node, content: str, cls_element: ParsedElement
     ) -> None:
         """Extract methods from a class body."""
         for child in class_node.children:
@@ -224,7 +230,7 @@ class TypeScriptCodeParser(BaseParser):
                         cls_element.add_child(method_element)
 
     def _extract_arrow_function(
-        self, declarator_node, content: str, root: ParsedElement
+        self, declarator_node: Node, content: str, root: ParsedElement
     ) -> None:
         """Extract arrow function from variable declarator."""
         func_name = "UnknownFunction"

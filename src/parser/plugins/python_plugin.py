@@ -1,5 +1,7 @@
 """Python language plugin implementation."""
 
+from typing import cast
+
 from src.parser.base_parser import BaseParser
 from src.parser.language_config import LanguageConfig, LanguageRegistry
 from src.parser.language_plugin import LanguagePlugin
@@ -32,7 +34,7 @@ class PythonLanguagePlugin(LanguagePlugin):
 
     def create_parser(self) -> BaseParser:
         """Create Python parser instance."""
-        return PythonCodeParser()
+        return cast("BaseParser", PythonCodeParser())
 
     def get_complexity_nodes(self) -> set[str]:
         """Get Python-specific complexity node types.
