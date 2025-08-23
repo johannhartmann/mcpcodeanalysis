@@ -204,6 +204,7 @@
               pkgs.docker
               pkgs.docker-compose
               pkgs.tree-sitter
+              pkgs.just
 
               # Utilities
               pkgs.jq
@@ -298,6 +299,7 @@
               docker
               docker-compose
               tree-sitter
+              just
 
               # Utilities
               jq

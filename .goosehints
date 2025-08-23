@@ -1,0 +1,17 @@
+do NOT change pyproject.toml
+do NOT weaken qa tools
+do NOT use git commit --no-verify
+do NOT use uv
+
+DO lint and typecheck tests
+
+microloop cycle where error restarts:
+1. fix
+2. black
+3. ruff check
+4. mypy
+
+macroloop cycle:
+- check unstaged files
+- microloop
+- find next minimal scope
