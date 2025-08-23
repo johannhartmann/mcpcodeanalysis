@@ -65,9 +65,9 @@ class RepositoryRepo:
         )
         repo = await self.get_by_id(repo_id)
         if repo:
-            repo.last_synced = datetime.now(UTC).replace(
-                tzinfo=None
-            )  # Store as naive UTC
+            from typing import cast
+
+            cast("Any", repo).last_synced = datetime.now(UTC)
             await self.session.commit()
 
 
@@ -569,36 +569,66 @@ class CodeReferenceRepo:
         )
         references = result.scalars().all()
 
-        # Build adjacency list
+        # Build adjacency list with proper typing
+        from typing import cast as _cast
+
         graph: dict[int, set[int]] = {}
         for ref in references:
-            if ref.source_id not in graph:
-                graph[ref.source_id] = set()
-            graph[ref.source_id].add(ref.target_id)
+            src = _cast("int", ref.source_id)
+            tgt = _cast("int", ref.target_id)
+            if src not in graph:
+                graph[src] = set()
+            graph[src].add(tgt)
 
         # Simple cycle detection (DFS)
-        cycles = []
-        visited = set()
-        rec_stack = set()
+        cycles_ids: list[list[int]] = []
+        visited: set[int] = set()
+        rec_stack: set[int] = set()
 
         def dfs(node: int, path: list[int]) -> None:
             visited.add(node)
             rec_stack.add(node)
             path.append(node)
 
-            for neighbor in graph.get(node, []):
+            for neighbor in graph.get(node, set()):
                 if neighbor not in visited:
                     dfs(neighbor, path.copy())
                 elif neighbor in rec_stack and neighbor in path:
                     # Found a cycle
                     cycle_start = path.index(neighbor)
                     cycle = path[cycle_start:]
-                    cycles.append(cycle)
+                    cycles_ids.append(cycle)
 
             rec_stack.remove(node)
 
-        for node in graph:
+        for node in list(graph.keys()):
             if node not in visited:
                 dfs(node, [])
 
-        return cycles
+        # Map IDs to human-friendly names based on entity type
+        id_to_name: dict[int, str] = {}
+        if cycles_ids:
+            unique_ids: set[int] = {i for cycle in cycles_ids for i in cycle}
+            if entity_type == "module":
+                result_mod = await self.session.execute(
+                    select(Module).where(Module.id.in_(unique_ids))
+                )
+                for m in result_mod.scalars().all():
+                    id_to_name[_cast("int", m.id)] = _cast("str", m.name)
+            elif entity_type == "class":
+                result_cls = await self.session.execute(
+                    select(Class).where(Class.id.in_(unique_ids))
+                )
+                for c in result_cls.scalars().all():
+                    id_to_name[_cast("int", c.id)] = _cast("str", c.name)
+            elif entity_type == "function":
+                result_fn = await self.session.execute(
+                    select(Function).where(Function.id.in_(unique_ids))
+                )
+                for f in result_fn.scalars().all():
+                    id_to_name[_cast("int", f.id)] = _cast("str", f.name)
+
+        cycles_named: list[list[str]] = [
+            [id_to_name.get(i, str(i)) for i in cycle] for cycle in cycles_ids
+        ]
+        return cycles_named

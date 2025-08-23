@@ -48,7 +48,7 @@ class DomainEntity(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False)
-    entity_type = Column(
+    entity_type: Any = Column(
         Enum(
             "aggregate_root",
             "entity",
@@ -76,7 +76,7 @@ class DomainEntity(Base):
     confidence_score = Column(Float, default=1.0)  # LLM confidence in extraction
 
     # Embeddings for semantic search
-    concept_embedding = Column(Vector(1536))  # Semantic embedding of the concept
+    concept_embedding: Any = Column(Vector(1536))  # Semantic embedding of the concept
 
     # Metadata
     created_at = Column(DateTime, default=func.now())
@@ -119,7 +119,7 @@ class DomainRelationship(Base):
     source_entity_id = Column(Integer, ForeignKey("domain_entities.id"), nullable=False)
     target_entity_id = Column(Integer, ForeignKey("domain_entities.id"), nullable=False)
 
-    relationship_type = Column(
+    relationship_type: Any = Column(
         Enum(
             "uses",
             "creates",
@@ -202,7 +202,7 @@ class BoundedContext(Base):
     anti_corruption_layer = Column(JSON, default={})  # External term mappings
 
     # Context metadata
-    context_type = Column(
+    context_type: Any = Column(
         Enum(
             "core",
             "supporting",
@@ -300,7 +300,7 @@ class ContextRelationship(Base):
         nullable=False,
     )
 
-    relationship_type = Column(
+    relationship_type: Any = Column(
         Enum(
             "shared_kernel",
             "customer_supplier",
@@ -351,7 +351,7 @@ class DomainSummary(Base):
     __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
-    level = Column(
+    level: Any = Column(
         Enum("function", "class", "module", "package", "context", name="summary_level"),
         nullable=False,
     )

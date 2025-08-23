@@ -336,18 +336,19 @@ class CodeEmbedding(Base):
     __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True)
-    entity_type = Column(
+    # NOTE: The Enum names are SQLAlchemy Enum types; mypy needs explicit Python types
+    entity_type: Any = Column(
         Enum("file", "module", "class", "function", name="code_entity_type"),
         nullable=False,
     )
     entity_id = Column(Integer, nullable=False)
     file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
-    embedding_type = Column(
+    embedding_type: Any = Column(
         Enum("raw", "interpreted", name="embedding_type"),
         nullable=False,
     )
     # Use Vector for PostgreSQL, JSON for SQLite
-    embedding = Column(Vector(1536), nullable=False)  # OpenAI ada-002 dimension
+    embedding: Any = Column(Vector(1536), nullable=False)  # OpenAI ada-002 dimension
     content = Column(Text, nullable=False)
     tokens = Column(Integer)
     repo_metadata = Column(JSON, default={})
