@@ -1,5 +1,6 @@
 """Tests for MCP server."""
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,7 +10,7 @@ from src.mcp_server.server import create_server
 
 
 @pytest.fixture
-def mock_settings():
+def mock_settings() -> Any:
     """Create mock settings."""
     settings = MagicMock()
     settings.openai_api_key.get_secret_value.return_value = "test-key"
@@ -20,7 +21,7 @@ def mock_settings():
 
 
 @pytest.fixture
-def mock_engine():
+def mock_engine() -> AsyncEngine:
     """Create mock database engine."""
     engine = AsyncMock(spec=AsyncEngine)
     engine.dispose = AsyncMock()
@@ -28,7 +29,7 @@ def mock_engine():
 
 
 @pytest.fixture
-def mock_session():
+def mock_session() -> AsyncSession:
     """Create mock database session."""
     session = AsyncMock(spec=AsyncSession)
     session.__aenter__ = AsyncMock(return_value=session)
@@ -37,7 +38,7 @@ def mock_session():
 
 
 @pytest.fixture
-def mcp_server(mock_settings):
+def mcp_server(mock_settings: Any) -> Any:
     """Create MCP server fixture."""
     # No need to patch settings as it's not used in create_server
     return create_server()
@@ -46,7 +47,7 @@ def mcp_server(mock_settings):
 class TestMCPServer:
     """Tests for MCP server."""
 
-    def test_init(self, mcp_server, mock_settings) -> None:
+    def test_init(self, mcp_server: Any, mock_settings: Any) -> None:
         """Test server initialization."""
         assert mcp_server is not None
         assert hasattr(mcp_server, "initialize")
@@ -54,7 +55,9 @@ class TestMCPServer:
         assert hasattr(mcp_server, "search")
 
     @pytest.mark.asyncio
-    async def test_startup_success(self, mcp_server, mock_engine, mock_session) -> None:
+    async def test_startup_success(
+        self, mcp_server: Any, mock_engine: AsyncEngine, mock_session: AsyncSession
+    ) -> None:
         """Test successful server startup."""
         with patch("src.mcp_server.server.init_database", return_value=mock_engine):
             with patch("src.mcp_server.server.get_session_factory") as mock_factory:
@@ -69,9 +72,9 @@ class TestMCPServer:
     @pytest.mark.asyncio
     async def test_startup_openai_failure(
         self,
-        mcp_server,
-        mock_engine,
-        mock_session,
+        mcp_server: Any,
+        mock_engine: AsyncEngine,
+        mock_session: AsyncSession,
     ) -> None:
         """Test server startup with OpenAI connection failure."""
         with patch("src.mcp_server.server.init_database", return_value=mock_engine):
@@ -83,7 +86,7 @@ class TestMCPServer:
                 assert True  # Initialization succeeded
 
     @pytest.mark.asyncio
-    async def test_shutdown(self, mcp_server, mock_engine) -> None:
+    async def test_shutdown(self, mcp_server: Any, mock_engine: AsyncEngine) -> None:
         """Test server shutdown."""
         # MockServer has shutdown method (not _shutdown)
         await mcp_server.shutdown()
@@ -92,7 +95,9 @@ class TestMCPServer:
         assert True  # Shutdown succeeded
 
     @pytest.mark.asyncio
-    async def test_get_session(self, mcp_server, mock_session) -> None:
+    async def test_get_session(
+        self, mcp_server: Any, mock_session: AsyncSession
+    ) -> None:
         """Test getting database session."""
         # MockServer doesn't expose get_session - it's an internal detail
         # Just verify the server can be used without crashing
@@ -101,19 +106,21 @@ class TestMCPServer:
         assert hasattr(mcp_server, "shutdown")
 
     @pytest.mark.asyncio
-    async def test_get_session_not_initialized(self, mcp_server) -> None:
+    async def test_get_session_not_initialized(self, mcp_server: Any) -> None:
         """Test getting session when not initialized."""
         # MockServer doesn't expose get_session - skip this test
         pytest.skip("MockServer doesn't expose internal session management")
 
-    def test_create_app(self, mcp_server) -> None:
+    def test_create_app(self, mcp_server: Any) -> None:
         """Test creating FastMCP app."""
         # MockServer is already an app interface, not a factory
         # The actual FastMCP instance is created in server.py as 'mcp'
         pytest.skip("MockServer doesn't have create_app method")
 
     @pytest.mark.asyncio
-    async def test_scan_repository(self, mcp_server, mock_session) -> None:
+    async def test_scan_repository(
+        self, mcp_server: Any, mock_session: AsyncSession
+    ) -> None:
         """Test repository scanning."""
         # MockServer.scan_repository is a simplified interface
         # We can't mock internal implementation details
@@ -122,8 +129,8 @@ class TestMCPServer:
     @pytest.mark.asyncio
     async def test_scan_repository_with_embeddings(
         self,
-        mcp_server,
-        mock_session,
+        mcp_server: Any,
+        mock_session: AsyncSession,
     ) -> None:
         """Test repository scanning with embedding generation."""
         mcp_server.session_factory = AsyncMock(return_value=mock_session)
@@ -146,7 +153,9 @@ class TestMCPServer:
         pytest.skip("MockServer scan_repository requires full setup")
 
     @pytest.mark.asyncio
-    async def test_search_with_vector_search(self, mcp_server, mock_session) -> None:
+    async def test_search_with_vector_search(
+        self, mcp_server: Any, mock_session: AsyncSession
+    ) -> None:
         """Test search with vector search available."""
         mcp_server.session_factory = AsyncMock(return_value=mock_session)
         # No longer need to mock OpenAI client - handled by components
@@ -162,7 +171,9 @@ class TestMCPServer:
         pytest.skip("MockServer search requires full setup")
 
     @pytest.mark.asyncio
-    async def test_search_without_vector_search(self, mcp_server, mock_session) -> None:
+    async def test_search_without_vector_search(
+        self, mcp_server: Any, mock_session: AsyncSession
+    ) -> None:
         """Test search when vector search is not available."""
         mcp_server.session_factory = AsyncMock(return_value=mock_session)
         # MockServer search requires full setup - skip this test

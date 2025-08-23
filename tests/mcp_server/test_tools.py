@@ -1,5 +1,7 @@
 """Tests for MCP tools."""
 
+from collections.abc import Iterator
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -14,13 +16,13 @@ from src.mcp_server.tools.repository_management import (
 
 
 @pytest.fixture
-def mock_db_session():
+def mock_db_session() -> AsyncMock:
     """Create mock database session."""
     return AsyncMock(spec=AsyncSession)
 
 
 @pytest.fixture
-def mock_embeddings():
+def mock_embeddings() -> Iterator[MagicMock]:
     """Create mock embeddings."""
     with patch("langchain_openai.OpenAIEmbeddings") as mock_class:
         mock_instance = MagicMock()
@@ -30,7 +32,7 @@ def mock_embeddings():
 
 
 @pytest.fixture
-def mock_mcp():
+def mock_mcp() -> MagicMock:
     """Create mock FastMCP instance."""
     mcp = MagicMock(spec=FastMCP)
     mcp.tool = MagicMock(side_effect=lambda **kwargs: lambda func: func)
@@ -41,7 +43,12 @@ class TestCodeSearchTools:
     """Tests for CodeSearchTools."""
 
     @pytest.fixture
-    def search_tools(self, mock_db_session, mock_mcp, mock_embeddings):
+    def search_tools(
+        self,
+        mock_db_session: AsyncMock,
+        mock_mcp: MagicMock,
+        mock_embeddings: MagicMock,
+    ) -> CodeSearchTools:
         """Create code search tools fixture."""
         # Mock both vector_search and domain_search settings
         with (
@@ -73,7 +80,9 @@ class TestCodeSearchTools:
             return CodeSearchTools(mock_db_session, mock_mcp)
 
     @pytest.mark.asyncio
-    async def test_register_tools(self, search_tools, mock_mcp) -> None:
+    async def test_register_tools(
+        self, search_tools: CodeSearchTools, mock_mcp: MagicMock
+    ) -> None:
         """Test tool registration."""
         await search_tools.register_tools()
 
@@ -83,7 +92,7 @@ class TestCodeSearchTools:
         )  # semantic_search, find_similar, keyword_search
 
     @pytest.mark.asyncio
-    async def test_semantic_search(self, search_tools) -> None:
+    async def test_semantic_search(self, search_tools: CodeSearchTools) -> None:
         """Test semantic search functionality."""
         # Mock vector search
         mock_results = [
@@ -102,17 +111,20 @@ class TestCodeSearchTools:
 
         # Find the semantic_search function
         semantic_search = None
-        for call in search_tools.mcp.tool.call_args_list:
+        tool_mock = cast("MagicMock", search_tools.mcp.tool)
+        for call in tool_mock.call_args_list:
             if call[1]["name"] == "semantic_search":
                 # Get the decorated function
-                decorator = search_tools.mcp.tool.return_value
+                decorator = tool_mock.return_value
                 semantic_search = decorator
                 break
 
         assert semantic_search is not None
 
     @pytest.mark.asyncio
-    async def test_keyword_search(self, search_tools, mock_db_session) -> None:
+    async def test_keyword_search(
+        self, search_tools: CodeSearchTools, mock_db_session: AsyncMock
+    ) -> None:
         """Test keyword search functionality."""
         # Mock database results
         mock_function = MagicMock()
@@ -138,12 +150,16 @@ class TestCodeAnalysisTools:
     """Tests for CodeAnalysisTools."""
 
     @pytest.fixture
-    def analysis_tools(self, mock_db_session, mock_mcp):
+    def analysis_tools(
+        self, mock_db_session: AsyncMock, mock_mcp: MagicMock
+    ) -> CodeAnalysisTools:
         """Create code analysis tools fixture."""
         return CodeAnalysisTools(mock_db_session, mock_mcp)
 
     @pytest.mark.asyncio
-    async def test_register_tools(self, analysis_tools, mock_mcp) -> None:
+    async def test_register_tools(
+        self, analysis_tools: CodeAnalysisTools, mock_mcp: MagicMock
+    ) -> None:
         """Test tool registration."""
         await analysis_tools.register_tools()
 
@@ -151,7 +167,9 @@ class TestCodeAnalysisTools:
         assert mock_mcp.tool.call_count >= 4  # get_code, analyze_file, etc.
 
     @pytest.mark.asyncio
-    async def test_get_code_function(self, analysis_tools, mock_db_session) -> None:
+    async def test_get_code_function(
+        self, analysis_tools: CodeAnalysisTools, mock_db_session: AsyncMock
+    ) -> None:
         """Test getting function code."""
         # Mock function entity
         mock_function = MagicMock()
@@ -183,7 +201,12 @@ class TestRepositoryManagementTools:
     """Tests for RepositoryManagementTools."""
 
     @pytest.fixture
-    def repo_tools(self, mock_db_session, mock_mcp, mock_embeddings):
+    def repo_tools(
+        self,
+        mock_db_session: AsyncMock,
+        mock_mcp: MagicMock,
+        mock_embeddings: MagicMock,
+    ) -> RepositoryManagementTools:
         """Create repository management tools fixture."""
         # Mock embedding generator and its dependencies
         with (
@@ -202,7 +225,9 @@ class TestRepositoryManagementTools:
             return RepositoryManagementTools(mock_db_session, mock_mcp)
 
     @pytest.mark.asyncio
-    async def test_register_tools(self, repo_tools, mock_mcp) -> None:
+    async def test_register_tools(
+        self, repo_tools: RepositoryManagementTools, mock_mcp: MagicMock
+    ) -> None:
         """Test tool registration."""
         await repo_tools.register_tools()
 
@@ -210,7 +235,9 @@ class TestRepositoryManagementTools:
         assert mock_mcp.tool.call_count >= 5  # add_repo, list_repos, scan, etc.
 
     @pytest.mark.asyncio
-    async def test_add_repository(self, repo_tools, mock_db_session) -> None:
+    async def test_add_repository(
+        self, repo_tools: RepositoryManagementTools, mock_db_session: AsyncMock
+    ) -> None:
         """Test adding repository."""
         # Mock no existing repository
         mock_result = MagicMock()
@@ -234,7 +261,9 @@ class TestRepositoryManagementTools:
             assert repo_tools.db_session is not None
 
     @pytest.mark.asyncio
-    async def test_list_repositories(self, repo_tools, mock_db_session) -> None:
+    async def test_list_repositories(
+        self, repo_tools: RepositoryManagementTools, mock_db_session: AsyncMock
+    ) -> None:
         """Test listing repositories."""
         # Mock repositories
         mock_repo = MagicMock()
