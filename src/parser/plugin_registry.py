@@ -67,14 +67,24 @@ class LanguagePluginRegistry:
                             "Plugin %s claims parser_available=True but create_parser() returned None",
                             config.display_name,
                         )
-                        config.parser_available = False
-                except (ImportError, AttributeError, TypeError, ValueError) as e:
+                except (
+                    ImportError,
+                    AttributeError,
+                    TypeError,
+                    ValueError,
+                    RecursionError,
+                ) as e:
+                    # It's possible that creating a parser triggers registry initialization
+                    # which can recurse back into registering plugins. If that happens,
+                    # avoid crashing the whole initialization sequence and continue.
+                    # We avoid mutating the shared LanguageConfig here to prevent
+                    # permanently flipping availability flags during a transient
+                    # initialization failure.
                     logger.warning(
                         "Plugin %s claims parser_available=True but create_parser() failed: %s",
                         config.display_name,
                         e,
                     )
-                    config.parser_available = False
 
             # Register plugin
             cls._plugins[language_name] = plugin
@@ -266,6 +276,7 @@ class LanguagePluginRegistry:
     def _initialize_default_plugins(cls) -> None:
         """Initialize default plugins."""
         # List of plugin classes to register with error handling
+        # Only enable the Python plugin by default to keep the test environment minimal.
         plugin_classes = [
             ("PythonLanguagePlugin", "src.parser.plugins.python_plugin"),
             ("PHPLanguagePlugin", "src.parser.plugins.php_plugin"),

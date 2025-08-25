@@ -5,7 +5,6 @@
 # when calculators are created inside TreeSitter-based parsers that may be instantiated
 # during plugin registration.
 
-
 from typing import ClassVar
 
 import tree_sitter
@@ -289,9 +288,18 @@ class ComplexityCalculator:
 
     def _handle_complexity_node(self, node: tree_sitter.Node, content: bytes) -> int:
         """Handle nodes that add to complexity."""
+        # Nodes that are handled specially should not be counted here to avoid
+        # double-counting; special handling is performed in _handle_special_node.
+        if node.type in self.SPECIAL_NODES:
+            return 0
+
         if node.type == "else_clause":
             # Only count else if it contains an if (elif)
             return 1 if self._contains_if_statement(node) else 0
+        # Exception handler nodes are counted as part of the encompassing try/try_statement
+        # to avoid double-counting. Skip them here.
+        if node.type in {"except_clause", "catch_clause", "finally_clause"}:
+            return 0
         if node.type in {"and", "or"}:
             # Boolean operators add complexity
             return 1
@@ -374,7 +382,8 @@ class ComplexityCalculator:
         for child in try_node.children:
             if child.type in ["catch_clause", "except_clause", "finally_clause"]:
                 count += 1
-        return max(count - 1, 0)  # First handler doesn't add complexity
+        # Each handler (except/finally/catch) adds an additional path.
+        return count
 
     def get_complexity_level(self, complexity: int) -> str:
         """

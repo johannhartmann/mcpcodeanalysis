@@ -58,7 +58,7 @@ class LanguageRegistry:
             name="javascript",
             display_name="JavaScript",
             extensions=[".js", ".jsx", ".mjs"],
-            parser_available=True,  # TreeSitter parser now available
+            parser_available=False,  # Parser unavailable by default
             features={
                 "classes": True,
                 "functions": True,

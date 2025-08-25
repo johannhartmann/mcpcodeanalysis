@@ -119,6 +119,7 @@ class PythonCodeParser:
             "is_generator": func_info["is_generator"],
             "is_property": func_info["is_property"],
             "is_staticmethod": func_info["is_staticmethod"],
+            "is_static": func_info.get("is_staticmethod", False),
             "is_classmethod": func_info["is_classmethod"],
             "start_line": func_info["start_line"],
             "end_line": func_info["end_line"],

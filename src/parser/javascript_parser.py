@@ -64,6 +64,16 @@ class JavaScriptCodeParser(BaseParser):
 
             # Extract classes
             for cls_info in module_info.get("classes", []):
+                # Ensure base_classes contains any extends clause if TreeSitter failed to populate it
+                base_classes = list(cls_info.get("base_classes", []) or [])
+                if not base_classes:
+                    import re
+
+                    class_text = cls_info.get("text", "")
+                    m = re.search(r"extends\s+([A-Za-z_][A-Za-z0-9_]*)", class_text)
+                    if m:
+                        base_classes.append(m.group(1))
+
                 cls_element = ParsedElement(
                     type=ElementType.CLASS,
                     name=cls_info["name"],
@@ -73,7 +83,7 @@ class JavaScriptCodeParser(BaseParser):
                     end_column=0,
                     text=cls_info.get("text", ""),
                     metadata={
-                        "base_classes": cls_info.get("base_classes", []),
+                        "base_classes": base_classes,
                         "access_modifier": "public",  # JavaScript doesn't have access modifiers
                     },
                 )
@@ -121,7 +131,7 @@ class JavaScriptCodeParser(BaseParser):
 
         return root
 
-    def _extract_imports(self, tree: Tree, content: str) -> list[str]:
+    def _extract_imports(self, tree: Tree, content: str) -> list[str]:  # noqa: PLR0912
         """Extract import statements from JavaScript parse tree."""
         imports = []
 
@@ -157,7 +167,48 @@ class JavaScriptCodeParser(BaseParser):
         except (AttributeError, ValueError, TypeError) as e:
             logger.warning("Error extracting JavaScript imports: %s", e)
 
-        return imports
+        # Fallback: if no imports detected via TreeSitter, try regex-based detection for ES imports and CommonJS require()
+        if not imports:
+            try:
+                import re
+
+                # ES module import patterns: import X from 'module'
+                es_pattern = re.compile(
+                    r"import\s+(?:[\w\s{},*]+)\s+from\s+['\"]([^'\"]+)['\"]"
+                )
+                for m in es_pattern.finditer(content):
+                    module_name = m.group(1)
+                    imports.append(f"import {module_name}")
+
+                # Look for assignments using require()
+                pattern = re.compile(
+                    r"(?:const|let|var)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*require\(\s*['\"]([^'\"]+)['\"]\s*\)"
+                )
+                for m in pattern.finditer(content):
+                    var_name = m.group(1)
+                    module_name = m.group(2)
+                    imports.append(f"const {var_name} = require('{module_name}')")
+
+                # Also detect bare require usages (without assignment)
+                pattern2 = re.compile(r"require\(\s*['\"]([^'\"]+)['\"]\s*\)")
+                for m in pattern2.finditer(content):
+                    module_name = m.group(1)
+                    entry = f"require('{module_name}')"
+                    if entry not in imports:
+                        imports.append(entry)
+            except re.error as exc:
+                # Regex compilation/processing failed; log and continue
+                logger.debug("Fallback import regex failed: %s", exc)
+
+        # Deduplicate while preserving order
+        seen = set()
+        deduped_imports = []
+        for item in imports:
+            if item not in seen:
+                deduped_imports.append(item)
+                seen.add(item)
+
+        return deduped_imports
 
     def _extract_references(self, tree: Tree, content: str) -> list[dict[str, Any]]:
         """Extract code references from JavaScript parse tree."""

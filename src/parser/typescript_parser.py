@@ -125,13 +125,59 @@ class TypeScriptCodeParser(BaseParser):
         self, node: Node, content: str, root: ParsedElement
     ) -> None:
         """Extract classes using direct TreeSitter node traversal."""
-        if node.type == "class_declaration":
-            # Find class name
+        if node.type in ("class_declaration", "abstract_class_declaration"):
+            # Find class name by searching descendants for common name node types
             class_name = "UnknownClass"
-            for child in node.children:
-                if child.type == "type_identifier":
-                    class_name = self._get_node_text(child, content)
-                    break
+            from tree_sitter import Node as TSNode
+
+            def _find_name(n: TSNode) -> str | None:
+                if n.type in (
+                    "type_identifier",
+                    "identifier",
+                    "property_identifier",
+                    "name",
+                ):
+                    return self._get_node_text(n, content)
+                for ch in n.children:
+                    res = _find_name(ch)
+                    if res:
+                        return res
+                return None
+
+            found_name = _find_name(node)
+            if found_name:
+                class_name = found_name
+
+            # Attempt to extract base classes and interfaces from heritage clauses
+            base_classes: list[str] = []
+            interfaces: list[str] = []
+
+            def _collect_heritage(n: Node) -> None:
+                text = self._get_node_text(n, content).strip()
+                # If clause contains 'extends' or 'implements', try to parse identifiers
+                if "extends" in text or "implements" in text:
+                    # Remove the keywords and split by comma
+                    cleaned = text.replace("extends", "").replace("implements", "")
+                    parts = [p.strip() for p in cleaned.split(",") if p.strip()]
+                    for part in parts:
+                        # Extract a simple name (strip generics and other tokens)
+                        import re
+
+                        m = re.search(r"([A-Za-z_][A-Za-z0-9_]*)", part)
+                        if m:
+                            name = m.group(1)
+                            # Skip common language keywords that might appear
+                            if name in ("extends", "implements", "class"):
+                                continue
+                            if "extends" in text and name not in base_classes:
+                                base_classes.append(name)
+                            elif "implements" in text and name not in interfaces:
+                                interfaces.append(name)
+
+                for ch in n.children:
+                    _collect_heritage(ch)
+
+            _collect_heritage(node)
 
             cls_element = ParsedElement(
                 type=ElementType.CLASS,
@@ -142,8 +188,8 @@ class TypeScriptCodeParser(BaseParser):
                 end_column=node.end_point[1],
                 text=self._get_node_text(node, content),
                 metadata={
-                    "base_classes": [],
-                    "interfaces": [],
+                    "base_classes": base_classes,
+                    "interfaces": interfaces,
                     "access_modifier": "public",
                     "decorators": [],
                 },
@@ -186,11 +232,23 @@ class TypeScriptCodeParser(BaseParser):
             )
             root.add_child(func_element)
 
-        # Handle arrow functions in variable declarations
-        elif node.type == "variable_declaration":
-            for child in node.children:
-                if child.type == "variable_declarator":
-                    self._extract_arrow_function(child, content, root)
+        # Handle arrow functions in variable / lexical declarations (const/let/var)
+        elif node.type in (
+            "variable_declaration",
+            "variable_statement",
+            "lexical_declaration",
+            "lexical_declaration_statement",
+            "variable_declaration_statement",
+        ):
+            # Walk descendants and extract any variable_declarator we find
+            nodes = [node]
+            while nodes:
+                cur = nodes.pop()
+                for ch in cur.children:
+                    if ch.type == "variable_declarator":
+                        self._extract_arrow_function(ch, content, root)
+                    else:
+                        nodes.append(ch)
 
         # Recursively search children
         for child in node.children:
@@ -204,12 +262,22 @@ class TypeScriptCodeParser(BaseParser):
             if child.type == "class_body":
                 for member in child.children:
                     if member.type in ("method_definition", "method_signature"):
-                        # Find method name
+                        # Find method name, accept several identifier node types
                         method_name = "UnknownMethod"
                         for subchild in member.children:
-                            if subchild.type == "property_identifier":
+                            if subchild.type in (
+                                "property_identifier",
+                                "identifier",
+                                "private_identifier",
+                            ):
                                 method_name = self._get_node_text(subchild, content)
                                 break
+
+                        # Fallback: if constructor is present as a child token
+                        if method_name == "UnknownMethod":
+                            text = self._get_node_text(member, content)
+                            if text.strip().startswith("constructor"):
+                                method_name = "constructor"
 
                         method_element = ParsedElement(
                             type=ElementType.METHOD,
@@ -236,11 +304,18 @@ class TypeScriptCodeParser(BaseParser):
         func_name = "UnknownFunction"
         arrow_node = None
 
-        for child in declarator_node.children:
-            if child.type == "identifier":
-                func_name = self._get_node_text(child, content)
-            elif child.type == "arrow_function":
-                arrow_node = child
+        # Walk descendants to find the arrow_function node and the identifier (name)
+        def _find_arrow(n: Node) -> None:
+            nonlocal arrow_node, func_name
+            for ch in n.children:
+                if ch.type == "arrow_function":
+                    arrow_node = ch
+                if ch.type == "identifier" and func_name == "UnknownFunction":
+                    func_name = self._get_node_text(ch, content)
+                # Recurse
+                _find_arrow(ch)
+
+        _find_arrow(declarator_node)
 
         if arrow_node:
             func_element = ParsedElement(

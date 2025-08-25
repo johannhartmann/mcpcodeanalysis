@@ -357,6 +357,9 @@ class PythonParser(TreeSitterParser):
                         # Property setters and deleters
                         func_data["is_property"] = True
 
+            # Normalize convenience flag
+            func_data["is_static"] = func_data.get("is_staticmethod", False)
+
             # Extract function details
             for child in node.children:
                 if child.type == "identifier":
@@ -1178,6 +1181,7 @@ class JavaParser(TreeSitterParser):
             # Extract modifiers and annotations
             is_static, decorators = self._extract_method_modifiers(node, content)
             func_data["is_staticmethod"] = is_static
+            func_data["is_static"] = is_static
             func_data["decorators"] = decorators
 
             # Extract method signature
@@ -2474,6 +2478,7 @@ class JavaScriptParser(TreeSitterParser):
                     "name": class_name,
                     "start_line": class_node.start_point[0] + 1,
                     "end_line": class_node.end_point[0] + 1,
+                    "text": self.get_node_text(class_node, content),
                     "methods": self._extract_js_class_methods(
                         captures["class_body"][0], content
                     ),
@@ -2534,7 +2539,7 @@ class JavaScriptParser(TreeSitterParser):
                 }
                 functions.append(func_info)
 
-        # Arrow functions
+        # Arrow functions assigned to variables (handles both var/let/const and lexical declarations)
         arrow_query = tree_sitter.Query(
             self.require_language(),
             """
@@ -2548,6 +2553,37 @@ class JavaScriptParser(TreeSitterParser):
         for match in arrow_query.matches(tree.root_node):
             captures = match[1]
 
+            if "var_name" in captures and "arrow_func" in captures:
+                var_name = self.get_node_text(captures["var_name"][0], content)
+                arrow_node = captures["arrow_func"][0]
+
+                func_info = {
+                    "name": var_name,
+                    "start_line": arrow_node.start_point[0] + 1,
+                    "end_line": arrow_node.end_point[0] + 1,
+                    "parameters": self._extract_js_arrow_parameters(
+                        arrow_node, content
+                    ),
+                    "is_async": self._is_async_function(arrow_node, content),
+                    "complexity": ComplexityCalculator(
+                        "javascript"
+                    ).calculate_complexity(arrow_node, content),
+                }
+                functions.append(func_info)
+
+        # Also handle lexical_declaration forms produced by some grammars (e.g., 'const')
+        lexical_arrow_query = tree_sitter.Query(
+            self.require_language(),
+            """
+            (lexical_declaration
+                (variable_declarator
+                    name: (identifier) @var_name
+                    value: (arrow_function) @arrow_func))
+            """,
+        )
+
+        for match in lexical_arrow_query.matches(tree.root_node):
+            captures = match[1]
             if "var_name" in captures and "arrow_func" in captures:
                 var_name = self.get_node_text(captures["var_name"][0], content)
                 arrow_node = captures["arrow_func"][0]
@@ -2827,7 +2863,14 @@ class JavaScriptParser(TreeSitterParser):
                 for heritage_child in child.children:
                     if heritage_child.type == "extends_clause":
                         for extends_child in heritage_child.children:
-                            if extends_child.type == "identifier":
+                            # Node types can vary between grammars (identifier, type_identifier, property_identifier, scoped_identifier)
+                            if extends_child.type in {
+                                "identifier",
+                                "type_identifier",
+                                "property_identifier",
+                                "scoped_identifier",
+                                "qualified_identifier",
+                            }:
                                 return [self.get_node_text(extends_child, content)]
         return []
 
