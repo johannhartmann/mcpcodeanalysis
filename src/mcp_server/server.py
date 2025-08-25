@@ -70,7 +70,9 @@ async def get_db_session() -> AsyncGenerator[Any, None]:
     if _session_factory is None:
         await initialize_server()
 
-    assert _session_factory is not None
+    if _session_factory is None:
+        raise RuntimeError
+
     async with _session_factory() as session:
         yield session
 
@@ -185,7 +187,7 @@ async def list_repositories(
                     "name": repo.name,
                     "owner": repo.owner,
                     "url": repo.github_url,
-                    "branch": repo.default_branch,
+                    "default_branch": repo.default_branch,
                     "last_synced": (
                         repo.last_synced.isoformat() if repo.last_synced else None
                     ),
@@ -195,7 +197,8 @@ async def list_repositories(
                     # Get file count
                     from sqlalchemy import func
 
-                    from src.database.models import CodeEmbedding, File
+                    from src.database.models import File
+                    from src.embeddings.vector_search import VectorSearch
 
                     file_count_result = await session.execute(
                         select(func.count(File.id)).where(
@@ -204,17 +207,18 @@ async def list_repositories(
                     )
                     file_count = file_count_result.scalar() or 0
 
-                    # Get embedding count
-                    embedding_count_result = await session.execute(
-                        select(func.count(CodeEmbedding.id))
-                        .join(File)
-                        .where(File.repository_id == repo.id),
+                    # Get embedding stats via vector search (includes totals and breakdown)
+                    vector_search = VectorSearch(session)
+                    embedding_stats = await vector_search.get_repository_stats(
+                        cast("int", repo.id)
                     )
-                    embedding_count = embedding_count_result.scalar() or 0
 
                     repo_data["stats"] = {
-                        "total_files": file_count,
-                        "total_embeddings": embedding_count,
+                        "file_count": file_count,
+                        "total_embeddings": embedding_stats.get("total_embeddings", 0),
+                        "embeddings_by_type": embedding_stats.get(
+                            "embeddings_by_type", {}
+                        ),
                     }
 
                 repo_list.append(repo_data)

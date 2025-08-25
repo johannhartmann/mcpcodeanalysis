@@ -34,7 +34,8 @@ class ExplainTool:
             # sessionmaker returns a sessionmaker[AsyncSession]
             factory = get_session_factory(engine)
             self._session_factory = factory
-        assert self._session_factory is not None
+        if self._session_factory is None:
+            raise RuntimeError
         return self._session_factory
 
     async def explain_code(self, path: str) -> str:
