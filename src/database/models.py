@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 try:
     from pgvector.sqlalchemy import Vector
 except ImportError:
     # For SQLite tests, use JSON instead of Vector
-    def Vector(dim: int) -> type[JSON]:  # noqa: ARG001, N802
+    def Vector(_dim: int) -> type[JSON]:  # noqa: N802
         return JSON
 
 
@@ -52,6 +52,31 @@ class Repository(Base):
     name = Column(String(255), nullable=False)
     default_branch = Column(String(255), default="main")
     access_token_id = Column(String(255), nullable=True)
+
+    @property
+    def access_token(self) -> str | None:
+        """Convenience property for tests and callers that expect an access_token attribute.
+
+        Maps to the underlying access_token_id column used for storage.
+        """
+        return cast("str | None", self.access_token_id)
+
+    @access_token.setter
+    def access_token(self, value: Any) -> None:
+        # None -> clear
+        if value is None:
+            # mypy: Column[...] type at class-level; cast to Any for runtime assignment of None
+            self.access_token_id = cast("Any", None)
+            return
+
+        # SecretStr-like objects expose get_secret_value
+        if hasattr(value, "get_secret_value"):
+            token = value.get_secret_value()
+        else:
+            token = str(value)
+
+        self.access_token_id = cast("Any", token)
+
     last_synced = Column(DateTime, default=func.now())
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
