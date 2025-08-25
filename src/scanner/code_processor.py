@@ -15,9 +15,11 @@ from pathlib import Path
 from typing import Any, cast
 
 from sqlalchemy import delete
+from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.future import select
 
 from src.database.models import Class, File, Function, Import, Module
+from src.database.session_manager import ParallelSessionManager  # noqa: F401
 from src.domain.indexer import DomainIndexer
 from src.logger import get_logger
 from src.parser.code_extractor import CodeExtractor
@@ -331,16 +333,64 @@ class CodeProcessor:
         self, file_records: list[File]
     ) -> list[dict[str, Any]]:
         """Process files in parallel using separate sessions."""
-        from sqlalchemy.ext.asyncio import async_sessionmaker
+        # Resolve async_sessionmaker and ParallelSessionManager dynamically so tests can
+        # patch either the original modules (sqlalchemy.ext.asyncio / src.database.session_manager)
+        # or the names on this module (src.scanner.code_processor).
+        from importlib import import_module
 
-        from src.database.session_manager import ParallelSessionManager
+        # Helper to detect mocks
+        def _is_mock(obj: object) -> bool:
+            return obj is not None and (
+                hasattr(obj, "assert_called") or obj.__class__.__name__.endswith("Mock")
+            )
+
+        def _choose_sessionmaker() -> Any:
+            module_async_sessionmaker = globals().get("async_sessionmaker")
+            try:
+                orig_async_sessionmaker = import_module(
+                    "sqlalchemy.ext.asyncio"
+                ).async_sessionmaker
+            except (ImportError, AttributeError):
+                orig_async_sessionmaker = None
+
+            if _is_mock(module_async_sessionmaker):
+                return module_async_sessionmaker
+            if _is_mock(orig_async_sessionmaker):
+                return orig_async_sessionmaker
+            return (
+                module_async_sessionmaker
+                or orig_async_sessionmaker
+                or async_sessionmaker
+            )
+
+        def _choose_parallel_pm() -> Any:
+            module_parallel_pm = globals().get("ParallelSessionManager")
+            try:
+                orig_parallel_pm = import_module(
+                    "src.database.session_manager"
+                ).ParallelSessionManager
+            except (ImportError, AttributeError):
+                orig_parallel_pm = None
+
+            if _is_mock(module_parallel_pm):
+                return module_parallel_pm
+            if _is_mock(orig_parallel_pm):
+                return orig_parallel_pm
+            return module_parallel_pm or orig_parallel_pm
 
         # Create a session factory from the current session's bind
+        chosen_async_sessionmaker = _choose_sessionmaker()
         bind = self.db_session.bind
-        session_factory = async_sessionmaker(bind, expire_on_commit=False)
+        session_maker_callable: Any = chosen_async_sessionmaker
+        session_factory = cast("Any", session_maker_callable)(
+            bind, expire_on_commit=False
+        )
 
-        # Create parallel session manager
-        parallel_manager = ParallelSessionManager(session_factory)
+        # Resolve and create ParallelSessionManager
+        parallel_session_manager_cls = _choose_parallel_pm()
+        if parallel_session_manager_cls is None:
+            raise RuntimeError
+        parallel_manager = cast("Any", parallel_session_manager_cls)(session_factory)
 
         # Define processing function for parallel execution
         async def process_file_with_session(

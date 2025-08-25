@@ -334,7 +334,9 @@ class ScannerService:
 
                 if db_file:
                     # Update existing file
-                    db_file.last_modified = metadata.get("last_modified") or datetime.now(UTC).replace(tzinfo=None)  # type: ignore[assignment]
+                    db_file.last_modified = metadata.get(
+                        "last_modified"
+                    ) or datetime.now(UTC).replace(tzinfo=None)  # type: ignore[assignment]
                     git_hash = metadata.get("git_hash")
                     if git_hash:
                         db_file.git_hash = git_hash
@@ -421,7 +423,9 @@ class ScannerService:
 
             if db_file:
                 # Update existing file
-                db_file.last_modified = metadata.get("last_modified") or datetime.now(UTC).replace(tzinfo=None)  # type: ignore[assignment]
+                db_file.last_modified = metadata.get("last_modified") or datetime.now(
+                    UTC
+                ).replace(tzinfo=None)  # type: ignore[assignment]
                 git_hash = metadata.get("git_hash")
                 if git_hash:
                     db_file.git_hash = git_hash
@@ -511,7 +515,9 @@ async def main() -> None:
     scanner = ScannerService()
 
     # Handle shutdown signals
-    def signal_handler(sig: int, frame: Any) -> None:  # noqa: ARG001
+    def signal_handler(
+        sig: int, _frame: Any
+    ) -> None:  # frame unused by signal handlers
         logger.info("Received signal %s", sig)
         asyncio.create_task(scanner.stop())
 
