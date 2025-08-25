@@ -1,7 +1,8 @@
 """Domain-driven indexing orchestrator."""
 
+import asyncio
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -77,21 +78,20 @@ class DomainIndexer:
                 return {"status": "skipped", "file_id": file_id}
 
         # Read file content
-        file_path = Path(file.path)
+        path_str = str(file.path)
+        file_path = Path(path_str)
         if not file_path.exists():
-            logger.warning("File %s not found on disk", file.path)
+            logger.warning("File %s not found on disk", path_str)
             return {"status": "error", "file_id": file_id, "error": "File not found"}
 
-        import aiofiles
-
-        async with aiofiles.open(file_path, encoding="utf-8") as f:
-            content = await f.read()
+        # Read content without external async file libs to keep typing strict
+        content = await asyncio.to_thread(file_path.read_text, encoding="utf-8")
 
         # Extract entities
-        logger.info("Extracting domain entities from %s", file.path)
+        logger.info("Extracting domain entities from %s", path_str)
         extraction_result = await self.entity_extractor.extract_from_module(
             content,
-            file.path,
+            path_str,
         )
 
         # Save entities
@@ -138,7 +138,7 @@ class DomainIndexer:
             .where(
                 File.repository_id == repository_id,
                 File.path.endswith(".py"),
-                not File.is_deleted,
+                File.is_deleted.is_(False),
             )
             .order_by(File.size)  # Start with smaller files
         )
@@ -165,7 +165,7 @@ class DomainIndexer:
             logger.info("Processing file %d/%d: %s", i, len(files), file.path)
 
             try:
-                file_result = await self.index_file(file.id)
+                file_result = await self.index_file(int(file.id))
 
                 if file_result["status"] == "success":
                     results["successful"] += 1
@@ -233,7 +233,7 @@ class DomainIndexer:
                     saved_contexts,
                 )
 
-        return [ctx.id for ctx in saved_contexts]
+        return [int(ctx.id) for ctx in saved_contexts]
 
     async def generate_summaries(
         self,
@@ -262,7 +262,7 @@ class DomainIndexer:
 
             for module in modules:
                 try:
-                    await self.summarizer.summarize_module(module.id)
+                    await self.summarizer.summarize_module(int(module.id))
                     count += 1
                 except Exception:
                     logger.exception("Error summarizing module %d", module.id)
@@ -278,7 +278,7 @@ class DomainIndexer:
 
             for context in contexts:
                 try:
-                    await self.summarizer.summarize_bounded_context(context.id)
+                    await self.summarizer.summarize_bounded_context(int(context.id))
                     count += 1
                 except Exception:
                     logger.exception("Error summarizing context %d", context.id)
@@ -305,20 +305,21 @@ class DomainIndexer:
             existing = result.scalar_one_or_none()
 
             if existing:
+                ex = cast("Any", existing)
                 # Update existing entity
-                existing.source_entities = list(
-                    {*existing.source_entities, file_id},
+                ex.source_entities = list(
+                    {*ex.source_entities, file_id},
                 )
                 # Merge other fields
-                existing.business_rules = list(
+                ex.business_rules = list(
                     set(
-                        existing.business_rules + entity_data.get("business_rules", []),
+                        ex.business_rules + entity_data.get("business_rules", []),
                     ),
                 )
-                existing.invariants = list(
-                    set(existing.invariants + entity_data.get("invariants", [])),
+                ex.invariants = list(
+                    set(ex.invariants + entity_data.get("invariants", [])),
                 )
-                saved_entities[entity_data["name"]] = existing
+                saved_entities[entity_data["name"]] = cast("DomainEntity", ex)
             else:
                 # Create new entity
                 entity = DomainEntity(
@@ -419,7 +420,7 @@ class DomainIndexer:
                 from src.embeddings.embedding_service import EmbeddingService
 
                 embedding_service = EmbeddingService(self.db_session)
-                await embedding_service.create_domain_entity_embedding(entity.id)
+                await embedding_service.create_domain_entity_embedding(int(entity.id))
                 logger.info("Generated embedding for domain entity: %s", entity.name)
             except Exception:
                 logger.exception(

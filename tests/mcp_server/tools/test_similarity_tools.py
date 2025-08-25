@@ -1,5 +1,7 @@
 """Tests for code similarity tools."""
 
+from collections.abc import Iterator
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -11,13 +13,13 @@ from src.mcp_server.tools.code_search import CodeSearchTools
 
 
 @pytest.fixture
-def mock_db_session():
+def mock_db_session() -> AsyncMock:
     """Create mock database session."""
     return AsyncMock(spec=AsyncSession)
 
 
 @pytest.fixture
-def mock_mcp():
+def mock_mcp() -> FastMCP:
     """Create mock FastMCP instance."""
     mcp = MagicMock(spec=FastMCP)
     mcp.tool = MagicMock(side_effect=lambda **kwargs: lambda func: func)
@@ -25,7 +27,7 @@ def mock_mcp():
 
 
 @pytest.fixture
-def mock_embeddings():
+def mock_embeddings() -> Iterator[MagicMock]:
     """Create mock embeddings."""
     with patch("langchain_openai.OpenAIEmbeddings") as mock_class:
         mock_instance = MagicMock()
@@ -35,7 +37,9 @@ def mock_embeddings():
 
 
 @pytest.fixture
-def search_tools(mock_db_session, mock_mcp, mock_embeddings):
+def search_tools(
+    mock_db_session: AsyncMock, mock_mcp: FastMCP, mock_embeddings: MagicMock
+) -> CodeSearchTools:
     """Create code search tools fixture."""
     with (
         patch("src.embeddings.vector_search.settings") as mock_vector_settings,
@@ -66,7 +70,9 @@ class TestSimilarityTools:
     """Tests for code similarity analysis tools."""
 
     @pytest.mark.asyncio
-    async def test_find_similar_code_by_function(self, search_tools, mock_db_session):
+    async def test_find_similar_code_by_function(
+        self, search_tools: CodeSearchTools, mock_db_session: AsyncMock
+    ) -> None:
         """Test finding similar code by function ID."""
         # Mock the target function
         mock_function = MagicMock(spec=Function)
@@ -136,7 +142,9 @@ class TestSimilarityTools:
         assert result[1]["name"] == "transform_data"
 
     @pytest.mark.asyncio
-    async def test_find_similar_code_by_class(self, search_tools, mock_db_session):
+    async def test_find_similar_code_by_class(
+        self, search_tools: CodeSearchTools, mock_db_session: AsyncMock
+    ) -> None:
         """Test finding similar code by class ID."""
         # Mock the target class
         mock_class = MagicMock(spec=Class)
@@ -205,8 +213,8 @@ class TestSimilarityTools:
 
     @pytest.mark.asyncio
     async def test_find_similar_code_entity_not_found(
-        self, search_tools, mock_db_session
-    ):
+        self, search_tools: CodeSearchTools, mock_db_session: AsyncMock
+    ) -> None:
         """Test finding similar code when entity doesn't exist."""
         # Mock entity not found
         mock_result = MagicMock()
@@ -224,8 +232,8 @@ class TestSimilarityTools:
 
     @pytest.mark.asyncio
     async def test_find_similar_code_exclude_same_file(
-        self, search_tools, mock_db_session
-    ):
+        self, search_tools: CodeSearchTools, mock_db_session: AsyncMock
+    ) -> None:
         """Test finding similar code excluding results from same file."""
         # Mock the target function
         mock_function = MagicMock(spec=Function)
@@ -301,8 +309,8 @@ class TestSimilarityTools:
 
     @pytest.mark.asyncio
     async def test_find_similar_code_include_same_file(
-        self, search_tools, mock_db_session
-    ):
+        self, search_tools: CodeSearchTools, mock_db_session: AsyncMock
+    ) -> None:
         """Test finding similar code including results from same file."""
         # Mock the target function
         mock_function = MagicMock(spec=Function)
@@ -367,7 +375,7 @@ class TestSimilarityTools:
         assert all(r["file"] == "/src/processor.py" for r in result)
 
     @pytest.mark.asyncio
-    async def test_find_similar_patterns(self, search_tools):
+    async def test_find_similar_patterns(self, search_tools: CodeSearchTools) -> None:
         """Test finding similar code patterns."""
         # Mock pattern search results
         pattern_results = [
@@ -406,10 +414,9 @@ class TestSimilarityTools:
             },
         ]
 
-        search_tools.pattern_analyzer = MagicMock()
-        search_tools.pattern_analyzer.find_similar_patterns = AsyncMock(
-            return_value=pattern_results
-        )
+        analyzer = MagicMock()
+        analyzer.find_similar_patterns = AsyncMock(return_value=pattern_results)
+        cast("Any", search_tools).pattern_analyzer = analyzer
 
         await search_tools.register_tools()
 
@@ -425,7 +432,7 @@ class TestSimilarityTools:
         assert result[0]["entity"]["name"] == "DatabaseManager"
 
     @pytest.mark.asyncio
-    async def test_find_duplicate_code(self, search_tools):
+    async def test_find_duplicate_code(self, search_tools: CodeSearchTools) -> None:
         """Test finding duplicate or near-duplicate code."""
         # Mock duplicate detection results
         duplicate_results = [
@@ -470,10 +477,9 @@ class TestSimilarityTools:
             },
         ]
 
-        search_tools.duplicate_detector = MagicMock()
-        search_tools.duplicate_detector.find_duplicates = AsyncMock(
-            return_value=duplicate_results
-        )
+        detector = MagicMock()
+        detector.find_duplicates = AsyncMock(return_value=duplicate_results)
+        cast("Any", search_tools).duplicate_detector = detector
 
         await search_tools.register_tools()
 
@@ -489,7 +495,9 @@ class TestSimilarityTools:
         assert len(result[1]["instances"]) == 2
 
     @pytest.mark.asyncio
-    async def test_analyze_code_similarity_metrics(self, search_tools):
+    async def test_analyze_code_similarity_metrics(
+        self, search_tools: CodeSearchTools
+    ) -> None:
         """Test analyzing overall code similarity metrics."""
         # Mock similarity metrics
         metrics = {
@@ -521,10 +529,9 @@ class TestSimilarityTools:
             },
         }
 
-        search_tools.similarity_analyzer = MagicMock()
-        search_tools.similarity_analyzer.get_similarity_metrics = AsyncMock(
-            return_value=metrics
-        )
+        analyzer = MagicMock()
+        analyzer.get_similarity_metrics = AsyncMock(return_value=metrics)
+        cast("Any", search_tools).similarity_analyzer = analyzer
 
         await search_tools.register_tools()
 
@@ -538,8 +545,8 @@ class TestSimilarityTools:
 
     @pytest.mark.asyncio
     async def test_find_similar_code_with_threshold(
-        self, search_tools, mock_db_session
-    ):
+        self, search_tools: CodeSearchTools, mock_db_session: AsyncMock
+    ) -> None:
         """Test finding similar code with similarity threshold."""
         # Mock function
         mock_function = MagicMock(spec=Function)

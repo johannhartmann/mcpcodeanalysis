@@ -1,5 +1,6 @@
 """Tests for refactoring suggestion tools."""
 
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -11,21 +12,21 @@ from src.mcp_server.tools.analysis_tools import AnalysisTools
 
 
 @pytest.fixture
-def mock_db_session():
+def mock_db_session() -> AsyncSession:
     """Create mock database session."""
-    return AsyncMock(spec=AsyncSession)
+    return cast("AsyncSession", AsyncMock(spec=AsyncSession))
 
 
 @pytest.fixture
-def mock_mcp():
+def mock_mcp() -> FastMCP:
     """Create mock FastMCP instance."""
     mcp = MagicMock(spec=FastMCP)
     mcp.tool = MagicMock(side_effect=lambda **kwargs: lambda func: func)
-    return mcp
+    return cast("FastMCP", mcp)
 
 
 @pytest.fixture
-def analysis_tools(mock_db_session, mock_mcp):
+def analysis_tools(mock_db_session: AsyncSession, mock_mcp: FastMCP) -> AnalysisTools:
     """Create analysis tools fixture with mocked LLM."""
     with (
         patch("src.mcp_server.tools.analysis_tools.settings") as mock_settings,
@@ -49,8 +50,8 @@ class TestRefactoringTools:
 
     @pytest.mark.asyncio
     async def test_suggest_refactoring_file_not_found(
-        self, analysis_tools, mock_db_session
-    ):
+        self, analysis_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test suggesting refactoring when file is not found."""
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
@@ -64,8 +65,8 @@ class TestRefactoringTools:
 
     @pytest.mark.asyncio
     async def test_suggest_refactoring_complex_function(
-        self, analysis_tools, mock_db_session
-    ):
+        self, analysis_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test suggesting refactoring for complex function."""
         # Mock file
         mock_file = MagicMock(spec=File)
@@ -207,8 +208,8 @@ def process_item(item):
 
     @pytest.mark.asyncio
     async def test_suggest_refactoring_code_smells(
-        self, analysis_tools, mock_db_session
-    ):
+        self, analysis_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test suggesting refactoring for various code smells."""
         # Mock file
         mock_file = MagicMock(spec=File)
@@ -355,8 +356,8 @@ class FieldValidator:
 
     @pytest.mark.asyncio
     async def test_suggest_refactoring_performance_focus(
-        self, analysis_tools, mock_db_session
-    ):
+        self, analysis_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test suggesting performance-focused refactoring."""
         # Mock file
         mock_file = MagicMock(spec=File)
@@ -454,8 +455,8 @@ def find_duplicates(items):
 
     @pytest.mark.asyncio
     async def test_suggest_refactoring_readability_focus(
-        self, analysis_tools, mock_db_session
-    ):
+        self, analysis_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test suggesting readability-focused refactoring."""
         # Mock file
         mock_file = MagicMock(spec=File)
@@ -558,8 +559,8 @@ def filter_by_parity(numbers: List[int], keep_even: bool = True) -> List[int]:
 
     @pytest.mark.asyncio
     async def test_suggest_refactoring_no_functions(
-        self, analysis_tools, mock_db_session
-    ):
+        self, analysis_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test suggesting refactoring for file with no functions."""
         # Mock file
         mock_file = MagicMock(spec=File)
@@ -633,8 +634,8 @@ class APIConfig:
 
     @pytest.mark.asyncio
     async def test_suggest_refactoring_error_handling(
-        self, analysis_tools, mock_db_session
-    ):
+        self, analysis_tools: Any, mock_db_session: Any
+    ) -> None:
         """Test error handling in refactoring suggestions."""
         # Mock file
         mock_file = MagicMock(spec=File)

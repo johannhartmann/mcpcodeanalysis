@@ -1,9 +1,9 @@
 """Service for managing embeddings in the database."""
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -49,16 +49,18 @@ class EmbeddingService:
         logger.info("Creating embeddings for file %d", file_id)
 
         # Get file record
-        result = await self.db_session.execute(select(File).where(File.id == file_id))
-        file_record = result.scalar_one_or_none()
+        sql_result = await self.db_session.execute(
+            select(File).where(File.id == file_id)
+        )
+        file_record = sql_result.scalar_one_or_none()
 
         if not file_record:
             msg = "File not found"
             raise NotFoundError(msg)
 
-        stats = {
+        stats: dict[str, Any] = {
             "file_id": file_id,
-            "file_path": file_record.path,
+            "file_path": cast("str", file_record.path),
             "modules": 0,
             "classes": 0,
             "functions": 0,
@@ -71,7 +73,9 @@ class EmbeddingService:
             modules = await self._get_file_modules(file_id)
             for module in modules:
                 try:
-                    await self._create_module_embedding(module, file_record.path)
+                    await self._create_module_embedding(
+                        module, cast("str", file_record.path)
+                    )
                     stats["modules"] += 1
                 except Exception as e:
                     logger.exception(
@@ -84,7 +88,9 @@ class EmbeddingService:
             classes = await self._get_file_classes(file_id)
             for cls in classes:
                 try:
-                    await self._create_class_embedding(cls, file_record.path)
+                    await self._create_class_embedding(
+                        cls, cast("str", file_record.path)
+                    )
                     stats["classes"] += 1
                 except Exception as e:
                     logger.exception(
@@ -97,7 +103,9 @@ class EmbeddingService:
             functions = await self._get_file_functions(file_id)
             for func in functions:
                 try:
-                    await self._create_function_embedding(func, file_record.path)
+                    await self._create_function_embedding(
+                        func, cast("str", file_record.path)
+                    )
                     stats["functions"] += 1
                 except Exception as e:
                     logger.exception(
@@ -142,17 +150,17 @@ class EmbeddingService:
         query = select(File).where(
             and_(
                 File.repository_id == repository_id,
-                not File.is_deleted,
+                File.is_deleted.is_(False),
             ),
         )
 
         if limit:
             query = query.limit(limit)
 
-        result = await self.db_session.execute(query)
-        files = result.scalars().all()
+        sql_result = await self.db_session.execute(query)
+        files = list(sql_result.scalars().all())
 
-        stats = {
+        stats: dict[str, Any] = {
             "repository_id": repository_id,
             "files_processed": 0,
             "total_embeddings": 0,
@@ -161,7 +169,9 @@ class EmbeddingService:
 
         for file_record in files:
             try:
-                file_stats = await self.create_file_embeddings(file_record.id)
+                file_stats = await self.create_file_embeddings(
+                    cast("int", file_record.id)
+                )
                 stats["files_processed"] += 1
                 stats["total_embeddings"] += file_stats["total"]
                 if file_stats["errors"]:
@@ -195,10 +205,11 @@ class EmbeddingService:
             Created embedding ID
         """
         # Check if embedding already exists
-        existing = await self._get_existing_embedding("module", module.id)
+        existing = await self._get_existing_embedding("module", cast("int", module.id))
         if existing:
             logger.debug("Embedding already exists for module %d", module.id)
-            return existing.id
+            # mypy: CodeEmbedding.id is Column[int]; cast to runtime int
+            return cast("int", existing.id)
 
         # Prepare module data
         module_data = {
@@ -209,10 +220,10 @@ class EmbeddingService:
         }
 
         # Get module statistics
-        stats = await self._get_module_stats(module.id)
+        stats = await self._get_module_stats(cast("int", module.id))
 
         # Generate embedding
-        result = await self.embedding_generator.generate_module_embedding(
+        gen_result = await self.embedding_generator.generate_module_embedding(
             module_data,
             file_path,
             stats,
@@ -221,20 +232,20 @@ class EmbeddingService:
         # Store embedding
         embedding = CodeEmbedding(
             entity_type="module",
-            entity_id=module.id,
+            entity_id=cast("int", module.id),
             file_id=module.file_id,
             embedding_type="interpreted",
-            embedding=result["embedding"],
-            content=result["text"],
-            tokens=result.get("tokens"),
-            repo_metadata=result["metadata"],
-            created_at=datetime.now(tz=datetime.UTC),
+            embedding=gen_result["embedding"],
+            content=gen_result["text"],
+            tokens=gen_result.get("tokens"),
+            repo_metadata=gen_result["metadata"],
+            created_at=datetime.now(tz=UTC),
         )
 
         self.db_session.add(embedding)
         await self.db_session.commit()
 
-        return embedding.id
+        return cast("int", embedding.id)
 
     async def _create_class_embedding(self, cls: Class, file_path: str) -> int:
         """Create embedding for a class.
@@ -247,13 +258,13 @@ class EmbeddingService:
             Created embedding ID
         """
         # Check if embedding already exists
-        existing = await self._get_existing_embedding("class", cls.id)
+        existing = await self._get_existing_embedding("class", cast("int", cls.id))
         if existing:
             logger.debug("Embedding already exists for class %d", cls.id)
-            return existing.id
+            return cast("int", existing.id)
 
         # Prepare class data with methods
-        methods = await self._get_class_methods(cls.id)
+        methods = await self._get_class_methods(cast("int", cls.id))
 
         class_data = {
             "name": cls.name,
@@ -295,13 +306,13 @@ class EmbeddingService:
             content=result["text"],
             tokens=result.get("tokens"),
             repo_metadata=result["metadata"],
-            created_at=datetime.now(tz=datetime.UTC),
+            created_at=datetime.now(tz=UTC),
         )
 
         self.db_session.add(embedding)
         await self.db_session.commit()
 
-        return embedding.id
+        return cast("int", embedding.id)
 
     async def _create_function_embedding(self, func: Function, file_path: str) -> int:
         """Create embedding for a function.
@@ -314,10 +325,10 @@ class EmbeddingService:
             Created embedding ID
         """
         # Check if embedding already exists
-        existing = await self._get_existing_embedding("function", func.id)
+        existing = await self._get_existing_embedding("function", cast("int", func.id))
         if existing:
             logger.debug("Embedding already exists for function %d", func.id)
-            return existing.id
+            return cast("int", existing.id)
 
         # Prepare function data
         func_data = {
@@ -358,13 +369,13 @@ class EmbeddingService:
             content=result["text"],
             tokens=result.get("tokens"),
             repo_metadata=result["metadata"],
-            created_at=datetime.now(tz=datetime.UTC),
+            created_at=datetime.now(tz=UTC),
         )
 
         self.db_session.add(embedding)
         await self.db_session.commit()
 
-        return embedding.id
+        return cast("int", embedding.id)
 
     async def _get_existing_embedding(
         self,
@@ -380,7 +391,7 @@ class EmbeddingService:
         Returns:
             Existing embedding or None
         """
-        result = await self.db_session.execute(
+        sql_result = await self.db_session.execute(
             select(CodeEmbedding).where(
                 and_(
                     CodeEmbedding.entity_type == entity_type,
@@ -388,30 +399,30 @@ class EmbeddingService:
                 ),
             ),
         )
-        return result.scalar_one_or_none()
+        return sql_result.scalar_one_or_none()
 
     async def _get_file_modules(self, file_id: int) -> list[Module]:
         """Get modules for a file."""
-        result = await self.db_session.execute(
+        sql_result = await self.db_session.execute(
             select(Module)
             .where(Module.file_id == file_id)
             .options(selectinload(Module.file)),
         )
-        return result.scalars().all()
+        return list(sql_result.scalars().all())
 
     async def _get_file_classes(self, file_id: int) -> list[Class]:
         """Get classes for a file."""
-        result = await self.db_session.execute(
+        sql_result = await self.db_session.execute(
             select(Class)
             .join(Module)
             .where(Module.file_id == file_id)
             .options(selectinload(Class.module)),
         )
-        return result.scalars().all()
+        return list(sql_result.scalars().all())
 
     async def _get_file_functions(self, file_id: int) -> list[Function]:
         """Get functions for a file."""
-        result = await self.db_session.execute(
+        sql_result = await self.db_session.execute(
             select(Function)
             .join(Module)
             .where(Module.file_id == file_id)
@@ -420,25 +431,25 @@ class EmbeddingService:
                 selectinload(Function.parent_class),
             ),
         )
-        return result.scalars().all()
+        return list(sql_result.scalars().all())
 
     async def _get_class_methods(self, class_id: int) -> list[Function]:
         """Get methods for a class."""
-        result = await self.db_session.execute(
+        sql_result = await self.db_session.execute(
             select(Function).where(Function.class_id == class_id),
         )
-        return result.scalars().all()
+        return list(sql_result.scalars().all())
 
     async def _get_module_stats(self, module_id: int) -> dict[str, int]:
         """Get statistics for a module."""
         # Count classes
-        class_result = await self.db_session.execute(
+        class_sql_result = await self.db_session.execute(
             select(func.count()).select_from(Class).where(Class.module_id == module_id),
         )
-        class_count = class_result.scalar() or 0
+        class_count = class_sql_result.scalar() or 0
 
         # Count functions
-        func_result = await self.db_session.execute(
+        func_sql_result = await self.db_session.execute(
             select(func.count())
             .select_from(Function)
             .where(
@@ -448,7 +459,7 @@ class EmbeddingService:
                 ),
             ),
         )
-        func_count = func_result.scalar() or 0
+        func_count = func_sql_result.scalar() or 0
 
         return {
             "classes": class_count,
@@ -469,19 +480,17 @@ class EmbeddingService:
         Returns:
             Number of deleted embeddings
         """
-        result = await self.db_session.execute(
-            select(CodeEmbedding)
-            .where(
+        del_sql_result = await self.db_session.execute(
+            delete(CodeEmbedding).where(
                 and_(
                     CodeEmbedding.entity_type == entity_type,
                     CodeEmbedding.entity_id == entity_id,
                 ),
             )
-            .delete(),
         )
 
         await self.db_session.commit()
-        return result.rowcount
+        return int(del_sql_result.rowcount or 0)
 
     async def update_file_embeddings(self, file_id: int) -> dict[str, Any]:
         """Update embeddings for a file (delete and recreate).
@@ -495,16 +504,16 @@ class EmbeddingService:
         logger.info("Updating embeddings for file %d", file_id)
 
         # Delete existing embeddings
-        deleted = await self.db_session.execute(
-            select(CodeEmbedding).where(CodeEmbedding.file_id == file_id).delete(),
+        del_sql_result = await self.db_session.execute(
+            delete(CodeEmbedding).where(CodeEmbedding.file_id == file_id)
         )
         await self.db_session.commit()
 
-        logger.info("Deleted %d existing embeddings", deleted.rowcount)
+        logger.info("Deleted %d existing embeddings", del_sql_result.rowcount)
 
         # Create new embeddings
         stats = await self.create_file_embeddings(file_id)
-        stats["deleted"] = deleted.rowcount
+        stats["deleted"] = int(del_sql_result.rowcount or 0)
 
         return stats
 
@@ -523,12 +532,12 @@ class EmbeddingService:
         logger.info("Creating embedding for domain entity %d", entity_id)
 
         # Get domain entity with relationships
-        result = await self.db_session.execute(
+        sql_result = await self.db_session.execute(
             select(DomainEntity)
             .where(DomainEntity.id == entity_id)
             .options(selectinload(DomainEntity.bounded_contexts))
         )
-        entity = result.scalar_one_or_none()
+        entity = sql_result.scalar_one_or_none()
 
         if not entity:
             msg = f"Domain entity {entity_id} not found"
@@ -551,20 +560,24 @@ class EmbeddingService:
             context_names = [bc.name for bc in entity.bounded_contexts]
             entity_data["bounded_context"] = ", ".join(context_names)
 
+            # Note: result is a dict from generator; keep name distinct from SQL result
+
         # Generate embedding
         try:
-            result = await self.embedding_generator.generate_domain_entity_embedding(
-                entity_data
+            gen_result = (
+                await self.embedding_generator.generate_domain_entity_embedding(
+                    entity_data
+                )
             )
 
             # Store in database
             embedding_record = CodeEmbedding(
                 entity_type="domain_entity",
                 entity_id=entity.id,
-                text=result["text"],
-                embedding=result["embedding"],
-                metadata=result["metadata"],
-                tokens=result["tokens"],
+                text=gen_result["text"],
+                embedding=gen_result["embedding"],
+                metadata=gen_result["metadata"],
+                tokens=gen_result["tokens"],
                 model=self.embedding_generator.embeddings.model,
                 created_at=datetime.now(tz=UTC),
             )
@@ -577,7 +590,7 @@ class EmbeddingService:
                 "entity_name": entity.name,
                 "entity_type": entity.entity_type,
                 "embedding_id": embedding_record.id,
-                "tokens": result["tokens"],
+                "tokens": gen_result["tokens"],
                 "status": "success",
             }
 
@@ -603,12 +616,12 @@ class EmbeddingService:
         logger.info("Creating embeddings for all domain entities")
 
         # Get all domain entities
-        result = await self.db_session.execute(
+        sql_result = await self.db_session.execute(
             select(DomainEntity).options(selectinload(DomainEntity.bounded_contexts))
         )
-        entities = result.scalars().all()
+        entities = list(sql_result.scalars().all())
 
-        stats = {
+        stats: dict[str, Any] = {
             "total": len(entities),
             "success": 0,
             "failed": 0,
@@ -616,11 +629,11 @@ class EmbeddingService:
         }
 
         for entity in entities:
-            result = await self.create_domain_entity_embedding(entity.id)
+            result = await self.create_domain_entity_embedding(cast("int", entity.id))
             if result["status"] == "success":
-                stats["success"] += 1
+                stats["success"] = int(stats["success"]) + 1
             else:
-                stats["failed"] += 1
+                stats["failed"] = int(stats["failed"]) + 1
                 stats["errors"].append(
                     f"{entity.name}: {result.get('error', 'Unknown error')}"
                 )

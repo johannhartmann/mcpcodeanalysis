@@ -2,6 +2,8 @@
 
 from typing import Any
 
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+
 from src.database import get_session_factory, init_database
 from src.logger import get_logger
 from src.query.ranking import ResultRanker
@@ -15,14 +17,17 @@ class SearchTool:
 
     def __init__(self) -> None:
         self.result_ranker = ResultRanker()
-        self._engine = None
-        self._session_factory = None
+        self._engine: AsyncEngine | None = None
+        self._session_factory: async_sessionmaker[AsyncSession] | None = None
 
-    async def _get_session_factory(self):
+    async def _get_session_factory(self) -> async_sessionmaker[AsyncSession]:
         """Get database session factory, initializing if needed."""
         if self._session_factory is None:
-            self._engine = await init_database()
-            self._session_factory = get_session_factory(self._engine)
+            engine = await init_database()
+            self._engine = engine
+            # sessionmaker returns a sessionmaker[AsyncSession]
+            factory = get_session_factory(engine)
+            self._session_factory = factory
         return self._session_factory
 
     async def search_code(self, query: str, limit: int = 10) -> list[dict[str, Any]]:

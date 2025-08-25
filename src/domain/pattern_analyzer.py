@@ -92,9 +92,9 @@ class DomainPatternAnalyzer:
         }
 
         # Analyze each context
-        context_metrics = {}
+        context_metrics: dict[int, dict[str, Any]] = {}
         total_coupling = 0.0
-        coupling_scores = []
+        coupling_scores: list[float] = []
 
         for context in contexts:
             # Get entities in this context
@@ -104,7 +104,7 @@ class DomainPatternAnalyzer:
                 .where(BoundedContextMembership.bounded_context_id == context.id),
             )
             entities = membership_result.scalars().all()
-            entity_ids = [e.id for e in entities]
+            entity_ids = [int(e.id) for e in entities]
 
             # Count outgoing relationships to other contexts
             outgoing_result = await self.db_session.execute(
@@ -132,14 +132,15 @@ class DomainPatternAnalyzer:
             relationship_types = defaultdict(set)
 
             for rel, _target_entity_id, target_context_id in outgoing_result:
-                coupling_by_context[target_context_id] += 1
-                relationship_types[target_context_id].add(rel.relationship_type)
+                t_id = int(target_context_id)
+                coupling_by_context[t_id] += 1
+                relationship_types[t_id].add(rel.relationship_type)
 
             # Calculate metrics
             total_outgoing = sum(coupling_by_context.values())
             context_coupling_score = total_outgoing / max(len(entities), 1)
 
-            context_metrics[context.id] = {
+            context_metrics[int(context.id)] = {
                 "name": context.name,
                 "entity_count": len(entities),
                 "outgoing_relationships": total_outgoing,
@@ -257,7 +258,7 @@ class DomainPatternAnalyzer:
             if membership_count >= min_entities:
                 candidates.append(context)
 
-        suggestions = []
+        suggestions: list[dict[str, Any]] = []
 
         for context in candidates:
             # Get entities and their relationships
@@ -269,8 +270,8 @@ class DomainPatternAnalyzer:
             entities = entity_result.scalars().all()
 
             # Build internal relationship graph
-            entity_graph = defaultdict(set)
-            entity_map = {e.id: e for e in entities}
+            entity_graph: dict[int, set[int]] = defaultdict(set)
+            entity_map: dict[int, DomainEntity] = {int(e.id): e for e in entities}
 
             for entity in entities:
                 # Get relationships where this entity is source
@@ -282,14 +283,14 @@ class DomainPatternAnalyzer:
                 )
 
                 for rel in rel_result.scalars().all():
-                    entity_graph[entity.id].add(rel.target_entity_id)
-                    entity_graph[rel.target_entity_id].add(entity.id)
+                    entity_graph[int(entity.id)].add(int(rel.target_entity_id))
+                    entity_graph[int(rel.target_entity_id)].add(int(entity.id))
 
             # Find clusters using simple connected components
             clusters = self._find_entity_clusters(entity_graph, entity_map)
 
             if len(clusters) > 1:
-                suggestion = {
+                suggestion: dict[str, Any] = {
                     "context": context.name,
                     "current_size": len(entities),
                     "cohesion_score": context.cohesion_score,
@@ -326,7 +327,7 @@ class DomainPatternAnalyzer:
 
                 suggestions.append(suggestion)
 
-        return suggestions
+        return list(suggestions)
 
     async def detect_anti_patterns(
         self,
@@ -715,10 +716,12 @@ class DomainPatternAnalyzer:
                     entities.append(entity.name)
 
             if len(entities) > 1:
+                # Coerce to strings for join to satisfy typing
+                cycle_names: list[str] = [str(name) for name in entities]
                 circular_deps.append(
                     {
-                        "cycle": " -> ".join(entities),
-                        "length": len(entities) - 1,
+                        "cycle": " -> ".join(cycle_names),
+                        "length": len(cycle_names) - 1,
                         "issue": "Circular dependency creates tight coupling",
                         "recommendation": "Break the cycle by introducing events or inverting dependencies",
                         "severity": "high",

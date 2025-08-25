@@ -1,26 +1,30 @@
 """Tests for the symbol finder module."""
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.query.symbol_finder import SymbolFinder, SymbolType
+from src.query.symbol_finder import (
+    SymbolFinder,
+    SymbolType,
+)
 
 
 @pytest.fixture
-def mock_db_session():
+def mock_db_session() -> AsyncMock:
     """Create a mock database session."""
     return AsyncMock()
 
 
 @pytest.fixture
-def symbol_finder(mock_db_session):
+def symbol_finder(mock_db_session: AsyncMock) -> SymbolFinder:
     """Create a symbol finder instance."""
     return SymbolFinder(mock_db_session)
 
 
 @pytest.fixture
-def sample_symbols():
+def sample_symbols() -> dict[str, Any]:
     """Create sample symbols for testing."""
     return {
         "classes": [
@@ -83,7 +87,12 @@ class TestSymbolFinder:
     """Test cases for SymbolFinder class."""
 
     @pytest.mark.asyncio
-    async def test_find_symbol_by_exact_name(self, symbol_finder, sample_symbols):
+    async def test_find_symbol_by_exact_name(
+        self,
+        symbol_finder: SymbolFinder,
+        sample_symbols: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test finding symbol by exact name match."""
         # Arrange
         symbol_name = "UserService"
@@ -95,7 +104,9 @@ class TestSymbolFinder:
                 all=MagicMock(return_value=[sample_symbols["classes"][0]])
             )
         )
-        symbol_finder.db_session.execute = AsyncMock(return_value=result)
+        monkeypatch.setattr(
+            symbol_finder.db_session, "execute", AsyncMock(return_value=result)
+        )
 
         # Act
         found = await symbol_finder.find_by_name(symbol_name, exact_match=True)
@@ -106,7 +117,12 @@ class TestSymbolFinder:
         assert found[0].symbol_type == SymbolType.CLASS
 
     @pytest.mark.asyncio
-    async def test_find_symbol_by_partial_name(self, symbol_finder, sample_symbols):
+    async def test_find_symbol_by_partial_name(
+        self,
+        symbol_finder: SymbolFinder,
+        sample_symbols: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test finding symbol by partial name match."""
         # Arrange
         partial_name = "User"
@@ -118,7 +134,9 @@ class TestSymbolFinder:
                 all=MagicMock(return_value=sample_symbols["classes"])
             )
         )
-        symbol_finder.db_session.execute = AsyncMock(return_value=result)
+        monkeypatch.setattr(
+            symbol_finder.db_session, "execute", AsyncMock(return_value=result)
+        )
 
         # Act
         found = await symbol_finder.find_by_name(partial_name, exact_match=False)
@@ -128,7 +146,12 @@ class TestSymbolFinder:
         assert all("User" in symbol.name for symbol in found)
 
     @pytest.mark.asyncio
-    async def test_find_symbol_by_type(self, symbol_finder, sample_symbols):
+    async def test_find_symbol_by_type(
+        self,
+        symbol_finder: SymbolFinder,
+        sample_symbols: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test finding symbols filtered by type."""
         # Arrange
         # Mock class query
@@ -139,7 +162,9 @@ class TestSymbolFinder:
             )
         )
 
-        symbol_finder.db_session.execute = AsyncMock(return_value=class_result)
+        monkeypatch.setattr(
+            symbol_finder.db_session, "execute", AsyncMock(return_value=class_result)
+        )
 
         # Act
         found = await symbol_finder.find_by_type(SymbolType.CLASS)
@@ -149,29 +174,37 @@ class TestSymbolFinder:
         assert all(s.symbol_type == SymbolType.CLASS for s in found)
 
     @pytest.mark.asyncio
-    async def test_find_symbol_in_file(self, symbol_finder, sample_symbols):
+    async def test_find_symbol_in_file(
+        self,
+        symbol_finder: SymbolFinder,
+        sample_symbols: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test finding symbols within a specific file."""
         # Arrange
         file_id = 1
 
         # Mock the queries
-        symbol_finder._find_classes_in_file = AsyncMock(
-            return_value=sample_symbols["classes"]
-        )
-        symbol_finder._find_functions_in_file = AsyncMock(
-            return_value=sample_symbols["functions"]
-        )
+        classes_mock = AsyncMock(return_value=sample_symbols["classes"])
+        funcs_mock = AsyncMock(return_value=sample_symbols["functions"])
+        monkeypatch.setattr(symbol_finder, "_find_classes_in_file", classes_mock)
+        monkeypatch.setattr(symbol_finder, "_find_functions_in_file", funcs_mock)
 
         # Act
         found = await symbol_finder.find_in_file(file_id)
 
         # Assert
         assert len(found) == 4  # 2 classes + 2 functions
-        assert symbol_finder._find_classes_in_file.called_with(file_id)
-        assert symbol_finder._find_functions_in_file.called_with(file_id)
+        classes_mock.assert_called_once_with(file_id)
+        funcs_mock.assert_called_once_with(file_id)
 
     @pytest.mark.asyncio
-    async def test_find_symbol_by_signature(self, symbol_finder, sample_symbols):
+    async def test_find_symbol_by_signature(
+        self,
+        symbol_finder: SymbolFinder,
+        sample_symbols: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test finding function by signature."""
         # Arrange
         function_name = "create_user"
@@ -184,7 +217,9 @@ class TestSymbolFinder:
                 all=MagicMock(return_value=[sample_symbols["functions"][1]])
             )
         )
-        symbol_finder.db_session.execute = AsyncMock(return_value=result)
+        monkeypatch.setattr(
+            symbol_finder.db_session, "execute", AsyncMock(return_value=result)
+        )
 
         # Act
         found = await symbol_finder.find_function_by_signature(
@@ -197,7 +232,9 @@ class TestSymbolFinder:
         assert found[0].parameters[0]["type"] == "dict"
 
     @pytest.mark.asyncio
-    async def test_find_subclasses(self, symbol_finder):
+    async def test_find_subclasses(
+        self, symbol_finder: SymbolFinder, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test finding all subclasses of a class."""
         # Arrange
         base_class_name = "BaseService"
@@ -214,7 +251,9 @@ class TestSymbolFinder:
         result.scalars = MagicMock(
             return_value=MagicMock(all=MagicMock(return_value=mock_subclasses))
         )
-        symbol_finder.db_session.execute = AsyncMock(return_value=result)
+        monkeypatch.setattr(
+            symbol_finder.db_session, "execute", AsyncMock(return_value=result)
+        )
 
         # Act
         subclasses = await symbol_finder.find_subclasses(base_class_name)
@@ -224,7 +263,9 @@ class TestSymbolFinder:
         assert all(base_class_name in cls.base_classes for cls in subclasses)
 
     @pytest.mark.asyncio
-    async def test_find_implementations(self, symbol_finder):
+    async def test_find_implementations(
+        self, symbol_finder: SymbolFinder, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test finding implementations of an interface/abstract class."""
         # Arrange
         interface_name = "Repository"
@@ -243,7 +284,9 @@ class TestSymbolFinder:
         result.scalars = MagicMock(
             return_value=MagicMock(all=MagicMock(return_value=mock_implementations))
         )
-        symbol_finder.db_session.execute = AsyncMock(return_value=result)
+        monkeypatch.setattr(
+            symbol_finder.db_session, "execute", AsyncMock(return_value=result)
+        )
 
         # Act
         implementations = await symbol_finder.find_implementations(interface_name)
@@ -253,7 +296,9 @@ class TestSymbolFinder:
         assert all(interface_name in impl.base_classes for impl in implementations)
 
     @pytest.mark.asyncio
-    async def test_find_references(self, symbol_finder):
+    async def test_find_references(
+        self, symbol_finder: SymbolFinder, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test finding all references to a symbol."""
         # Arrange
         symbol_id = 1
@@ -281,7 +326,11 @@ class TestSymbolFinder:
             ),
         ]
 
-        symbol_finder._find_symbol_references = AsyncMock(return_value=mock_references)
+        monkeypatch.setattr(
+            symbol_finder,
+            "_find_symbol_references",
+            AsyncMock(return_value=mock_references),
+        )
 
         # Act
         references = await symbol_finder.find_references(symbol_id, symbol_type)
@@ -293,7 +342,9 @@ class TestSymbolFinder:
         assert references[2].reference_type == "inheritance"
 
     @pytest.mark.asyncio
-    async def test_find_unused_symbols(self, symbol_finder):
+    async def test_find_unused_symbols(
+        self, symbol_finder: SymbolFinder, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test finding symbols that are never referenced."""
         # Arrange
         repository_id = 1
@@ -314,7 +365,11 @@ class TestSymbolFinder:
             ),
         ]
 
-        symbol_finder._find_unreferenced_symbols = AsyncMock(return_value=mock_unused)
+        monkeypatch.setattr(
+            symbol_finder,
+            "_find_unreferenced_symbols",
+            AsyncMock(return_value=mock_unused),
+        )
 
         # Act
         unused = await symbol_finder.find_unused_symbols(repository_id)
@@ -324,7 +379,9 @@ class TestSymbolFinder:
         assert all(s.reference_count == 0 for s in unused)
 
     @pytest.mark.asyncio
-    async def test_find_overloaded_methods(self, symbol_finder):
+    async def test_find_overloaded_methods(
+        self, symbol_finder: SymbolFinder, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test finding overloaded methods in a class."""
         # Arrange
         class_id = 1
@@ -358,7 +415,9 @@ class TestSymbolFinder:
         result.scalars = MagicMock(
             return_value=MagicMock(all=MagicMock(return_value=mock_methods))
         )
-        symbol_finder.db_session.execute = AsyncMock(return_value=result)
+        monkeypatch.setattr(
+            symbol_finder.db_session, "execute", AsyncMock(return_value=result)
+        )
 
         # Act
         overloaded = await symbol_finder.find_overloaded_methods(class_id)
@@ -369,7 +428,12 @@ class TestSymbolFinder:
         assert len(overloaded["process"][2].parameters) == 2
 
     @pytest.mark.asyncio
-    async def test_get_symbol_info(self, symbol_finder, sample_symbols):
+    async def test_get_symbol_info(
+        self,
+        symbol_finder: SymbolFinder,
+        sample_symbols: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test getting detailed symbol information."""
         # Arrange
         symbol_id = 1
@@ -377,14 +441,20 @@ class TestSymbolFinder:
 
         # Mock the symbol
         mock_class = sample_symbols["classes"][0]
-        symbol_finder.db_session.get = AsyncMock(return_value=mock_class)
+        monkeypatch.setattr(
+            symbol_finder.db_session, "get", AsyncMock(return_value=mock_class)
+        )
 
         # Mock file and module info
         mock_module = MagicMock(file_id=1, name="user_service")
         mock_file = MagicMock(path="src/services/user_service.py", repository_id=1)
 
-        symbol_finder._get_module_info = AsyncMock(return_value=mock_module)
-        symbol_finder._get_file_info = AsyncMock(return_value=mock_file)
+        monkeypatch.setattr(
+            symbol_finder, "_get_module_info", AsyncMock(return_value=mock_module)
+        )
+        monkeypatch.setattr(
+            symbol_finder, "_get_file_info", AsyncMock(return_value=mock_file)
+        )
 
         # Act
         info = await symbol_finder.get_symbol_info(symbol_id, symbol_type)
@@ -397,7 +467,12 @@ class TestSymbolFinder:
         assert info.docstring == "Service for user operations"
 
     @pytest.mark.asyncio
-    async def test_search_symbols_with_regex(self, symbol_finder, sample_symbols):
+    async def test_search_symbols_with_regex(
+        self,
+        symbol_finder: SymbolFinder,
+        sample_symbols: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test searching symbols with regex pattern."""
         # Arrange
         pattern = r"^get_.*_by_\w+$"
@@ -405,7 +480,11 @@ class TestSymbolFinder:
         # Mock regex search
         matching_functions = [sample_symbols["functions"][0]]  # get_user_by_id
 
-        symbol_finder._search_by_regex = AsyncMock(return_value=matching_functions)
+        monkeypatch.setattr(
+            symbol_finder,
+            "_search_by_regex",
+            AsyncMock(return_value=matching_functions),
+        )
 
         # Act
         found = await symbol_finder.search_with_regex(
@@ -417,7 +496,12 @@ class TestSymbolFinder:
         assert found[0].name == "get_user_by_id"
 
     @pytest.mark.asyncio
-    async def test_find_async_functions(self, symbol_finder, sample_symbols):
+    async def test_find_async_functions(
+        self,
+        symbol_finder: SymbolFinder,
+        sample_symbols: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test finding all async functions."""
         # Arrange
         # Mock async functions
@@ -427,7 +511,9 @@ class TestSymbolFinder:
         result.scalars = MagicMock(
             return_value=MagicMock(all=MagicMock(return_value=async_functions))
         )
-        symbol_finder.db_session.execute = AsyncMock(return_value=result)
+        monkeypatch.setattr(
+            symbol_finder.db_session, "execute", AsyncMock(return_value=result)
+        )
 
         # Act
         found = await symbol_finder.find_async_functions()
@@ -438,7 +524,9 @@ class TestSymbolFinder:
         assert found[0].is_async is True
 
     @pytest.mark.asyncio
-    async def test_find_abstract_classes(self, symbol_finder):
+    async def test_find_abstract_classes(
+        self, symbol_finder: SymbolFinder, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test finding all abstract classes."""
         # Arrange
         # Mock abstract classes
@@ -453,7 +541,9 @@ class TestSymbolFinder:
         result.scalars = MagicMock(
             return_value=MagicMock(all=MagicMock(return_value=mock_abstract))
         )
-        symbol_finder.db_session.execute = AsyncMock(return_value=result)
+        monkeypatch.setattr(
+            symbol_finder.db_session, "execute", AsyncMock(return_value=result)
+        )
 
         # Act
         found = await symbol_finder.find_abstract_classes()
@@ -463,14 +553,18 @@ class TestSymbolFinder:
         assert all(cls.is_abstract for cls in found)
 
     @pytest.mark.asyncio
-    async def test_symbol_not_found(self, symbol_finder):
+    async def test_symbol_not_found(
+        self, symbol_finder: SymbolFinder, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test handling when symbol is not found."""
         # Arrange
         result = AsyncMock()
         result.scalars = MagicMock(
             return_value=MagicMock(all=MagicMock(return_value=[]))
         )
-        symbol_finder.db_session.execute = AsyncMock(return_value=result)
+        monkeypatch.setattr(
+            symbol_finder.db_session, "execute", AsyncMock(return_value=result)
+        )
 
         # Act
         found = await symbol_finder.find_by_name("NonExistentSymbol")
@@ -479,7 +573,9 @@ class TestSymbolFinder:
         assert found == []
 
     @pytest.mark.asyncio
-    async def test_find_symbols_performance(self, symbol_finder):
+    async def test_find_symbols_performance(
+        self, symbol_finder: SymbolFinder, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test performance with large result sets."""
         # Arrange
         # Create 1000 mock symbols
@@ -498,7 +594,9 @@ class TestSymbolFinder:
         result.scalars = MagicMock(
             return_value=MagicMock(all=MagicMock(return_value=large_symbol_set))
         )
-        symbol_finder.db_session.execute = AsyncMock(return_value=result)
+        monkeypatch.setattr(
+            symbol_finder.db_session, "execute", AsyncMock(return_value=result)
+        )
 
         # Act
         import time

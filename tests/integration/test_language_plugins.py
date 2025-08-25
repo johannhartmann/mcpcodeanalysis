@@ -10,7 +10,7 @@ from src.parser.plugin_registry import LanguagePluginRegistry
 class TestLanguagePlugins:
     """Test language plugin system integration."""
 
-    def test_plugin_registry_initialization(self):
+    def test_plugin_registry_initialization(self) -> None:
         """Test that plugin registry initializes correctly."""
         # Clear registry to test initialization
         LanguagePluginRegistry.clear_plugins()
@@ -24,7 +24,7 @@ class TestLanguagePlugins:
         assert "php" in supported_languages
         assert "java" in supported_languages
 
-    def test_python_plugin_works(self):
+    def test_python_plugin_works(self) -> None:
         """Test that Python plugin works correctly."""
         plugin = LanguagePluginRegistry.get_plugin("python")
         assert plugin is not None
@@ -44,7 +44,7 @@ class TestLanguagePlugins:
         assert "if_statement" in complexity_nodes
         assert "for_statement" in complexity_nodes
 
-    def test_php_plugin_works(self):
+    def test_php_plugin_works(self) -> None:
         """Test that PHP plugin works correctly."""
         plugin = LanguagePluginRegistry.get_plugin("php")
         assert plugin is not None
@@ -56,7 +56,7 @@ class TestLanguagePlugins:
         parser = plugin.create_parser()
         assert parser is not None
 
-    def test_java_plugin_works(self):
+    def test_java_plugin_works(self) -> None:
         """Test that Java plugin works correctly."""
         plugin = LanguagePluginRegistry.get_plugin("java")
         assert plugin is not None
@@ -68,7 +68,7 @@ class TestLanguagePlugins:
         parser = plugin.create_parser()
         assert parser is not None
 
-    def test_typescript_plugin_availability(self):
+    def test_typescript_plugin_availability(self) -> None:
         """Test TypeScript plugin availability."""
         plugin = LanguagePluginRegistry.get_plugin("typescript")
 
@@ -85,7 +85,7 @@ class TestLanguagePlugins:
         assert "if_statement" in complexity_nodes
         assert "interface_declaration" in complexity_nodes
 
-    def test_javascript_plugin_availability(self):
+    def test_javascript_plugin_availability(self) -> None:
         """Test JavaScript plugin availability."""
         plugin = LanguagePluginRegistry.get_plugin("javascript")
 
@@ -102,7 +102,7 @@ class TestLanguagePlugins:
         assert "if_statement" in complexity_nodes
         assert "arrow_function" in complexity_nodes
 
-    def test_file_path_language_detection(self):
+    def test_file_path_language_detection(self) -> None:
         """Test language detection from file paths."""
         # Test extension-based detection
         test_cases = [
@@ -122,7 +122,7 @@ class TestLanguagePlugins:
                 detected == expected_lang
             ), f"Failed for {file_path}: expected {expected_lang}, got {detected}"
 
-    def test_plugin_by_file_path(self):
+    def test_plugin_by_file_path(self) -> None:
         """Test getting plugins by file path."""
         test_cases = [
             (Path("test.py"), "python"),
@@ -135,7 +135,7 @@ class TestLanguagePlugins:
             assert plugin is not None
             assert plugin.get_language_name() == expected_lang
 
-    def test_feature_based_capabilities(self):
+    def test_feature_based_capabilities(self) -> None:
         """Test feature-based language capabilities."""
         # Test that OOP languages support domain analysis
         oop_languages = ["python", "php", "java", "typescript", "javascript"]
@@ -150,7 +150,7 @@ class TestLanguagePlugins:
                     "functions"
                 ), f"{lang} should support functions"
 
-    def test_unsupported_language(self):
+    def test_unsupported_language(self) -> None:
         """Test handling of unsupported languages."""
         plugin = LanguagePluginRegistry.get_plugin("nonexistent")
         assert plugin is None
@@ -158,7 +158,7 @@ class TestLanguagePlugins:
         plugin = LanguagePluginRegistry.get_plugin_by_extension(".xyz")
         assert plugin is None
 
-    def test_plugin_info_retrieval(self):
+    def test_plugin_info_retrieval(self) -> None:
         """Test plugin information retrieval."""
         info = LanguagePluginRegistry.get_plugin_info()
 
@@ -175,9 +175,10 @@ class TestLanguagePlugins:
         False,  # TreeSitter is base infrastructure and should be available
         reason="TreeSitter libraries should be available",
     )
-    def test_typescript_parser_creation(self):
+    def test_typescript_parser_creation(self) -> None:
         """Test TypeScript parser creation (requires TreeSitter library)."""
         plugin = LanguagePluginRegistry.get_plugin("typescript")
+        assert plugin is not None
         parser = plugin.create_parser()
         assert parser is not None
         assert parser.get_language_name() == "typescript"
@@ -186,14 +187,15 @@ class TestLanguagePlugins:
         False,  # TreeSitter is base infrastructure and should be available
         reason="TreeSitter libraries should be available",
     )
-    def test_javascript_parser_creation(self):
+    def test_javascript_parser_creation(self) -> None:
         """Test JavaScript parser creation (requires TreeSitter library)."""
         plugin = LanguagePluginRegistry.get_plugin("javascript")
+        assert plugin is not None
         parser = plugin.create_parser()
         assert parser is not None
         assert parser.get_language_name() == "javascript"
 
-    def test_complexity_calculator_plugin_integration(self):
+    def test_complexity_calculator_plugin_integration(self) -> None:
         """Test that ComplexityCalculator uses plugin system."""
         from src.parser.complexity_calculator import ComplexityCalculator
 
@@ -208,7 +210,7 @@ class TestLanguagePlugins:
         calc_js = ComplexityCalculator("javascript")
         assert "arrow_function" in calc_js.COMPLEXITY_NODES
 
-    def test_code_extractor_plugin_integration(self):
+    def test_code_extractor_plugin_integration(self) -> None:
         """Test that CodeExtractor uses plugin registry."""
         from src.parser.code_extractor import CodeExtractor
 
@@ -222,7 +224,7 @@ class TestLanguagePlugins:
         assert extractor.plugin_registry.is_supported(Path("test.php"))
         assert extractor.plugin_registry.is_supported(Path("test.java"))
 
-    def test_parser_factory_plugin_integration(self):
+    def test_parser_factory_plugin_integration(self) -> None:
         """Test that ParserFactory uses plugin registry."""
         from src.parser.parser_factory import ParserFactory
 

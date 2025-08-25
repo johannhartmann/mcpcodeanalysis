@@ -23,7 +23,7 @@ from src.mcp_server.tools.package_analysis import (
 
 
 @pytest.fixture
-def mock_db_session():
+def mock_db_session() -> AsyncMock:
     """Create mock database session."""
     return AsyncMock(spec=AsyncSession)
 
@@ -32,7 +32,9 @@ class TestPackageAnalysisTools:
     """Tests for package analysis tools."""
 
     @pytest.mark.asyncio
-    async def test_analyze_packages_existing_no_force(self, mock_db_session):
+    async def test_analyze_packages_existing_no_force(
+        self, mock_db_session: AsyncMock
+    ) -> None:
         """Test analyzing packages when analysis already exists."""
         # Mock existing packages
         mock_packages = [MagicMock(spec=Package) for _ in range(5)]
@@ -52,7 +54,9 @@ class TestPackageAnalysisTools:
             assert "Use force_refresh=true" in result["message"]
 
     @pytest.mark.asyncio
-    async def test_analyze_packages_force_refresh(self, mock_db_session):
+    async def test_analyze_packages_force_refresh(
+        self, mock_db_session: AsyncSession
+    ) -> None:
         """Test analyzing packages with force refresh."""
         with (
             patch(
@@ -79,7 +83,7 @@ class TestPackageAnalysisTools:
             assert result["total_lines"] == 5000
 
     @pytest.mark.asyncio
-    async def test_analyze_packages_error(self, mock_db_session):
+    async def test_analyze_packages_error(self, mock_db_session: AsyncMock) -> None:
         """Test error handling in analyze_packages."""
         with patch(
             "src.mcp_server.tools.package_analysis.PackageRepository"
@@ -93,7 +97,7 @@ class TestPackageAnalysisTools:
             assert result["error"] == "Database error"
 
     @pytest.mark.asyncio
-    async def test_get_package_tree_success(self, mock_db_session):
+    async def test_get_package_tree_success(self, mock_db_session: AsyncMock) -> None:
         """Test getting package tree structure."""
         mock_tree = {
             "total_packages": 5,
@@ -126,7 +130,7 @@ class TestPackageAnalysisTools:
             assert "tree" in result
 
     @pytest.mark.asyncio
-    async def test_get_package_tree_error(self, mock_db_session):
+    async def test_get_package_tree_error(self, mock_db_session: AsyncMock) -> None:
         """Test error handling in get_package_tree."""
         with patch(
             "src.mcp_server.tools.package_analysis.PackageRepository"
@@ -142,7 +146,9 @@ class TestPackageAnalysisTools:
             assert result["error"] == "Tree error"
 
     @pytest.mark.asyncio
-    async def test_get_package_details_not_found(self, mock_db_session):
+    async def test_get_package_details_not_found(
+        self, mock_db_session: AsyncMock
+    ) -> None:
         """Test getting details for non-existent package."""
         with patch(
             "src.mcp_server.tools.package_analysis.PackageRepository"
@@ -160,7 +166,9 @@ class TestPackageAnalysisTools:
             assert "not found" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_get_package_details_success(self, mock_db_session):
+    async def test_get_package_details_success(
+        self, mock_db_session: AsyncMock
+    ) -> None:
         """Test getting package details successfully."""
         # Mock package
         mock_package = MagicMock(spec=Package)
@@ -215,7 +223,9 @@ class TestPackageAnalysisTools:
             assert result["dependencies"]["imported_by_count"] == 2
 
     @pytest.mark.asyncio
-    async def test_get_package_dependencies_not_found(self, mock_db_session):
+    async def test_get_package_dependencies_not_found(
+        self, mock_db_session: AsyncMock
+    ) -> None:
         """Test getting dependencies for non-existent package."""
         with patch(
             "src.mcp_server.tools.package_analysis.PackageRepository"
@@ -232,7 +242,9 @@ class TestPackageAnalysisTools:
             assert result["status"] == "not_found"
 
     @pytest.mark.asyncio
-    async def test_get_package_dependencies_both_directions(self, mock_db_session):
+    async def test_get_package_dependencies_both_directions(
+        self, mock_db_session: AsyncMock
+    ) -> None:
         """Test getting package dependencies in both directions."""
         mock_package = MagicMock(spec=Package)
         mock_package.id = 10
@@ -268,7 +280,9 @@ class TestPackageAnalysisTools:
             assert len(result["imported_by"]) == 1
 
     @pytest.mark.asyncio
-    async def test_get_package_dependencies_imports_only(self, mock_db_session):
+    async def test_get_package_dependencies_imports_only(
+        self, mock_db_session: AsyncMock
+    ) -> None:
         """Test getting only import dependencies."""
         mock_package = MagicMock(spec=Package)
         mock_package.id = 10
@@ -299,7 +313,9 @@ class TestPackageAnalysisTools:
             assert len(result["imports"]) == 1
 
     @pytest.mark.asyncio
-    async def test_find_circular_dependencies_none_found(self, mock_db_session):
+    async def test_find_circular_dependencies_none_found(
+        self, mock_db_session: AsyncMock
+    ) -> None:
         """Test finding circular dependencies when none exist."""
         with patch(
             "src.mcp_server.tools.package_analysis.PackageRepository"
@@ -316,7 +332,9 @@ class TestPackageAnalysisTools:
             assert result["cycles"] == []
 
     @pytest.mark.asyncio
-    async def test_find_circular_dependencies_found(self, mock_db_session):
+    async def test_find_circular_dependencies_found(
+        self, mock_db_session: AsyncMock
+    ) -> None:
         """Test finding circular dependencies."""
         mock_cycles = [
             {
@@ -353,7 +371,9 @@ class TestPackageAnalysisTools:
             assert len(result["cycles"][1]["packages"]) == 3
 
     @pytest.mark.asyncio
-    async def test_get_package_coupling_metrics_success(self, mock_db_session):
+    async def test_get_package_coupling_metrics_success(
+        self, mock_db_session: AsyncMock
+    ) -> None:
         """Test getting package coupling metrics."""
         mock_metrics = {
             "average_coupling": 0.25,
@@ -406,7 +426,9 @@ class TestPackageAnalysisTools:
             assert result["coupling_distribution"]["low"] == 10
 
     @pytest.mark.asyncio
-    async def test_get_package_coupling_metrics_error(self, mock_db_session):
+    async def test_get_package_coupling_metrics_error(
+        self, mock_db_session: AsyncMock
+    ) -> None:
         """Test error handling in get_package_coupling_metrics."""
         with patch(
             "src.mcp_server.tools.package_analysis.PackageRepository"
@@ -424,7 +446,9 @@ class TestPackageAnalysisTools:
             assert result["error"] == "Metrics calculation failed"
 
     @pytest.mark.asyncio
-    async def test_get_package_details_no_metrics(self, mock_db_session):
+    async def test_get_package_details_no_metrics(
+        self, mock_db_session: AsyncMock
+    ) -> None:
         """Test getting package details when metrics don't exist."""
         mock_package = MagicMock(spec=Package)
         mock_package.id = 10
@@ -440,7 +464,7 @@ class TestPackageAnalysisTools:
         mock_package.readme_file_id = None
         mock_package.docstring = None
 
-        mock_deps = {"imports": [], "imported_by": []}
+        mock_deps: dict[str, list[str]] = {"imports": [], "imported_by": []}
 
         with patch(
             "src.mcp_server.tools.package_analysis.PackageRepository"

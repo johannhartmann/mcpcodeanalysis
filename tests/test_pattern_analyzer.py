@@ -1,6 +1,7 @@
 """Tests for pattern analyzer functionality."""
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +17,7 @@ from src.domain.pattern_analyzer import DomainPatternAnalyzer
 
 
 @pytest.fixture
-async def sample_domain_data(async_session: AsyncSession):
+async def sample_domain_data(async_session: AsyncSession) -> dict[str, Any]:
     """Create sample domain data for testing."""
     # Create repository
     repo = Repository(
@@ -205,7 +206,7 @@ async def sample_domain_data(async_session: AsyncSession):
 @pytest.mark.asyncio
 async def test_analyze_cross_context_coupling(
     async_session: AsyncSession,
-    sample_domain_data,
+    sample_domain_data: dict[str, Any],
 ) -> None:
     """Test cross-context coupling analysis."""
     analyzer = DomainPatternAnalyzer(async_session)
@@ -230,7 +231,7 @@ async def test_analyze_cross_context_coupling(
 @pytest.mark.asyncio
 async def test_detect_anti_patterns(
     async_session: AsyncSession,
-    sample_domain_data,
+    sample_domain_data: dict[str, Any],
 ) -> None:
     """Test anti-pattern detection."""
     analyzer = DomainPatternAnalyzer(async_session)
@@ -256,7 +257,7 @@ async def test_detect_anti_patterns(
 @pytest.mark.asyncio
 async def test_suggest_context_splits(
     async_session: AsyncSession,
-    sample_domain_data,
+    sample_domain_data: dict[str, Any],
 ) -> None:
     """Test context split suggestions."""
     # First, create a large context with low cohesion
@@ -304,7 +305,7 @@ async def test_suggest_context_splits(
 
 @pytest.mark.asyncio
 async def test_analyze_evolution(
-    async_session: AsyncSession, sample_domain_data
+    async_session: AsyncSession, sample_domain_data: dict[str, Any]
 ) -> None:
     """Test domain evolution analysis."""
     analyzer = DomainPatternAnalyzer(async_session)

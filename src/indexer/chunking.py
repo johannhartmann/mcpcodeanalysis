@@ -106,7 +106,8 @@ class CodeChunker:
         # Include context lines if requested
         if include_context:
             context_before = 3
-            context_after = 1
+            # Include 2 trailing lines to capture the next significant line after blank spacing
+            context_after = 2
             start_line = max(0, start_line - context_before)
             end_line = min(len(lines), end_line + context_after)
 
@@ -147,32 +148,63 @@ class CodeChunker:
         entities: dict[str, list[dict[str, Any]]],
         lines: list[str],
     ) -> dict[str, Any] | None:
-        """Create a chunk for module-level code."""
-        # Find module docstring and imports
-        module_end_line = 0
+        """Create a chunk for module-level code.
 
-        # Look for module docstring
+        Includes leading module docstring block (if present), comments, and imports,
+        up to the first non-prolog line or MAX_MODULE_DOCSTRING_SEARCH_LINES.
+        """
+        module_end = 0
+        in_docstring = False
+        doc_delim: str | None = None
+
         for i, line in enumerate(lines):
+            if i >= MAX_MODULE_DOCSTRING_SEARCH_LINES - 1:
+                # Stop scanning too deep; cap at limit
+                module_end = MAX_MODULE_DOCSTRING_SEARCH_LINES
+                break
             stripped = line.strip()
-            if stripped and not stripped.startswith(
-                ('"""', "'''", "#", "import", "from"),
-            ):
-                module_end_line = i
-                break
-            if i > MAX_MODULE_DOCSTRING_SEARCH_LINES:  # Don't look too far
-                module_end_line = MAX_MODULE_DOCSTRING_SEARCH_LINES
-                break
 
-        if module_end_line == 0:
+            if not in_docstring:
+                # Start of a module docstring block
+                if stripped.startswith(('"""', "'''")):
+                    in_docstring = True
+                    doc_delim = '"""' if stripped.startswith('"""') else "'''"
+                    module_end = i + 1
+                    # Handle single-line docstring like """text"""
+                    if stripped.count(doc_delim) >= 2:
+                        in_docstring = False
+                        doc_delim = None
+                    continue
+
+                # Prolog lines we keep: blank, comments, imports
+                if stripped == "" or stripped.startswith(("#", "import ", "from ")):
+                    module_end = i + 1
+                    continue
+
+                # First non-prolog line reached
+                break
+            # Inside docstring block; keep lines until closing delimiter
+            module_end = i + 1
+            if doc_delim and doc_delim in stripped:
+                in_docstring = False
+                doc_delim = None
+
+        if module_end == 0:
             return None
 
-        chunk_content = "\n".join(lines[:module_end_line])
+        # Ensure the module chunk has substantive content (not just a lone docstring delimiter)
+        content_lines = lines[:module_end]
+        content = "\n".join(content_lines).strip()
+        if content in {'"""', "'''", ""}:
+            return None
+
+        chunk_content = "\n".join(content_lines)
 
         return {
             "type": "module",
             "content": chunk_content,
             "start_line": 1,
-            "end_line": module_end_line,
+            "end_line": module_end,
             "metadata": {
                 "import_count": len(entities.get("imports", [])),
                 "class_count": len(entities.get("classes", [])),

@@ -1,11 +1,13 @@
 """MCP Code Analysis Server implementation - Fixed version."""
 
 from collections.abc import AsyncGenerator
-from typing import Any
+from typing import Any, cast
 
 from fastmcp import FastMCP
 from pydantic import Field
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from src.database.init_db import get_session_factory, init_database
 from src.database.models import Repository
@@ -27,19 +29,18 @@ from src.mcp_server.tools.package_analysis import (
     get_package_details,
     get_package_tree,
 )
-from src.mcp_server.tools.repository_management import RepositoryManagementTools
 from src.models import RepositoryConfig
 from src.utils.version import get_package_version
 
 logger = get_logger(__name__)
 
 # Create the global FastMCP instance
-mcp = FastMCP("Code Analysis Server")
+mcp: FastMCP = FastMCP("Code Analysis Server")
 
 # Global variables for shared resources
-_engine = None
-_session_factory = None
-_settings = None
+_engine: AsyncEngine | None = None
+_session_factory: async_sessionmaker[AsyncSession] | None = None
+_settings: Any | None = None
 
 
 async def initialize_server() -> None:
@@ -69,6 +70,7 @@ async def get_db_session() -> AsyncGenerator[Any, None]:
     if _session_factory is None:
         await initialize_server()
 
+    assert _session_factory is not None
     async with _session_factory() as session:
         yield session
 
@@ -77,7 +79,7 @@ async def get_db_session() -> AsyncGenerator[Any, None]:
 @mcp.tool(name="add_repository", description="Add a new repository to track")
 async def add_repository(
     url: str = Field(description="Repository URL (GitHub or file://)"),
-    branch: str = Field(default=None, description="Branch to track (optional)"),
+    branch: str | None = Field(default=None, description="Branch to track (optional)"),
     scan_immediately: bool = Field(
         default=True,
         description="Scan repository immediately",
@@ -116,7 +118,7 @@ async def add_repository(
             await session.commit()
             await session.refresh(repo)
 
-            scan_result = {"repository_id": repo.id}
+            scan_result: dict[str, Any] = {"repository_id": int(repo.id)}
 
             # Scan if requested
             if scan_immediately:
@@ -125,7 +127,6 @@ async def add_repository(
                 repo_config = RepositoryConfig(
                     url=url,
                     branch=branch,
-                    repository_id=repo.id,
                 )
 
                 scanner = RepositoryScanner(session)
@@ -158,7 +159,7 @@ async def add_repository(
                 "success": False,
                 "error": str(e),
             }
-    return None
+    return {"success": False, "error": "No session"}
 
 
 @mcp.tool(name="list_repositories", description="List all tracked repositories")
@@ -230,7 +231,7 @@ async def list_repositories(
                 "error": str(e),
                 "repositories": [],
             }
-    return None
+    return {"success": False, "repositories": [], "error": "No session"}
 
 
 @mcp.tool(name="scan_repository", description="Scan or rescan a repository")
@@ -243,15 +244,48 @@ async def scan_repository(
     await initialize_server()
 
     async for session in get_db_session():
-        repo_tools = RepositoryManagementTools(session, mcp)
-        return await repo_tools.scan_repository(
-            {
-                "repository_id": repository_id,
-                "force_full_scan": force_full_scan,
-                "generate_embeddings": generate_embeddings,
-            },
+        # Lookup repository
+        result = await session.execute(
+            select(Repository).where(Repository.id == repository_id)
         )
-    return None
+        repo = result.scalar_one_or_none()
+        if not repo:
+            return {"success": False, "error": f"Repository {repository_id} not found"}
+
+        # Build RepositoryConfig
+        repo_config = RepositoryConfig(
+            url=cast("str", repo.github_url),
+            branch=cast("str | None", repo.default_branch),
+        )
+
+        # Perform scan
+        from src.scanner.repository_scanner import RepositoryScanner
+
+        scanner = RepositoryScanner(session)
+        scan_result = await scanner.scan_repository(
+            repo_config, force_full_scan=force_full_scan
+        )
+
+        # Optionally generate embeddings
+        if generate_embeddings:
+            from src.embeddings.embedding_service import EmbeddingService
+
+            embedding_service = EmbeddingService(session)
+            embeddings_info = await embedding_service.create_repository_embeddings(
+                int(repository_id)
+            )
+            scan_result["embeddings"] = embeddings_info
+
+        return {
+            "success": True,
+            "repository": {
+                "id": repo.id,
+                "name": repo.name,
+                "url": repo.github_url,
+            },
+            "scan_result": scan_result,
+        }
+    return {"success": False, "error": "No session"}
 
 
 @mcp.tool(name="remove_repository", description="Remove a repository from tracking")
@@ -262,37 +296,82 @@ async def remove_repository(
     await initialize_server()
 
     async for session in get_db_session():
-        repo_tools = RepositoryManagementTools(session, mcp)
-        return await repo_tools.remove_repository(repository_id=repository_id)
-    return None
+        # Find repository
+        result = await session.execute(
+            select(Repository).where(Repository.id == repository_id)
+        )
+        repo = result.scalar_one_or_none()
+        if not repo:
+            return {"success": False, "error": f"Repository {repository_id} not found"}
+        try:
+            await session.delete(repo)
+            await session.commit()
+            return {
+                "success": True,
+                "repository": {
+                    "id": repository_id,
+                    "url": getattr(repo, "github_url", None),
+                    "name": getattr(repo, "name", None),
+                },
+                "message": "Repository deleted successfully",
+            }
+        except SQLAlchemyError as e:
+            await session.rollback()
+            return {"success": False, "error": str(e)}
+    return {"success": False, "error": "No session"}
 
 
 @mcp.tool(name="update_repository_settings", description="Update repository settings")
 async def update_repository_settings(
     repository_id: int = Field(description="Repository ID"),
-    branch: str = Field(default=None, description="New branch to track"),
-    auto_scan: bool = Field(default=None, description="Enable automatic scanning"),
+    branch: str | None = Field(default=None, description="New branch to track"),
+    auto_scan: bool | None = Field(
+        default=None, description="Enable automatic scanning"
+    ),
 ) -> dict[str, Any]:
     """Update repository settings."""
     await initialize_server()
 
     async for session in get_db_session():
-        repo_tools = RepositoryManagementTools(session, mcp)
-        return await repo_tools.update_repository_settings(
-            {
-                "repository_id": repository_id,
-                "branch": branch,
-                "auto_scan": auto_scan,
-            },
+        # Find repository
+        result = await session.execute(
+            select(Repository).where(Repository.id == repository_id)
         )
-    return None
+        _ = auto_scan  # Unused but accepted for compatibility
+
+        repo = result.scalar_one_or_none()
+        if not repo:
+            return {"success": False, "error": f"Repository {repository_id} not found"}
+
+        updated_fields: dict[str, Any] = {}
+        if branch is not None:
+            repo.default_branch = branch
+            updated_fields["branch"] = branch
+
+        # Note: auto_scan setting is not stored in Repository model; ignored if provided
+        try:
+            await session.commit()
+            return {
+                "success": True,
+                "repository": {
+                    "id": repository_id,
+                    "url": getattr(repo, "github_url", None),
+                    "name": getattr(repo, "name", None),
+                    "branch": getattr(repo, "default_branch", None),
+                },
+                "updated": updated_fields,
+            }
+        except SQLAlchemyError as e:
+            await session.rollback()
+            return {"success": False, "error": str(e)}
+    return {"success": False, "error": "No session"}
 
 
 # Register code search tools
 @mcp.tool(name="semantic_search", description="Search code using natural language")
 async def semantic_search(
     query: str = Field(description="Natural language search query"),
-    repository_id: int = Field(
+    repository_id: int | None = Field(
         default=None,
         description="Limit to specific repository",
     ),
@@ -303,14 +382,27 @@ async def semantic_search(
 
     async for session in get_db_session():
         search_tools = CodeSearchTools(session, mcp)
-        return await search_tools.semantic_search(
-            {
+        from src.embeddings.vector_search import SearchScope
+
+        try:
+            results = await search_tools.vector_search.search(
+                query=query,
+                scope=SearchScope.ALL,
+                repository_id=repository_id,
+                file_id=None,
+                limit=limit,
+                threshold=None,
+            )
+            return {
+                "success": True,
                 "query": query,
-                "repository_id": repository_id,
-                "limit": limit,
-            },
-        )
-    return None
+                "results": results,
+                "count": len(results),
+            }
+        except Exception as e:
+            logger.exception("Semantic search failed")
+            return {"success": False, "error": str(e), "results": []}
+    return {"success": False, "error": "No session", "results": []}
 
 
 @mcp.tool(name="keyword_search", description="Search code using keywords")
@@ -320,7 +412,7 @@ async def keyword_search(
         default="all",
         description="Search scope: all, functions, classes, modules",
     ),
-    repository_id: int = Field(
+    repository_id: int | None = Field(
         default=None,
         description="Limit to specific repository",
     ),
@@ -330,22 +422,123 @@ async def keyword_search(
     await initialize_server()
 
     async for session in get_db_session():
-        search_tools = CodeSearchTools(session, mcp)
-        return await search_tools.keyword_search(
-            {
-                "keywords": keywords,
-                "scope": scope,
-                "repository_id": repository_id,
-                "limit": limit,
-            },
-        )
-    return None
+        try:
+            # Build keyword conditions
+            from typing import Any as _Any
+
+            from sqlalchemy import or_, select
+
+            from src.database.models import Class, Function, Module
+
+            def ilike_any(field: _Any) -> _Any:
+                return (
+                    or_(*[field.ilike(f"%{kw}%") for kw in keywords])
+                    if keywords
+                    else field.ilike("%%")
+                )
+
+            results: list[dict[str, Any]] = []
+            query_text = " ".join(keywords)
+
+            # Functions
+            if scope in ("all", "functions"):
+                func_query = select(Function).where(
+                    or_(ilike_any(Function.name), ilike_any(Function.docstring))
+                )
+                if repository_id is not None:
+                    func_query = func_query.join(Function.file).where(
+                        Function.file.has(repository_id=repository_id)
+                    )
+                func_query = func_query.limit(limit)
+                func_result = await session.execute(func_query)
+                functions = func_result.scalars().all()
+                results.extend(
+                    {
+                        "type": "function",
+                        "id": func.id,
+                        "name": func.name,
+                        "file_id": func.file_id,
+                        "start_line": func.start_line,
+                        "end_line": func.end_line,
+                        "docstring": func.docstring,
+                    }
+                    for func in functions
+                )
+
+            # Classes
+            if scope in ("all", "classes"):
+                class_query = select(Class).where(
+                    or_(ilike_any(Class.name), ilike_any(Class.docstring))
+                )
+                if repository_id is not None:
+                    class_query = class_query.join(Class.file).where(
+                        Class.file.has(repository_id=repository_id)
+                    )
+                class_query = class_query.limit(limit)
+                class_result = await session.execute(class_query)
+                classes = class_result.scalars().all()
+                results.extend(
+                    {
+                        "type": "class",
+                        "id": cls.id,
+                        "name": cls.name,
+                        "file_id": cls.file_id,
+                        "start_line": cls.start_line,
+                        "end_line": cls.end_line,
+                        "docstring": cls.docstring,
+                    }
+                    for cls in classes
+                )
+
+            # Modules
+            if scope in ("all", "modules"):
+                module_query = select(Module).where(
+                    or_(ilike_any(Module.name), ilike_any(Module.docstring))
+                )
+                if repository_id is not None:
+                    module_query = module_query.join(Module.file).where(
+                        Module.file.has(repository_id=repository_id)
+                    )
+                module_query = module_query.limit(limit)
+                module_result = await session.execute(module_query)
+                modules = module_result.scalars().all()
+                results.extend(
+                    {
+                        "type": "module",
+                        "id": module.id,
+                        "name": module.name,
+                        "file_id": module.file_id,
+                        "start_line": module.start_line,
+                        "end_line": module.end_line,
+                        "docstring": module.docstring,
+                    }
+                    for module in modules
+                )
+
+            # Sort results: direct name hits first
+            results.sort(
+                key=lambda x: (
+                    0 if any(kw.lower() in x["name"].lower() for kw in keywords) else 1,
+                    x["name"],
+                )
+            )
+
+            return {
+                "success": True,
+                "query": query_text,
+                "results": results[:limit],
+                "count": len(results),
+            }
+        except Exception as e:
+            logger.exception("Keyword search failed")
+            return {"success": False, "error": str(e), "results": []}
+    return {"success": False, "error": "No session", "results": []}
 
 
 @mcp.tool(name="find_similar_code", description="Find code similar to a given snippet")
 async def find_similar_code(
     code_snippet: str = Field(description="Code snippet to find similar code for"),
-    repository_id: int = Field(
+    repository_id: int | None = Field(
         default=None,
         description="Limit to specific repository",
     ),
@@ -389,7 +582,7 @@ async def find_similar_code(
                 "error": str(e),
                 "results": [],
             }
-    return None
+    return {"success": False, "error": "No session", "results": []}
 
 
 # Register code analysis tools
@@ -406,15 +599,84 @@ async def get_code(
     await initialize_server()
 
     async for session in get_db_session():
-        analysis_tools = CodeAnalysisTools(session, mcp)
-        return await analysis_tools.get_code(
-            {
+        try:
+            from pathlib import Path
+
+            from sqlalchemy.orm import selectinload
+
+            from src.database.models import Class, Function, Module
+
+            # Fetch entity and its file
+            entity = None
+            file_path: str | None = None
+            start_line: int | None = None
+            end_line: int | None = None
+            name: str | None = None
+
+            if entity_type == "function":
+                result = await session.execute(
+                    select(Function)
+                    .where(Function.id == entity_id)
+                    .options(selectinload(Function.file))
+                )
+                entity = result.scalar_one_or_none()
+            elif entity_type == "class":
+                result = await session.execute(
+                    select(Class)
+                    .where(Class.id == entity_id)
+                    .options(selectinload(Class.file))
+                )
+                entity = result.scalar_one_or_none()
+            elif entity_type == "module":
+                result = await session.execute(
+                    select(Module)
+                    .where(Module.id == entity_id)
+                    .options(selectinload(Module.file))
+                )
+                entity = result.scalar_one_or_none()
+            else:
+                return {
+                    "success": False,
+                    "error": f"Unknown entity_type: {entity_type}",
+                }
+
+            if not entity:
+                return {
+                    "success": False,
+                    "error": f"{entity_type} {entity_id} not found",
+                }
+
+            file_path = cast("str", entity.file.path)
+            start_line = cast("int", entity.start_line)
+            end_line = cast("int", entity.end_line)
+            name = cast("str", entity.name)
+
+            analysis_tools = CodeAnalysisTools(session, mcp)
+            raw_content, contextual_content = (
+                analysis_tools.code_extractor.get_entity_content(
+                    Path(file_path),
+                    entity_type,
+                    start_line,
+                    end_line,
+                    include_context=include_context,
+                )
+            )
+
+            return {
+                "success": True,
                 "entity_type": entity_type,
                 "entity_id": entity_id,
-                "include_context": include_context,
-            },
-        )
-    return None
+                "name": name,
+                "file_path": file_path,
+                "start_line": start_line,
+                "end_line": end_line,
+                "code": contextual_content if include_context else raw_content,
+                "raw_code": raw_content,
+            }
+        except Exception as e:
+            logger.exception("Error in get_code")
+            return {"success": False, "error": str(e)}
+    return {"success": False, "error": "No session"}
 
 
 @mcp.tool(name="analyze_file", description="Analyze a specific file")
@@ -426,14 +688,59 @@ async def analyze_file(
     await initialize_server()
 
     async for session in get_db_session():
-        analysis_tools = CodeAnalysisTools(session, mcp)
-        return await analysis_tools.analyze_file(
-            {
-                "file_path": file_path,
-                "repository_id": repository_id,
-            },
-        )
-    return None
+        try:
+            from sqlalchemy import select
+
+            from src.database.models import File
+
+            # Locate file record
+            file_result = await session.execute(
+                select(File).where(
+                    (File.path == file_path) & (File.repository_id == repository_id)
+                )
+            )
+            file = file_result.scalar_one_or_none()
+            if not file:
+                return {
+                    "success": False,
+                    "error": f"File not found: {file_path} in repository {repository_id}",
+                }
+
+            # Use CodeProcessor to get structure
+            from src.scanner.code_processor import CodeProcessor
+
+            processor = CodeProcessor(session)
+            structure = await processor.get_file_structure(file)
+
+            # Derive simple metrics
+            modules = structure.get("modules", [])
+            classes = structure.get("classes", [])
+            functions = structure.get("functions", [])
+            imports = structure.get("imports", [])
+
+            metrics = {
+                "modules": len(modules),
+                "classes": len(classes),
+                "functions": sum(1 for f in functions if f.get("class_id") is None),
+                "methods": sum(1 for f in functions if f.get("class_id") is not None),
+                "imports": len(imports),
+            }
+
+            return {
+                "success": True,
+                "file": structure.get("file", {}),
+                "structure": {
+                    "modules": modules,
+                    "classes": classes,
+                    "functions": functions,
+                },
+                "imports": imports,
+                "metrics": metrics,
+            }
+        except Exception as e:
+            logger.exception("Error in analyze_file")
+            return {"success": False, "error": str(e)}
+    return {"success": False, "error": "No session"}
 
 
 @mcp.tool(name="get_file_structure", description="Get the structure of a file")
@@ -449,15 +756,33 @@ async def get_file_structure(
     await initialize_server()
 
     async for session in get_db_session():
-        analysis_tools = CodeAnalysisTools(session, mcp)
-        return await analysis_tools.get_file_structure(
-            {
-                "file_path": file_path,
-                "repository_id": repository_id,
-                "include_imports": include_imports,
-            },
-        )
-    return None
+        try:
+            from sqlalchemy import select
+
+            from src.database.models import File
+            from src.scanner.code_processor import CodeProcessor
+
+            file_result = await session.execute(
+                select(File).where(
+                    (File.path == file_path) & (File.repository_id == repository_id)
+                )
+            )
+            file = file_result.scalar_one_or_none()
+            if not file:
+                return {
+                    "success": False,
+                    "error": f"File not found: {file_path} in repository {repository_id}",
+                }
+
+            processor = CodeProcessor(session)
+            structure = await processor.get_file_structure(file)
+            if not include_imports:
+                structure = {**structure, "imports": []}
+            return {"success": True, **structure}
+        except Exception as e:
+            logger.exception("Error in get_file_structure")
+            return {"success": False, "error": str(e)}
+    return {"success": False, "error": "No session"}
 
 
 @mcp.tool(
@@ -473,18 +798,44 @@ async def analyze_dependencies(
     await initialize_server()
 
     async for session in get_db_session():
-        analysis_tools = CodeAnalysisTools(session, mcp)
-        return await analysis_tools.analyze_dependencies(
-            {
-                "file_path": file_path,
-                "repository_id": repository_id,
+        try:
+            from sqlalchemy import select
+
+            from src.database.models import File
+            from src.scanner.code_processor import CodeProcessor
+
+            file_result = await session.execute(
+                select(File).where(
+                    (File.path == file_path) & (File.repository_id == repository_id)
+                )
+            )
+            file = file_result.scalar_one_or_none()
+            if not file:
+                return {
+                    "success": False,
+                    "error": f"File not found: {file_path} in repository {repository_id}",
+                }
+
+            processor = CodeProcessor(session)
+            structure = await processor.get_file_structure(file)
+            imports = structure.get("imports", [])
+            depends_on = [imp.get("from") or imp.get("statement") for imp in imports]
+            return {
+                "success": True,
+                "file": structure.get("file", {}),
+                "imports": imports,
+                "dependency_graph": {
+                    "node": structure.get("file", {}).get("path"),
+                    "depends_on": depends_on,
+                },
                 "depth": depth,
-            },
-        )
-    return None
+            }
+        except Exception as e:
+            logger.exception("Error in analyze_dependencies")
+            return {"success": False, "error": str(e)}
+    return {"success": False, "error": "No session"}
 
 
-# Package analysis tools
 @mcp.tool(
     name="analyze_package_structure",
     description="Analyze the package structure of a repository",
@@ -505,7 +856,7 @@ async def analyze_package_structure_tool(
             ),
             session,
         )
-    return None
+    return {"success": False, "error": "No session"}
 
 
 @mcp.tool(
@@ -522,7 +873,7 @@ async def get_package_tree_tool(
         return await get_package_tree(
             GetPackageTreeRequest(repository_id=repository_id), session
         )
-    return None
+    return {"success": False, "error": "No session"}
 
 
 @mcp.tool(
@@ -543,7 +894,8 @@ async def get_package_details_tool(
             ),
             session,
         )
-    return None
+
+    return {"success": False, "error": "No session"}
 
 
 @mcp.tool(
@@ -569,7 +921,7 @@ async def get_package_dependencies_tool(
             ),
             session,
         )
-    return None
+    return {"success": False, "error": "No session"}
 
 
 @mcp.tool(
@@ -586,7 +938,8 @@ async def find_circular_dependencies_tool(
         return await find_circular_dependencies(
             FindCircularDependenciesRequest(repository_id=repository_id), session
         )
-    return None
+
+    return {"success": False, "error": "No session"}
 
 
 @mcp.tool(
@@ -603,7 +956,7 @@ async def get_package_coupling_metrics_tool(
         return await get_package_coupling_metrics(
             GetPackageCouplingRequest(repository_id=repository_id), session
         )
-    return None
+    return {"success": False, "error": "No session"}
 
 
 # Register domain-driven design analysis tools
@@ -624,7 +977,7 @@ async def extract_domain_model(
     async for session in get_db_session():
         domain_tools = DomainTools(session, mcp)
         return await domain_tools.extract_domain_model(code_path, include_relationships)
-    return None
+    return {"success": False, "error": "No session"}
 
 
 @mcp.tool(
@@ -632,7 +985,7 @@ async def extract_domain_model(
     description="Find aggregate roots in the codebase using domain analysis",
 )
 async def find_aggregate_roots(
-    context_name: str = Field(
+    context_name: str | None = Field(
         default=None,
         description="Optional bounded context to search within",
     ),
@@ -722,7 +1075,7 @@ async def generate_context_map(
     description="Analyze coupling between bounded contexts with metrics and recommendations",
 )
 async def analyze_coupling(
-    repository_id: int = Field(
+    repository_id: int | None = Field(
         default=None,
         description="Optional repository ID to filter analysis",
     ),
@@ -770,7 +1123,7 @@ async def suggest_context_splits(
     description="Detect DDD anti-patterns like anemic models, god objects, and circular dependencies",
 )
 async def detect_anti_patterns(
-    repository_id: int = Field(
+    repository_id: int | None = Field(
         default=None,
         description="Optional repository ID to filter analysis",
     ),
@@ -810,7 +1163,7 @@ async def analyze_domain_evolution(
     description="Get comprehensive domain health metrics and insights",
 )
 async def get_domain_metrics(
-    repository_id: int = Field(
+    repository_id: int | None = Field(
         default=None,
         description="Optional repository ID to filter analysis",
     ),
@@ -855,11 +1208,23 @@ async def search_code(
     """Search for code by natural language query."""
     await initialize_server()
 
-    # Use the same implementation as semantic_search
-    result = await semantic_search(query=query, repository_id=None, limit=limit)
-    if result.get("success"):
-        return result.get("results", [])
-    return [{"error": result.get("error", "Search failed")}]
+    async for session in get_db_session():
+        search_tools = CodeSearchTools(session, mcp)
+        from src.embeddings.vector_search import SearchScope
+
+        try:
+            return await search_tools.vector_search.search(
+                query=query,
+                scope=SearchScope.ALL,
+                repository_id=None,
+                file_id=None,
+                limit=limit,
+                threshold=None,
+            )
+        except Exception as e:
+            logger.exception("Error in search_code")
+            return [{"error": str(e)}]
+    return [{"error": "No session"}]
 
 
 @mcp.tool(name="explain_code", description="Explain what a code element does")
@@ -887,8 +1252,12 @@ async def explain_code(
 @mcp.tool(name="find_definition", description="Find where a symbol is defined")
 async def find_definition(
     name: str = Field(description="Name of the symbol to find"),
-    file_path: str = Field(default=None, description="Optional file path to search in"),
-    entity_type: str = Field(default=None, description="Optional entity type filter"),
+    file_path: str | None = Field(
+        default=None, description="Optional file path to search in"
+    ),
+    entity_type: str | None = Field(
+        default=None, description="Optional entity type filter"
+    ),
 ) -> list[dict[str, Any]]:
     """Find where a symbol is defined."""
     await initialize_server()
@@ -914,7 +1283,7 @@ async def find_definition(
 )
 async def find_usage(
     function_or_class: str = Field(description="Name of the function or class"),
-    repository: str = Field(
+    repository: str | None = Field(
         default=None, description="Optional repository name filter"
     ),
 ) -> list[dict[str, Any]]:
@@ -968,7 +1337,7 @@ async def get_code_structure(
 @mcp.tool(name="suggest_refactoring", description="Suggest refactoring opportunities")
 async def suggest_refactoring(
     file_path: str = Field(description="Path to the file to analyze"),
-    focus_area: str = Field(
+    focus_area: str | None = Field(
         default=None, description="Optional focus area for suggestions"
     ),
 ) -> list[dict[str, Any]]:
@@ -1052,15 +1421,52 @@ class MockServer:
     ) -> dict[str, Any] | None:
         await initialize_server()
         async for session in get_db_session():
-            repo_tools = RepositoryManagementTools(session, mcp)
-            return await repo_tools.add_repository(
-                {
-                    "url": url,
-                    "branch": branch,
-                    "scan_immediately": True,
-                    "generate_embeddings": generate_embeddings,
-                },
+            # Create repository entry
+            from sqlalchemy import select
+
+            from src.database.models import Repository
+            from src.embeddings.embedding_service import EmbeddingService
+            from src.models import RepositoryConfig
+            from src.scanner.repository_scanner import RepositoryScanner
+
+            # Check if exists
+            existing = await session.execute(
+                select(Repository).where(Repository.github_url == url)
             )
+            repo = existing.scalar_one_or_none()
+            if not repo:
+                repo = Repository(
+                    github_url=url,
+                    owner=url.split("/")[-2] if "/" in url else "local",
+                    name=url.split("/")[-1].replace(".git", "") if "/" in url else url,
+                    default_branch=branch or "main",
+                )
+                session.add(repo)
+                await session.commit()
+                await session.refresh(repo)
+
+            # Scan repository
+            repo_config = RepositoryConfig(url=url, branch=branch)
+            scanner = RepositoryScanner(session)
+            scan_result = await scanner.scan_repository(repo_config)
+
+            # Optionally generate embeddings
+            if generate_embeddings:
+                embedding_service = EmbeddingService(session)
+                embedding_result = await embedding_service.create_repository_embeddings(
+                    int(repo.id)
+                )
+                scan_result["embeddings"] = embedding_result
+
+            return {
+                "success": True,
+                "repository": {
+                    "id": repo.id,
+                    "url": url,
+                    "branch": branch or "default",
+                },
+                "scan_result": scan_result,
+            }
         return None
 
     async def search(
@@ -1069,13 +1475,26 @@ class MockServer:
         await initialize_server()
         async for session in get_db_session():
             search_tools = CodeSearchTools(session, mcp)
-            return await search_tools.semantic_search(
-                {
+            from src.embeddings.vector_search import SearchScope
+
+            try:
+                results = await search_tools.vector_search.search(
+                    query=query,
+                    scope=SearchScope.ALL,
+                    repository_id=repository_id,
+                    file_id=None,
+                    limit=limit,
+                    threshold=None,
+                )
+                return {
+                    "success": True,
                     "query": query,
-                    "repository_id": repository_id,
-                    "limit": limit,
-                },
-            )
+                    "results": results,
+                    "count": len(results),
+                }
+            except Exception as e:
+                logger.exception("Search failed")
+                return {"success": False, "error": str(e), "results": []}
         return None
 
 

@@ -23,7 +23,7 @@ lint:  ## Run all linters
 	uv run bandit -r src
 
 type-check:  ## Run type checking with mypy
-	uv run mypy src
+	uv run mypy src tests
 
 test:  ## Run unit tests
 	uv run pytest -m "unit" -v

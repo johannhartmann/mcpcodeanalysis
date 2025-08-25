@@ -1,5 +1,6 @@
 """Tests for vector search."""
 
+from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import numpy as np
@@ -11,7 +12,7 @@ from src.embeddings.vector_search import SearchScope, VectorSearch
 
 
 @pytest.fixture
-def mock_db_session():
+def mock_db_session() -> AsyncMock:
     """Create mock database session."""
     session = AsyncMock(spec=AsyncSession)
     session.execute = AsyncMock()
@@ -19,7 +20,7 @@ def mock_db_session():
 
 
 @pytest.fixture
-def mock_embeddings():
+def mock_embeddings() -> Generator[MagicMock, None, None]:
     """Create mock embeddings."""
     with patch("src.embeddings.vector_search.OpenAIEmbeddings") as mock_class:
         mock_instance = MagicMock()
@@ -29,7 +30,9 @@ def mock_embeddings():
 
 
 @pytest.fixture
-def vector_search(mock_db_session, mock_embeddings):
+def vector_search(
+    mock_db_session: AsyncMock, mock_embeddings: MagicMock
+) -> VectorSearch:
     """Create vector search fixture."""
     with patch("src.embeddings.vector_search.settings") as mock_settings:
         mock_settings.openai_api_key.get_secret_value.return_value = "test-key"
@@ -38,7 +41,7 @@ def vector_search(mock_db_session, mock_embeddings):
 
 
 @pytest.fixture
-def sample_embedding():
+def sample_embedding() -> MagicMock:
     """Create sample embedding record."""
     embedding = MagicMock(spec=CodeEmbedding)
     embedding.id = 1
@@ -53,7 +56,7 @@ def sample_embedding():
 
 
 @pytest.fixture
-def sample_function():
+def sample_function() -> MagicMock:
     """Create sample function record."""
     func = MagicMock(spec=Function)
     func.id = 10
@@ -73,11 +76,11 @@ class TestVectorSearch:
     @pytest.mark.asyncio
     async def test_search_basic(
         self,
-        vector_search,
-        mock_db_session,
-        mock_embeddings,
-        sample_embedding,
-        sample_function,
+        vector_search: VectorSearch,
+        mock_db_session: AsyncMock,
+        mock_embeddings: MagicMock,
+        sample_embedding: MagicMock,
+        sample_function: MagicMock,
     ) -> None:
         """Test basic search functionality."""
         # Mock database results
@@ -109,9 +112,9 @@ class TestVectorSearch:
     @pytest.mark.asyncio
     async def test_search_with_filters(
         self,
-        vector_search,
-        mock_db_session,
-        mock_embeddings,
+        vector_search: VectorSearch,
+        mock_db_session: AsyncMock,
+        mock_embeddings: MagicMock,
     ) -> None:
         """Test search with repository and scope filters."""
         mock_db_session.execute.return_value = MagicMock(fetchall=list)
@@ -131,9 +134,9 @@ class TestVectorSearch:
     @pytest.mark.asyncio
     async def test_search_similar(
         self,
-        vector_search,
-        mock_db_session,
-        sample_embedding,
+        vector_search: VectorSearch,
+        mock_db_session: AsyncMock,
+        sample_embedding: MagicMock,
     ) -> None:
         """Test finding similar embeddings."""
         # Mock source embedding lookup
@@ -158,8 +161,8 @@ class TestVectorSearch:
     @pytest.mark.asyncio
     async def test_search_similar_not_found(
         self,
-        vector_search,
-        mock_db_session,
+        vector_search: VectorSearch,
+        mock_db_session: AsyncMock,
     ) -> None:
         """Test search similar with non-existent embedding."""
         mock_db_session.execute.return_value = MagicMock(
@@ -172,8 +175,8 @@ class TestVectorSearch:
     @pytest.mark.asyncio
     async def test_search_by_code(
         self,
-        vector_search,
-        mock_embeddings,
+        vector_search: VectorSearch,
+        mock_embeddings: MagicMock,
     ) -> None:
         """Test searching by code snippet."""
         code_snippet = "def test():\n    return 42"
@@ -194,10 +197,10 @@ class TestVectorSearch:
     @pytest.mark.asyncio
     async def test_format_entity_function(
         self,
-        vector_search,
-        mock_db_session,
-        sample_embedding,
-        sample_function,
+        vector_search: VectorSearch,
+        mock_db_session: AsyncMock,
+        sample_embedding: MagicMock,
+        sample_function: MagicMock,
     ) -> None:
         """Test formatting function entity."""
         sample_embedding.entity_type = "function"
@@ -222,9 +225,9 @@ class TestVectorSearch:
     @pytest.mark.asyncio
     async def test_format_entity_class(
         self,
-        vector_search,
-        mock_db_session,
-        sample_embedding,
+        vector_search: VectorSearch,
+        mock_db_session: AsyncMock,
+        sample_embedding: MagicMock,
     ) -> None:
         """Test formatting class entity."""
         sample_embedding.entity_type = "class"
@@ -251,8 +254,8 @@ class TestVectorSearch:
     @pytest.mark.asyncio
     async def test_get_repository_stats(
         self,
-        vector_search,
-        mock_db_session,
+        vector_search: VectorSearch,
+        mock_db_session: AsyncMock,
     ) -> None:
         """Test getting repository statistics."""
         # Mock count queries

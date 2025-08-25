@@ -1,6 +1,6 @@
 """Domain-driven MCP tools for semantic code analysis."""
 
-from typing import Any
+from typing import Any, cast
 
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
@@ -174,10 +174,10 @@ class DomainTools:
         """
         try:
             # Find the file
-            result = await self.db_session.execute(
+            file_result = await self.db_session.execute(
                 select(File).where(File.path.endswith(code_path)),
             )
-            file = result.scalar_one_or_none()
+            file = file_result.scalar_one_or_none()
 
             if not file:
                 return {
@@ -187,16 +187,16 @@ class DomainTools:
                 }
 
             # Check if already indexed
-            result = await self.db_session.execute(
+            existing_entities_result = await self.db_session.execute(
                 select(DomainEntity).where(
                     DomainEntity.source_entities.contains([file.id]),
                 ),
             )
-            existing_entities = result.scalars().all()
+            existing_entities = existing_entities_result.scalars().all()
 
             if existing_entities:
                 # Return existing domain model
-                entities = [
+                entities_data = [
                     {
                         "name": e.name,
                         "type": e.entity_type,
@@ -208,7 +208,7 @@ class DomainTools:
                     for e in existing_entities
                 ]
 
-                relationships = []
+                relationships: list[dict[str, Any]] = []
                 if include_relationships:
                     # Get relationships
                     entity_ids = [e.id for e in existing_entities]
@@ -233,7 +233,7 @@ class DomainTools:
 
                 return {
                     "file": code_path,
-                    "entities": entities,
+                    "entities": entities_data,
                     "relationships": relationships,
                     "source": "cached",
                 }
@@ -242,11 +242,11 @@ class DomainTools:
             from src.domain.indexer import DomainIndexer
 
             indexer = DomainIndexer(self.db_session)
-            result = await indexer.index_file(file.id)
+            index_result = await indexer.index_file(cast("int", file.id))
 
-            if result["status"] != "success":
+            if index_result.get("status") != "success":
                 return {
-                    "error": f"Failed to extract domain model: {result.get('error')}",
+                    "error": f"Failed to extract domain model: {index_result.get('error')}",
                     "entities": [],
                     "relationships": [],
                 }
@@ -271,7 +271,7 @@ class DomainTools:
                 for e in entities
             ]
 
-            relationship_data = []
+            relationship_data: list[dict[str, Any]] = []
             if include_relationships and entities:
                 entity_ids = [e.id for e in entities]
                 result = await self.db_session.execute(
@@ -383,7 +383,7 @@ class DomainTools:
             return aggregate_data
 
         except Exception:
-            logger.exception("Error finding aggregate roots: %s")
+            logger.exception("Error finding aggregate roots")
             return []
 
     async def analyze_bounded_context(
@@ -419,12 +419,13 @@ class DomainTools:
             entities = entity_result.scalars().all()
 
             # Group entities by type
-            entities_by_type = {}
+            entities_by_type: dict[str, list[dict[str, Any]]] = {}
             for entity in entities:
                 entity_type = entity.entity_type
-                if entity_type not in entities_by_type:
-                    entities_by_type[entity_type] = []
-                entities_by_type[entity_type].append(
+                entity_type_str = cast("str", entity_type)
+                if entity_type_str not in entities_by_type:
+                    entities_by_type[entity_type_str] = []
+                entities_by_type[entity_type_str].append(
                     {
                         "name": entity.name,
                         "description": entity.description,
@@ -628,7 +629,14 @@ class DomainTools:
             )
             contexts = result.scalars().all()
 
-            context_data = [
+            # typed key function for cohesion_score sorting
+            def _cohesion_key(x: dict[str, Any]) -> float:
+                try:
+                    return float(x.get("cohesion_score", 0))
+                except (TypeError, ValueError):
+                    return 0.0
+
+            context_data: list[dict[str, Any]] = [
                 {
                     "name": context.name,
                     "description": context.description,
@@ -641,8 +649,8 @@ class DomainTools:
                 if len(context.memberships) >= min_entities
             ]
 
-            # Sort by cohesion score
-            context_data.sort(key=lambda x: x.get("cohesion_score", 0), reverse=True)
+            # Sort by cohesion score using a typed key
+            context_data.sort(key=_cohesion_key, reverse=True)
 
             return context_data
 
@@ -664,6 +672,10 @@ class DomainTools:
             Context map in requested format
         """
         try:
+            # Early validation of format to avoid unnecessary DB calls
+            if output_format not in {"json", "mermaid", "plantuml"}:
+                return {"error": f"Unsupported format: {output_format}"}
+
             # Get all contexts
             ctx_result = await self.db_session.execute(select(BoundedContext))
             contexts = ctx_result.scalars().all()
@@ -713,7 +725,7 @@ class DomainTools:
 
                 # Add relationships
                 for rel in relationships:
-                    arrow = self._get_mermaid_arrow(rel.relationship_type)
+                    arrow = self._get_mermaid_arrow(cast("str", rel.relationship_type))
                     lines.append(
                         f"    {rel.source_context.name} {arrow} {rel.target_context.name}",
                     )
@@ -737,7 +749,7 @@ class DomainTools:
 
                 # Add relationships
                 for rel in relationships:
-                    arrow = self._get_plantuml_arrow(rel.relationship_type)
+                    arrow = self._get_plantuml_arrow(cast("str", rel.relationship_type))
                     lines.append(
                         f'"{rel.source_context.name}" {arrow} "{rel.target_context.name}"',
                     )

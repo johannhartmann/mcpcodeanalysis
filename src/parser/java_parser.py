@@ -51,7 +51,7 @@ class JavaCodeParser:
         """Extract all entities from a Java file for database storage."""
         module_info = self.parse_file(file_path)
 
-        entities = {
+        entities: dict[str, list[dict[str, Any]]] = {
             "modules": [],
             "classes": [],
             "functions": [],

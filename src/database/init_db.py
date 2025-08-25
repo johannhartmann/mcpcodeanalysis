@@ -4,8 +4,12 @@ import asyncio
 import logging
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 # Import domain models to ensure they're registered with metadata
 from src.database import domain_models, package_models  # noqa: F401
@@ -147,18 +151,17 @@ async def init_database(database_url: str | None = None) -> AsyncEngine:
     return engine
 
 
-def get_session_factory(engine: AsyncEngine) -> sessionmaker:
-    """Create session factory for the engine.
+def get_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
+    """Create async session factory for the engine.
 
     Args:
         engine: Database engine
 
     Returns:
-        Session factory
+        Async session factory
     """
-    return sessionmaker(
+    return async_sessionmaker(
         engine,
-        class_=AsyncSession,
         expire_on_commit=False,
     )
 
@@ -196,7 +199,7 @@ async def verify_database_setup(engine: AsyncEngine) -> bool:
                 """,
                 ),
             )
-            table_count = result.scalar()
+            table_count = int(result.scalar() or 0)
 
             expected_tables = 8
             if table_count < expected_tables:

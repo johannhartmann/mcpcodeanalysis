@@ -1,6 +1,10 @@
 """Tests for the ranking module."""
 
-from datetime import datetime, timedelta
+# These tests target a high-level ranking API (RankingCriteria, RankingEngine)
+# Provide a thin compatibility layer if needed to satisfy these tests.
+
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
 
@@ -8,13 +12,13 @@ from src.query.ranking import RankingCriteria, RankingEngine
 
 
 @pytest.fixture
-def ranking_engine():
+def ranking_engine() -> RankingEngine:
     """Create a ranking engine instance."""
     return RankingEngine()
 
 
 @pytest.fixture
-def sample_search_results():
+def sample_search_results() -> list[dict[str, Any]]:
     """Create sample search results for testing."""
     return [
         {
@@ -24,7 +28,7 @@ def sample_search_results():
             "similarity": 0.95,
             "complexity": 10,
             "lines": 50,
-            "last_modified": datetime.now() - timedelta(days=1),
+            "last_modified": datetime.now(UTC) - timedelta(days=1),
             "imports": ["psycopg2", "sqlalchemy"],
             "has_docstring": True,
             "is_test": False,
@@ -36,7 +40,7 @@ def sample_search_results():
             "similarity": 0.90,
             "complexity": 3,
             "lines": 20,
-            "last_modified": datetime.now() - timedelta(days=30),
+            "last_modified": datetime.now(UTC) - timedelta(days=30),
             "imports": ["pytest", "unittest"],
             "has_docstring": False,
             "is_test": True,
@@ -48,7 +52,7 @@ def sample_search_results():
             "similarity": 0.85,
             "complexity": 15,
             "lines": 100,
-            "last_modified": datetime.now(),
+            "last_modified": datetime.now(UTC),
             "imports": ["psycopg2", "logging"],
             "has_docstring": True,
             "is_test": False,
@@ -59,7 +63,9 @@ def sample_search_results():
 class TestRankingEngine:
     """Test cases for RankingEngine class."""
 
-    def test_rank_by_similarity(self, ranking_engine, sample_search_results):
+    def test_rank_by_similarity(
+        self, ranking_engine: RankingEngine, sample_search_results: list[dict[str, Any]]
+    ) -> None:
         """Test ranking by similarity score."""
         # Arrange
         criteria = RankingCriteria(
@@ -80,7 +86,9 @@ class TestRankingEngine:
         assert ranked[0]["ranking_score"] > ranked[1]["ranking_score"]
         assert ranked[1]["ranking_score"] > ranked[2]["ranking_score"]
 
-    def test_rank_by_complexity(self, ranking_engine, sample_search_results):
+    def test_rank_by_complexity(
+        self, ranking_engine: RankingEngine, sample_search_results: list[dict[str, Any]]
+    ) -> None:
         """Test ranking by code complexity (prefer simpler code)."""
         # Arrange
         criteria = RankingCriteria(
@@ -99,7 +107,9 @@ class TestRankingEngine:
         assert ranked[1]["file_id"] == 1  # Medium complexity (10)
         assert ranked[2]["file_id"] == 3  # Highest complexity (15)
 
-    def test_rank_by_recency(self, ranking_engine, sample_search_results):
+    def test_rank_by_recency(
+        self, ranking_engine: RankingEngine, sample_search_results: list[dict[str, Any]]
+    ) -> None:
         """Test ranking by recency (prefer newer code)."""
         # Arrange
         criteria = RankingCriteria(
@@ -117,7 +127,9 @@ class TestRankingEngine:
         assert ranked[1]["file_id"] == 1  # Yesterday
         assert ranked[2]["file_id"] == 2  # 30 days ago
 
-    def test_rank_by_documentation(self, ranking_engine, sample_search_results):
+    def test_rank_by_documentation(
+        self, ranking_engine: RankingEngine, sample_search_results: list[dict[str, Any]]
+    ) -> None:
         """Test ranking by documentation quality."""
         # Arrange
         criteria = RankingCriteria(
@@ -136,7 +148,9 @@ class TestRankingEngine:
         assert ranked[1]["has_docstring"] is True
         assert ranked[2]["has_docstring"] is False
 
-    def test_combined_ranking(self, ranking_engine, sample_search_results):
+    def test_combined_ranking(
+        self, ranking_engine: RankingEngine, sample_search_results: list[dict[str, Any]]
+    ) -> None:
         """Test ranking with multiple criteria."""
         # Arrange
         criteria = RankingCriteria(
@@ -156,7 +170,9 @@ class TestRankingEngine:
             assert "ranking_score" in result
             assert 0 <= result["ranking_score"] <= 1
 
-    def test_filter_test_files(self, ranking_engine, sample_search_results):
+    def test_filter_test_files(
+        self, ranking_engine: RankingEngine, sample_search_results: list[dict[str, Any]]
+    ) -> None:
         """Test filtering out test files."""
         # Arrange
         criteria = RankingCriteria(exclude_tests=True)
@@ -168,7 +184,9 @@ class TestRankingEngine:
         assert len(ranked) == 2
         assert all(not r["is_test"] for r in ranked)
 
-    def test_minimum_similarity_threshold(self, ranking_engine, sample_search_results):
+    def test_minimum_similarity_threshold(
+        self, ranking_engine: RankingEngine, sample_search_results: list[dict[str, Any]]
+    ) -> None:
         """Test filtering by minimum similarity threshold."""
         # Arrange
         criteria = RankingCriteria(min_similarity=0.9)
@@ -180,7 +198,9 @@ class TestRankingEngine:
         assert len(ranked) == 2
         assert all(r["similarity"] >= 0.9 for r in ranked)
 
-    def test_file_type_preference(self, ranking_engine, sample_search_results):
+    def test_file_type_preference(
+        self, ranking_engine: RankingEngine, sample_search_results: list[dict[str, Any]]
+    ) -> None:
         """Test preferring certain file types."""
         # Arrange
         criteria = RankingCriteria(
@@ -194,7 +214,9 @@ class TestRankingEngine:
         # src/core/database.py should rank higher due to path preference
         assert ranked[0]["file_path"] == "src/core/database.py"
 
-    def test_boost_by_imports(self, ranking_engine, sample_search_results):
+    def test_boost_by_imports(
+        self, ranking_engine: RankingEngine, sample_search_results: list[dict[str, Any]]
+    ) -> None:
         """Test boosting results that use specific imports."""
         # Arrange
         criteria = RankingCriteria(
@@ -209,7 +231,7 @@ class TestRankingEngine:
         assert ranked[0]["file_id"] == 1
         assert "sqlalchemy" in ranked[0]["imports"]
 
-    def test_empty_results(self, ranking_engine):
+    def test_empty_results(self, ranking_engine: RankingEngine) -> None:
         """Test ranking empty results."""
         # Act
         ranked = ranking_engine.rank_results([], RankingCriteria())
@@ -217,7 +239,7 @@ class TestRankingEngine:
         # Assert
         assert ranked == []
 
-    def test_single_result(self, ranking_engine):
+    def test_single_result(self, ranking_engine: RankingEngine) -> None:
         """Test ranking a single result."""
         # Arrange
         single_result = [{"file_id": 1, "similarity": 0.9, "complexity": 5}]
@@ -230,7 +252,7 @@ class TestRankingEngine:
         assert ranked[0]["file_id"] == 1
         assert "ranking_score" in ranked[0]
 
-    def test_normalize_scores(self, ranking_engine):
+    def test_normalize_scores(self, ranking_engine: RankingEngine) -> None:
         """Test score normalization."""
         # Arrange
         results = [
@@ -250,13 +272,16 @@ class TestRankingEngine:
         for result in ranked:
             assert 0 <= result["ranking_score"] <= 1
 
-    def test_custom_scoring_function(self, ranking_engine):
+    def test_custom_scoring_function(
+        self, ranking_engine: RankingEngine, sample_search_results: list[dict[str, Any]]
+    ) -> None:
         """Test using a custom scoring function."""
 
         # Arrange
-        def custom_scorer(result):
+        def custom_scorer(result: dict[str, Any]) -> float:
             # Prefer files with exactly 50 lines
-            distance_from_50 = abs(result.get("lines", 0) - 50)
+            lines_val = float(result.get("lines", 0) or 0)
+            distance_from_50 = abs(lines_val - 50.0)
             return 1.0 / (1.0 + distance_from_50)
 
         criteria = RankingCriteria(custom_scorer=custom_scorer)
@@ -268,7 +293,7 @@ class TestRankingEngine:
         # File with 50 lines should rank first
         assert ranked[0]["lines"] == 50
 
-    def test_diversity_ranking(self, ranking_engine):
+    def test_diversity_ranking(self, ranking_engine: RankingEngine) -> None:
         """Test promoting diversity in results."""
         # Arrange
         results = [
@@ -288,7 +313,7 @@ class TestRankingEngine:
         paths = [r["file_path"] for r in ranked[:2]]
         assert not all("src/db/" in p for p in paths)
 
-    def test_invalid_weights(self, ranking_engine):
+    def test_invalid_weights(self, ranking_engine: RankingEngine) -> None:
         """Test handling of invalid weight values."""
         # Arrange
         criteria = RankingCriteria(
@@ -300,7 +325,9 @@ class TestRankingEngine:
         with pytest.raises(ValueError, match="Weights must be between 0 and 1"):
             ranking_engine.validate_criteria(criteria)
 
-    def test_performance_with_large_dataset(self, ranking_engine):
+    def test_performance_with_large_dataset(
+        self, ranking_engine: RankingEngine
+    ) -> None:
         """Test ranking performance with many results."""
         # Arrange
         large_results = [
@@ -309,7 +336,7 @@ class TestRankingEngine:
                 "similarity": 0.9 - (i * 0.0001),
                 "complexity": i % 20,
                 "lines": (i * 10) % 500,
-                "last_modified": datetime.now() - timedelta(days=i % 365),
+                "last_modified": datetime.now(UTC) - timedelta(days=i % 365),
             }
             for i in range(1000)
         ]

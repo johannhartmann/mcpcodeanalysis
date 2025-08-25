@@ -9,18 +9,18 @@ from src.utils.exceptions import ParserError
 
 
 @pytest.fixture
-def java_parser():
+def java_parser() -> JavaCodeParser:
     """Create Java parser fixture."""
     return JavaCodeParser()
 
 
 @pytest.fixture
-def sample_java_file():
+def sample_java_file() -> Path:
     """Path to sample Java file."""
     return Path(__file__).parent.parent / "fixtures" / "Sample.java"
 
 
-def test_parse_java_file(java_parser, sample_java_file):
+def test_parse_java_file(java_parser: JavaCodeParser, sample_java_file: Path) -> None:
     """Test parsing a complete Java file."""
     result = java_parser.parse_file(sample_java_file)
 
@@ -33,7 +33,7 @@ def test_parse_java_file(java_parser, sample_java_file):
     assert "functions" in result
 
 
-def test_extract_imports(java_parser, sample_java_file):
+def test_extract_imports(java_parser: JavaCodeParser, sample_java_file: Path) -> None:
     """Test extracting import statements from Java."""
     result = java_parser.parse_file(sample_java_file)
     imports = result["imports"]
@@ -52,7 +52,7 @@ def test_extract_imports(java_parser, sample_java_file):
     assert wildcard[0]["imported_names"] == ["*"]
 
 
-def test_extract_classes(java_parser, sample_java_file):
+def test_extract_classes(java_parser: JavaCodeParser, sample_java_file: Path) -> None:
     """Test extracting class definitions from Java."""
     result = java_parser.parse_file(sample_java_file)
     classes = result["classes"]
@@ -80,7 +80,9 @@ def test_extract_classes(java_parser, sample_java_file):
     assert "Deprecated" in helper_class["decorators"]
 
 
-def test_extract_interfaces(java_parser, sample_java_file):
+def test_extract_interfaces(
+    java_parser: JavaCodeParser, sample_java_file: Path
+) -> None:
     """Test extracting interface definitions from Java."""
     result = java_parser.parse_file(sample_java_file)
     classes = result["classes"]  # Interfaces are treated as classes
@@ -91,12 +93,13 @@ def test_extract_interfaces(java_parser, sample_java_file):
     assert processor["docstring"] is not None
 
 
-def test_extract_methods(java_parser, sample_java_file):
+def test_extract_methods(java_parser: JavaCodeParser, sample_java_file: Path) -> None:
     """Test extracting methods from Java classes."""
     result = java_parser.parse_file(sample_java_file)
     classes = result["classes"]
 
     sample_class = next((c for c in classes if c["name"] == "Sample"), None)
+    assert sample_class is not None
     methods = sample_class["methods"]
 
     assert len(methods) > 0
@@ -136,7 +139,9 @@ def test_extract_methods(java_parser, sample_java_file):
     _ = next((m for m in methods if m["name"] == "concatenate"), None)
 
 
-def test_extract_inner_classes(java_parser, sample_java_file):
+def test_extract_inner_classes(
+    java_parser: JavaCodeParser, sample_java_file: Path
+) -> None:
     """Test extracting inner classes from Java."""
     result = java_parser.parse_file(sample_java_file)
     classes = result["classes"]
@@ -154,7 +159,7 @@ def test_extract_inner_classes(java_parser, sample_java_file):
     assert build_method["return_type"] == "Sample"
 
 
-def test_extract_enums(java_parser, sample_java_file):
+def test_extract_enums(java_parser: JavaCodeParser, sample_java_file: Path) -> None:
     """Test extracting enum definitions from Java."""
     result = java_parser.parse_file(sample_java_file)
     classes = result["classes"]  # Enums are treated as classes
@@ -171,7 +176,7 @@ def test_extract_enums(java_parser, sample_java_file):
     assert display_method is not None
 
 
-def test_extract_entities(java_parser, sample_java_file):
+def test_extract_entities(java_parser: JavaCodeParser, sample_java_file: Path) -> None:
     """Test extracting all entities for database storage."""
     # Create a temporary file ID
     file_id = 1
@@ -199,7 +204,7 @@ def test_extract_entities(java_parser, sample_java_file):
     assert len(entities["imports"]) >= 5
 
 
-def test_parse_invalid_file(java_parser, tmp_path):
+def test_parse_invalid_file(java_parser: JavaCodeParser, tmp_path: Path) -> None:
     """Test parsing a non-existent file."""
     invalid_file = tmp_path / "nonexistent.java"
 
@@ -207,7 +212,7 @@ def test_parse_invalid_file(java_parser, tmp_path):
         java_parser.parse_file(invalid_file)
 
 
-def test_get_code_chunk(java_parser, sample_java_file):
+def test_get_code_chunk(java_parser: JavaCodeParser, sample_java_file: Path) -> None:
     """Test getting code chunks from Java file."""
     # Get a specific chunk (e.g., lines 51-60 where the Sample class is)
     chunk = java_parser.get_code_chunk(sample_java_file, 51, 60)

@@ -2,8 +2,10 @@
 
 import os
 from datetime import UTC, datetime
-from typing import Any
+from pathlib import Path
+from typing import Any, cast
 
+import git
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -80,7 +82,8 @@ class RepositoryScanner:
                     repo_record.default_branch = repo_info["default_branch"]
 
                 # Store additional metadata
-                repo_record.metadata = {
+                # Store additional metadata on repo
+                _metadata: dict[str, Any] = {
                     "description": repo_info.get("description"),
                     "language": repo_info.get("language"),
                     "size": repo_info.get("size"),
@@ -95,9 +98,12 @@ class RepositoryScanner:
                 )
 
         # Clone or update repository
+        branch_to_use: str | None = repo_config.branch or cast(
+            "str | None", repo_record.default_branch
+        )
         git_repo = await self.git_sync.update_repository(
             repo_config.url,
-            repo_config.branch or repo_record.default_branch,
+            branch_to_use,
             access_token,
         )
 
@@ -121,7 +127,7 @@ class RepositoryScanner:
             repo_record,
             git_repo,
             github_client,
-            since_commit=last_scan_commit,
+            since_commit=cast("str | None", last_scan_commit),
         )
 
         # Scan files
@@ -147,14 +153,14 @@ class RepositoryScanner:
 
         code_processor = CodeProcessor(
             self.db_session,
-            repository_path=git_repo.working_dir,
+            repository_path=Path(git_repo.working_dir),
             enable_domain_analysis=enable_domain,
             enable_parallel=enable_parallel,
         )
         parse_results = await code_processor.process_files(scanned_files)
 
         # Update repository last sync time
-        repo_record.last_synced = datetime.now(UTC)  # PostgreSQL expects naive datetime
+        cast("Any", repo_record).last_synced = datetime.now(UTC)
         await self.db_session.commit()
 
         # Run bounded context detection if domain analysis is enabled
@@ -213,7 +219,7 @@ class RepositoryScanner:
     async def _process_commits(
         self,
         repo_record: Repository,
-        git_repo,
+        git_repo: git.Repo,
         _github_client: GitHubClient,
         since_commit: str | None = None,
     ) -> list[Commit]:
@@ -227,7 +233,7 @@ class RepositoryScanner:
         # Get commits from Git
         commits_data = await self.git_sync.get_recent_commits(
             git_repo,
-            branch=repo_record.default_branch,
+            branch=cast("str | None", repo_record.default_branch),
             limit=1000,  # Reasonable limit
         )
 
@@ -276,7 +282,7 @@ class RepositoryScanner:
     async def _full_file_scan(
         self,
         repo_record: Repository,
-        git_repo,
+        git_repo: git.Repo,
     ) -> list[File]:
         """Perform full scan of all repository files."""
         logger.info("Performing full file scan", repo_id=repo_record.id)
@@ -316,7 +322,7 @@ class RepositoryScanner:
     async def _incremental_file_scan(
         self,
         repo_record: Repository,
-        git_repo,
+        git_repo: git.Repo,
         new_commits: list[Commit],
     ) -> list[File]:
         """Perform incremental scan based on new commits."""
@@ -346,7 +352,7 @@ class RepositoryScanner:
         scanned_files = []
         for file_path in supported_files:
             # Get current file info
-            full_path = git_repo.working_dir / file_path
+            full_path = Path(git_repo.working_dir) / file_path
 
             if not full_path.exists():
                 # File was deleted
@@ -358,7 +364,7 @@ class RepositoryScanner:
                 )
                 file_record = result.scalar_one_or_none()
                 if file_record:
-                    file_record.is_deleted = True
+                    cast("Any", file_record).is_deleted = True
                     scanned_files.append(file_record)
             else:
                 # File exists, update it
@@ -382,7 +388,7 @@ class RepositoryScanner:
                 scanned_files.append(file_record)
 
             # Mark commit as processed
-            commit.processed = True
+            cast("Any", commit).processed = True
 
         await self.db_session.commit()
         return scanned_files
@@ -390,7 +396,7 @@ class RepositoryScanner:
     async def _update_or_create_file(
         self,
         repo_record: Repository,
-        file_data: dict[str, any],
+        file_data: dict[str, Any],
         branch: str,
     ) -> File:
         """Update existing file record or create new one."""
@@ -413,11 +419,11 @@ class RepositoryScanner:
 
         # Update file data
         file_record.content_hash = file_data["content_hash"]
-        file_record.git_hash = file_data.get("git_hash")
+        file_record.git_hash = cast("Any", file_data.get("git_hash"))
         file_record.size = file_data["size"]
         file_record.language = file_data["language"]
         file_record.last_modified = file_data["modified_time"]
-        file_record.is_deleted = False
+        cast("Any", file_record).is_deleted = False
 
         return file_record
 
@@ -463,7 +469,7 @@ class RepositoryScanner:
             "results": results,
         }
 
-    async def setup_webhooks(self) -> dict[str, any]:
+    async def setup_webhooks(self) -> dict[str, Any]:
         """Set up webhooks for all configured repositories."""
         if not hasattr(settings, "github") or not settings.github.use_webhooks:
             return {"message": "Webhooks disabled in configuration"}
@@ -502,7 +508,7 @@ class RepositoryScanner:
                     )
                     repo = result.scalar_one_or_none()
                     if repo:
-                        repo.webhook_id = str(webhook["id"])
+                        cast("Any", repo).webhook_id = str(webhook["id"])
                         await self.db_session.commit()
 
                     results.append(

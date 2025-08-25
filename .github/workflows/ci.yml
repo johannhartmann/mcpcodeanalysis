@@ -56,7 +56,7 @@ jobs:
       run: uv run ruff check src tests
     
     - name: Run mypy
-      run: uv run mypy src
+      run: uv run mypy src tests
     
     - name: Run bandit
       run: uv run bandit -r src

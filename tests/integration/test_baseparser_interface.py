@@ -1,6 +1,7 @@
 """Test BaseParser interface with TypeScript and JavaScript parsers."""
 
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -13,14 +14,15 @@ class TestBaseParserInterface:
     """Test that TypeScript and JavaScript parsers properly implement BaseParser interface."""
 
     @pytest.fixture
-    def temp_dir(self):
+    def temp_dir(self) -> Iterator[Path]:
         """Create temporary directory for test files."""
         with tempfile.TemporaryDirectory() as temp_dir:
             yield Path(temp_dir)
 
-    def test_typescript_baseparser_interface(self, temp_dir):
+    def test_typescript_baseparser_interface(self, temp_dir: Path) -> None:
         """Test TypeScript parser implements BaseParser interface correctly."""
         plugin = LanguagePluginRegistry.get_plugin("typescript")
+        assert plugin is not None
 
         try:
             parser = plugin.create_parser()
@@ -177,9 +179,10 @@ export default processApiResponse;
         except ImportError:
             pytest.skip("tree-sitter-typescript not available")
 
-    def test_javascript_baseparser_interface(self, temp_dir):
+    def test_javascript_baseparser_interface(self, temp_dir: Path) -> None:
         """Test JavaScript parser implements BaseParser interface correctly."""
         plugin = LanguagePluginRegistry.get_plugin("javascript")
+        assert plugin is not None
 
         try:
             parser = plugin.create_parser()
@@ -326,9 +329,10 @@ module.exports = { UserService, processApiResponse, filterUsersByRole, fetchAllU
         except ImportError:
             pytest.skip("tree-sitter-javascript not available")
 
-    def test_typescript_entity_extraction_integration(self, temp_dir):
+    def test_typescript_entity_extraction_integration(self, temp_dir: Path) -> None:
         """Test that TypeScript parser integrates with database entity extraction."""
         plugin = LanguagePluginRegistry.get_plugin("typescript")
+        assert plugin is not None
 
         try:
             parser = plugin.create_parser()
@@ -402,9 +406,10 @@ export function createProduct(name: string, price: number): ProductData {
         except ImportError:
             pytest.skip("tree-sitter-typescript not available")
 
-    def test_javascript_entity_extraction_integration(self, temp_dir):
+    def test_javascript_entity_extraction_integration(self, temp_dir: Path) -> None:
         """Test that JavaScript parser integrates with database entity extraction."""
         plugin = LanguagePluginRegistry.get_plugin("javascript")
+        assert plugin is not None
 
         try:
             parser = plugin.create_parser()

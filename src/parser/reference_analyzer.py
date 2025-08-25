@@ -275,8 +275,8 @@ class ReferenceAnalyzer(ast.NodeVisitor):
         if isinstance(node, ast.Name):
             return node.id
         if isinstance(node, ast.Attribute):
-            parts = []
-            current = node
+            parts: list[str] = []
+            current: ast.expr = node
             while isinstance(current, ast.Attribute):
                 parts.append(current.attr)
                 current = current.value

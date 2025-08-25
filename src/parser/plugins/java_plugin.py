@@ -1,5 +1,7 @@
 """Java language plugin implementation."""
 
+from typing import cast
+
 from src.parser.base_parser import BaseParser
 from src.parser.java_parser import JavaCodeParser
 from src.parser.language_config import LanguageConfig, LanguageRegistry
@@ -32,7 +34,7 @@ class JavaLanguagePlugin(LanguagePlugin):
 
     def create_parser(self) -> BaseParser:
         """Create Java parser instance."""
-        return JavaCodeParser()
+        return cast("BaseParser", JavaCodeParser())
 
     def get_complexity_nodes(self) -> set[str]:
         """Get Java-specific complexity node types.

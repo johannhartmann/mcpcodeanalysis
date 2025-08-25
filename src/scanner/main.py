@@ -5,7 +5,7 @@ import signal
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -43,7 +43,10 @@ class ScannerService:
         # Initialize database
         self.engine = await init_database()
         self.session_factory = get_session_factory(self.engine)
-        self.parallel_session_manager = ParallelSessionManager(self.session_factory)
+        # get_session_factory returns a sessionmaker (async) but typed as generic; cast for type checking
+        self.parallel_session_manager = ParallelSessionManager(
+            cast("Any", self.session_factory)
+        )
 
         self.running = True
 
@@ -115,7 +118,7 @@ class ScannerService:
                 # Initial clone
                 git_repo = await self.git_sync.clone_repository(
                     repo_url,
-                    db_repo.default_branch,
+                    cast("str", db_repo.default_branch),
                     repo_config.get("access_token"),
                 )
 
@@ -130,8 +133,8 @@ class ScannerService:
                 commits = await self.github_monitor.get_commits_since(
                     repo_info["owner"],
                     repo_info["name"],
-                    db_repo.last_synced,
-                    db_repo.default_branch,
+                    cast("datetime", db_repo.last_synced),
+                    cast("str", db_repo.default_branch),
                     repo_config.get("access_token"),
                 )
 
@@ -158,7 +161,7 @@ class ScannerService:
                 # Update repository
                 git_repo = await self.git_sync.update_repository(
                     repo_url,
-                    db_repo.default_branch,
+                    cast("str", db_repo.default_branch),
                     repo_config.get("access_token"),
                 )
 
@@ -168,9 +171,9 @@ class ScannerService:
                     # Get commits since last sync
                     recent_commits = await self.git_sync.get_recent_commits(
                         git_repo,
-                        db_repo.default_branch,
+                        cast("str", db_repo.default_branch),
                         limit=100,
-                        since=db_repo.last_synced,
+                        since=cast("datetime | None", db_repo.last_synced),
                     )
 
                     # Collect all changed files from commits
@@ -202,7 +205,7 @@ class ScannerService:
                 raise RuntimeError(msg)  # noqa: TRY301
             async with self.session_factory() as session:
                 repo_repo = RepositoryRepo(session)
-                await repo_repo.update_last_synced(db_repo.id)
+                await repo_repo.update_last_synced(cast("int", db_repo.id))
 
             logger.info("Successfully synced repository: %s", repo_url)
 
@@ -221,7 +224,7 @@ class ScannerService:
 
         supported_extensions = get_configured_extensions()
 
-        supported_files = []
+        supported_files: list[Path] = []
         for ext in supported_extensions:
             supported_files.extend(repo_path.rglob(f"*{ext}"))
 
@@ -331,9 +334,7 @@ class ScannerService:
 
                 if db_file:
                     # Update existing file
-                    db_file.last_modified = metadata.get(
-                        "last_modified"
-                    ) or datetime.now(UTC).replace(tzinfo=None)
+                    db_file.last_modified = metadata.get("last_modified") or datetime.now(UTC).replace(tzinfo=None)  # type: ignore[assignment]
                     git_hash = metadata.get("git_hash")
                     if git_hash:
                         db_file.git_hash = git_hash
@@ -420,9 +421,7 @@ class ScannerService:
 
             if db_file:
                 # Update existing file
-                db_file.last_modified = metadata.get("last_modified") or datetime.now(
-                    UTC
-                ).replace(tzinfo=None)
+                db_file.last_modified = metadata.get("last_modified") or datetime.now(UTC).replace(tzinfo=None)  # type: ignore[assignment]
                 git_hash = metadata.get("git_hash")
                 if git_hash:
                     db_file.git_hash = git_hash

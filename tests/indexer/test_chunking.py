@@ -1,6 +1,8 @@
 """Tests for text chunking strategies."""
 
-from unittest.mock import patch
+from collections.abc import Generator
+from typing import Any
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -8,7 +10,7 @@ from src.indexer.chunking import MAX_MODULE_DOCSTRING_SEARCH_LINES, CodeChunker
 
 
 @pytest.fixture
-def mock_settings():
+def mock_settings() -> Generator[MagicMock, None, None]:
     """Mock settings for testing."""
     with patch("src.indexer.chunking.settings") as mock:
         mock.parser.chunk_size = 100
@@ -17,21 +19,21 @@ def mock_settings():
 
 
 @pytest.fixture
-def code_chunker(mock_settings):
+def code_chunker(mock_settings: MagicMock) -> CodeChunker:
     """Create CodeChunker instance with mocked settings."""
     return CodeChunker()
 
 
-def test_code_chunker_initialization(mock_settings):
+def test_code_chunker_initialization(mock_settings: MagicMock) -> None:
     """Test CodeChunker initialization."""
     chunker = CodeChunker()
     assert chunker.chunk_size == 100
     assert chunker.max_tokens == 8000
 
 
-def test_chunk_by_entity_functions(code_chunker):
+def test_chunk_by_entity_functions(code_chunker: CodeChunker) -> None:
     """Test chunking by function entities."""
-    entities = {
+    entities: dict[str, list[dict[str, Any]]] = {
         "functions": [
             {
                 "name": "test_func",
@@ -86,9 +88,9 @@ async def async_func():
     assert chunk2["metadata"]["is_async"] is True
 
 
-def test_chunk_by_entity_classes(code_chunker):
+def test_chunk_by_entity_classes(code_chunker: CodeChunker) -> None:
     """Test chunking by class entities."""
-    entities = {
+    entities: dict[str, list[dict[str, Any]]] = {
         "classes": [
             {
                 "name": "TestClass",
@@ -131,10 +133,10 @@ def test_chunk_by_entity_classes(code_chunker):
     assert chunk["metadata"]["is_abstract"] is False
 
 
-def test_chunk_by_entity_large_class(code_chunker):
+def test_chunk_by_entity_large_class(code_chunker: CodeChunker) -> None:
     """Test chunking large class creates separate method chunks."""
     # Create a large class
-    methods = []
+    methods: list[dict[str, Any]] = []
     method_lines = []
     for i in range(20):
         methods.append(
@@ -190,9 +192,9 @@ def test_chunk_by_entity_large_class(code_chunker):
         assert method_chunks[0]["metadata"]["parent_class"] == "LargeClass"
 
 
-def test_chunk_by_entity_module(code_chunker):
+def test_chunk_by_entity_module(code_chunker: CodeChunker) -> None:
     """Test chunking module-level code."""
-    entities = {
+    entities: dict[str, list[dict[str, Any]]] = {
         "imports": [
             {"module": "os"},
             {"module": "sys"},
@@ -233,9 +235,13 @@ class MyClass:
     assert module_chunk["metadata"]["function_count"] == 1
 
 
-def test_chunk_by_entity_no_module_docstring(code_chunker):
+def test_chunk_by_entity_no_module_docstring(code_chunker: CodeChunker) -> None:
     """Test module chunk when no clear module section."""
-    entities = {"imports": [], "classes": [], "functions": []}
+    entities: dict[str, list[dict[str, Any]]] = {
+        "imports": [],
+        "classes": [],
+        "functions": [],
+    }
 
     file_content = """def first_function():
     pass
@@ -251,7 +257,7 @@ class FirstClass:
     assert len(module_chunks) == 0
 
 
-def test_chunk_by_entity_with_context(code_chunker):
+def test_chunk_by_entity_with_context(code_chunker: CodeChunker) -> None:
     """Test that context lines are included."""
     entities = {
         "functions": [
@@ -285,7 +291,7 @@ def other_func():
     assert "# Another section" in chunk["content"]
 
 
-def test_chunk_by_lines(code_chunker):
+def test_chunk_by_lines(code_chunker: CodeChunker) -> None:
     """Test chunking by fixed line count."""
     file_content = "\n".join([f"Line {i}" for i in range(200)])
 
@@ -314,7 +320,7 @@ def test_chunk_by_lines(code_chunker):
         assert len(set(first_lines[-20:]) & set(second_lines[:20])) > 0
 
 
-def test_chunk_by_lines_small_file(code_chunker):
+def test_chunk_by_lines_small_file(code_chunker: CodeChunker) -> None:
     """Test chunking small file that fits in one chunk."""
     file_content = "\n".join([f"Line {i}" for i in range(50)])
 
@@ -325,7 +331,7 @@ def test_chunk_by_lines_small_file(code_chunker):
     assert chunks[0]["end_line"] == 50
 
 
-def test_merge_small_chunks(code_chunker):
+def test_merge_small_chunks(code_chunker: CodeChunker) -> None:
     """Test merging small chunks."""
     chunks = [
         {
@@ -378,7 +384,7 @@ def test_merge_small_chunks(code_chunker):
         assert "f2" in str(merged_chunk["metadata"]["merged_entities"])
 
 
-def test_merge_small_chunks_all_large(code_chunker):
+def test_merge_small_chunks_all_large(code_chunker: CodeChunker) -> None:
     """Test merge when all chunks are large."""
     chunks = [
         {
@@ -404,7 +410,7 @@ def test_merge_small_chunks_all_large(code_chunker):
     assert all(c["type"] != "merged" for c in merged)
 
 
-def test_merge_chunks_function(code_chunker):
+def test_merge_chunks_function(code_chunker: CodeChunker) -> None:
     """Test the merge operation between two chunks."""
     chunk1 = {
         "type": "function",
@@ -433,10 +439,10 @@ def test_merge_chunks_function(code_chunker):
     assert merged["metadata"]["merged_entities"] == ["func1", "func2"]
 
 
-def test_create_module_chunk_edge_cases(code_chunker):
+def test_create_module_chunk_edge_cases(code_chunker: CodeChunker) -> None:
     """Test module chunk creation edge cases."""
     # Test with imports but no docstring
-    entities = {"imports": [{"module": "os"}]}
+    entities: dict[str, list[dict[str, Any]]] = {"imports": [{"module": "os"}]}
     file_content = """import os
 import sys
 
@@ -462,9 +468,9 @@ def main():
         assert module_chunks[0]["end_line"] <= MAX_MODULE_DOCSTRING_SEARCH_LINES
 
 
-def test_entity_chunk_metadata_completeness(code_chunker):
+def test_entity_chunk_metadata_completeness(code_chunker: CodeChunker) -> None:
     """Test that entity chunks have complete metadata."""
-    entities = {
+    entities: dict[str, list[dict[str, Any]]] = {
         "functions": [
             {
                 "name": "test_func",
@@ -526,9 +532,13 @@ class TestClass(A, B):
     assert meta["is_abstract"] is True
 
 
-def test_chunk_by_entity_empty_file(code_chunker):
+def test_chunk_by_entity_empty_file(code_chunker: CodeChunker) -> None:
     """Test chunking empty file."""
-    entities = {"functions": [], "classes": [], "imports": []}
+    entities: dict[str, list[dict[str, Any]]] = {
+        "functions": [],
+        "classes": [],
+        "imports": [],
+    }
     file_content = ""
 
     chunks = code_chunker.chunk_by_entity(entities, file_content)
@@ -536,9 +546,13 @@ def test_chunk_by_entity_empty_file(code_chunker):
     assert len(chunks) == 0
 
 
-def test_chunk_by_entity_no_entities(code_chunker):
+def test_chunk_by_entity_no_entities(code_chunker: CodeChunker) -> None:
     """Test chunking file with no recognized entities."""
-    entities = {"functions": [], "classes": [], "imports": []}
+    entities: dict[str, list[dict[str, Any]]] = {
+        "functions": [],
+        "classes": [],
+        "imports": [],
+    }
     file_content = """# Just comments and constants
 CONSTANT = 42
 
@@ -552,10 +566,10 @@ DATA = [1, 2, 3]
     assert len(chunks) <= 1
 
 
-def test_performance_large_file(code_chunker):
+def test_performance_large_file(code_chunker: CodeChunker) -> None:
     """Test performance with large file."""
     # Create a large file with many entities
-    entities = {
+    entities: dict[str, list[dict[str, Any]]] = {
         "functions": [
             {
                 "name": f"func{i}",

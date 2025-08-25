@@ -3,10 +3,11 @@
 from typing import Any
 
 from sqlalchemy import and_, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from src.database import get_session_factory, init_database
 from src.database.models import Class, File, Function, Module
+from src.database.repositories import CodeEntityRepo
 from src.logger import get_logger
 from src.query.aggregator import CodeAggregator
 
@@ -22,14 +23,18 @@ class ExplainTool:
     """MCP tool for explaining code entities."""
 
     def __init__(self) -> None:
-        self._engine = None
-        self._session_factory = None
+        self._engine: AsyncEngine | None = None
+        self._session_factory: async_sessionmaker[AsyncSession] | None = None
 
-    async def _get_session_factory(self):
+    async def _get_session_factory(self) -> async_sessionmaker[AsyncSession]:
         """Get database session factory, initializing if needed."""
         if self._session_factory is None:
-            self._engine = await init_database()
-            self._session_factory = get_session_factory(self._engine)
+            engine = await init_database()
+            self._engine = engine
+            # sessionmaker returns a sessionmaker[AsyncSession]
+            factory = get_session_factory(engine)
+            self._session_factory = factory
+        assert self._session_factory is not None
         return self._session_factory
 
     async def explain_code(self, path: str) -> str:
@@ -47,8 +52,9 @@ class ExplainTool:
         try:
             session_factory = await self._get_session_factory()
             async with session_factory() as session:
+                entity_repo = CodeEntityRepo(session)
                 # Parse the path to determine entity type and location
-                entity_info = await self._parse_code_path(path, session)
+                entity_info = await self._parse_code_path(path, session, entity_repo)
 
                 if not entity_info:
                     return f"Could not find code element at path: {path}"
@@ -58,7 +64,7 @@ class ExplainTool:
                 explanation = await aggregator.explain_entity(
                     entity_type=entity_info["type"],
                     entity_id=entity_info["id"],
-                    include_code=False,
+                    _include_code=False,
                 )
 
                 # Format explanation as text
@@ -69,7 +75,7 @@ class ExplainTool:
             return f"Error explaining code: {e!s}"
 
     async def _parse_code_path(
-        self, path: str, session: AsyncSession
+        self, path: str, session: AsyncSession, entity_repo: CodeEntityRepo
     ) -> dict[str, Any] | None:
         """Parse a code path to find the entity."""
         # Check if it's a file path
@@ -89,7 +95,7 @@ class ExplainTool:
                     break
 
             if file:
-                result = await self.session.execute(
+                result = await session.execute(
                     select(Module).where(Module.file_id == file.id).limit(1),
                 )
                 module = result.scalar_one_or_none()
@@ -102,7 +108,7 @@ class ExplainTool:
         # Try to find by name
         if len(parts) == 1:
             # Single name - could be function, class, or module
-            results = await self.entity_repo.find_by_name(parts[0])
+            results = await entity_repo.find_by_name(parts[0])
             if results:
                 entity = results[0]
                 return {"type": entity["type"], "id": entity["entity"].id}
@@ -110,14 +116,14 @@ class ExplainTool:
         elif len(parts) == MIN_CLASS_METHODS:
             # Could be module.function or class.method
             # First try module.function
-            module_results = await self.entity_repo.find_by_name(
+            module_results = await entity_repo.find_by_name(
                 parts[0],
                 "module",
             )
             if module_results:
                 module = module_results[0]["entity"]
                 # Look for function in this module
-                result = await self.session.execute(
+                result = await session.execute(
                     select(Function)
                     .where(
                         and_(
@@ -133,14 +139,14 @@ class ExplainTool:
                     return {"type": "function", "id": func.id}
 
             # Try class.method
-            class_results = await self.entity_repo.find_by_name(
+            class_results = await entity_repo.find_by_name(
                 parts[0],
                 "class",
             )
             if class_results:
                 cls = class_results[0]["entity"]
                 # Look for method in this class
-                result = await self.session.execute(
+                result = await session.execute(
                     select(Function)
                     .where(
                         and_(
@@ -156,14 +162,14 @@ class ExplainTool:
 
         elif len(parts) >= MIN_MODULE_COMPONENTS:
             # module.class.method
-            module_results = await self.entity_repo.find_by_name(
+            module_results = await entity_repo.find_by_name(
                 parts[0],
                 "module",
             )
             if module_results:
                 module = module_results[0]["entity"]
                 # Look for class in module
-                result = await self.session.execute(
+                result = await session.execute(
                     select(Class)
                     .where(
                         and_(
@@ -177,7 +183,7 @@ class ExplainTool:
                 if cls:
                     if len(parts) == MIN_MODULE_COMPONENTS:
                         # Look for method
-                        result = await self.session.execute(
+                        result = await session.execute(
                             select(Function)
                             .where(
                                 and_(

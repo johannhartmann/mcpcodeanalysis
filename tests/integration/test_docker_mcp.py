@@ -5,7 +5,9 @@ import json
 import os
 import subprocess
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -20,7 +22,7 @@ class TestDockerMCPIntegration:
         return "http://localhost:8080/mcp/"
 
     @pytest.fixture
-    def test_repo_path(self):
+    def test_repo_path(self) -> Iterator[Path]:
         """Create a test Git repository."""
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_path = Path(tmpdir) / "test_repo"
@@ -55,7 +57,9 @@ class Calculator:
 
             yield repo_path
 
-    async def send_mcp_request(self, url: str, method: str, params: dict | None = None):
+    async def send_mcp_request(
+        self, url: str, method: str, params: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
         """Send an MCP request to the server."""
         request_data = {
             "jsonrpc": "2.0",
@@ -97,7 +101,7 @@ class Calculator:
         "CI" not in os.environ,
         reason="Requires Docker MCP server to be running",
     )
-    async def test_list_tools(self, mcp_server_url) -> None:
+    async def test_list_tools(self, mcp_server_url: str) -> None:
         """Test listing available tools."""
         try:
             result = await self.send_mcp_request(mcp_server_url, "tools/list")
@@ -136,8 +140,8 @@ class Calculator:
     )
     async def test_add_and_scan_repository(
         self,
-        mcp_server_url,
-        test_repo_path,
+        mcp_server_url: str,
+        test_repo_path: Path,
     ) -> None:
         """Test adding and scanning a repository."""
         # First, list repositories to check initial state
@@ -192,7 +196,9 @@ class Calculator:
         "CI" not in os.environ,
         reason="Requires Docker MCP server to be running",
     )
-    async def test_search_functionality(self, mcp_server_url, test_repo_path) -> None:
+    async def test_search_functionality(
+        self, mcp_server_url: str, test_repo_path: Path
+    ) -> None:
         """Test search functionality after indexing."""
         # Add and scan repository
         add_result = await self.send_mcp_request(
@@ -247,7 +253,7 @@ class Calculator:
         "CI" not in os.environ,
         reason="Requires Docker MCP server to be running",
     )
-    async def test_get_code(self, mcp_server_url, test_repo_path) -> None:
+    async def test_get_code(self, mcp_server_url: str, test_repo_path: Path) -> None:
         """Test getting code for a specific entity."""
         # Add and scan repository
         add_result = await self.send_mcp_request(

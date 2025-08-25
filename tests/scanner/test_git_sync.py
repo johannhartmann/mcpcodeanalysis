@@ -2,6 +2,7 @@
 
 import hashlib
 from pathlib import Path
+from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import git
@@ -13,7 +14,7 @@ from src.utils.exceptions import RepositoryError
 
 
 @pytest.fixture
-def git_sync(tmp_path):
+def git_sync(tmp_path: Path) -> Any:
     """Create GitSync fixture with temporary storage."""
     with patch("src.scanner.git_sync.settings") as mock_settings:
         mock_settings.scanner.root_paths = [str(tmp_path / "repos")]
@@ -28,7 +29,7 @@ def git_sync(tmp_path):
 
 
 @pytest.fixture
-def mock_repo():
+def mock_repo() -> git.Repo:
     """Create mock git repository."""
     repo = MagicMock(spec=git.Repo)
     repo.working_dir = "/tmp/test_repo"  # nosec B108 - mock path for testing
@@ -43,7 +44,7 @@ def mock_repo():
 class TestGitSync:
     """Tests for GitSync class."""
 
-    def test_init(self, tmp_path) -> None:
+    def test_init(self, tmp_path: Path) -> None:
         """Test GitSync initialization."""
         with patch("src.scanner.git_sync.settings") as mock_settings:
             mock_settings.scanner.root_paths = [str(tmp_path / "repos")]
@@ -52,12 +53,12 @@ class TestGitSync:
             assert sync.storage_path == tmp_path / "repos"
             assert sync.storage_path.exists()
 
-    def test_get_repo_path(self, git_sync) -> None:
+    def test_get_repo_path(self, git_sync: GitSync) -> None:
         """Test repository path generation."""
         path = git_sync._get_repo_path("test-owner", "test-repo")
         assert path == git_sync.storage_path / "test-owner" / "test-repo"
 
-    def testextract_owner_repo_https(self, git_sync) -> None:
+    def testextract_owner_repo_https(self, git_sync: GitSync) -> None:
         """Test extracting owner and repo from HTTPS URL."""
         owner, repo = git_sync.extract_owner_repo(
             "https://github.com/test-owner/test-repo",
@@ -72,7 +73,7 @@ class TestGitSync:
         assert owner == "test-owner"
         assert repo == "test-repo"
 
-    def testextract_owner_repo_ssh(self, git_sync) -> None:
+    def testextract_owner_repo_ssh(self, git_sync: GitSync) -> None:
         """Test extracting owner and repo from SSH URL."""
         owner, repo = git_sync.extract_owner_repo(
             "git@github.com:test-owner/test-repo.git",
@@ -80,7 +81,7 @@ class TestGitSync:
         assert owner == "test-owner"
         assert repo == "test-repo"
 
-    def test_extract_owner_repo_invalid(self, git_sync) -> None:
+    def test_extract_owner_repo_invalid(self, git_sync: GitSync) -> None:
         """Test extracting owner and repo from invalid URL."""
         from src.utils.exceptions import ValidationError
 
@@ -91,7 +92,9 @@ class TestGitSync:
             git_sync.extract_owner_repo("https://github.com/invalid-path")
 
     @pytest.mark.asyncio
-    async def test_clone_repository_success(self, git_sync, mock_repo) -> None:
+    async def test_clone_repository_success(
+        self, git_sync: GitSync, mock_repo: git.Repo
+    ) -> None:
         """Test successful repository cloning."""
         with patch("git.Repo.clone_from", return_value=mock_repo) as mock_clone:
             repo = await git_sync.clone_repository(
@@ -109,7 +112,9 @@ class TestGitSync:
             assert call_args[1]["depth"] == 1
 
     @pytest.mark.asyncio
-    async def test_clone_repository_with_token(self, git_sync, mock_repo) -> None:
+    async def test_clone_repository_with_token(
+        self, git_sync: GitSync, mock_repo: git.Repo
+    ) -> None:
         """Test repository cloning with access token."""
         with patch("git.Repo.clone_from", return_value=mock_repo) as mock_clone:
             await git_sync.clone_repository(
@@ -122,7 +127,9 @@ class TestGitSync:
             assert "test_token@github.com" in call_args[0][0]
 
     @pytest.mark.asyncio
-    async def test_clone_repository_already_exists(self, git_sync, mock_repo) -> None:
+    async def test_clone_repository_already_exists(
+        self, git_sync: GitSync, mock_repo: git.Repo
+    ) -> None:
         """Test cloning when repository already exists."""
         repo_path = git_sync._get_repo_path("test-owner", "test-repo")
         repo_path.mkdir(parents=True)
@@ -143,7 +150,7 @@ class TestGitSync:
             mock_update.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_clone_repository_git_error(self, git_sync) -> None:
+    async def test_clone_repository_git_error(self, git_sync: GitSync) -> None:
         """Test repository cloning with git error."""
         with (
             patch(
@@ -157,7 +164,9 @@ class TestGitSync:
             )
 
     @pytest.mark.asyncio
-    async def test_update_repository_success(self, git_sync, mock_repo) -> None:
+    async def test_update_repository_success(
+        self, git_sync: GitSync, mock_repo: git.Repo
+    ) -> None:
         """Test successful repository update."""
         repo_path = git_sync._get_repo_path("test-owner", "test-repo")
         repo_path.mkdir(parents=True)
@@ -169,11 +178,14 @@ class TestGitSync:
             )
 
             assert repo == mock_repo
-            mock_repo.remotes.origin.fetch.assert_called_once()
-            mock_repo.remotes.origin.pull.assert_called_once_with("main")
+            # Verify calls via MagicMock attributes
+            assert cast("Any", mock_repo.remotes.origin.fetch).call_count == 1
+            assert cast("Any", mock_repo.remotes.origin.pull).call_args[0][0] == "main"
 
     @pytest.mark.asyncio
-    async def test_update_repository_not_exists(self, git_sync, mock_repo) -> None:
+    async def test_update_repository_not_exists(
+        self, git_sync: GitSync, mock_repo: git.Repo
+    ) -> None:
         """Test updating non-existent repository."""
         with patch.object(
             git_sync,
@@ -188,7 +200,9 @@ class TestGitSync:
             mock_clone.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_update_repository_invalid_repo(self, git_sync, mock_repo) -> None:
+    async def test_update_repository_invalid_repo(
+        self, git_sync: GitSync, mock_repo: git.Repo
+    ) -> None:
         """Test updating invalid repository directory."""
         repo_path = git_sync._get_repo_path("test-owner", "test-repo")
         repo_path.mkdir(parents=True)
@@ -207,7 +221,9 @@ class TestGitSync:
                 mock_clone.assert_called_once()
                 assert not repo_path.exists()  # Should be removed
 
-    def test_get_repository_exists(self, git_sync, mock_repo) -> None:
+    def test_get_repository_exists(
+        self, git_sync: GitSync, mock_repo: git.Repo
+    ) -> None:
         """Test getting existing repository."""
         repo_path = git_sync._get_repo_path("test-owner", "test-repo")
         repo_path.mkdir(parents=True)
@@ -216,12 +232,12 @@ class TestGitSync:
             repo = git_sync.get_repository("https://github.com/test-owner/test-repo")
             assert repo == mock_repo
 
-    def test_get_repository_not_exists(self, git_sync) -> None:
+    def test_get_repository_not_exists(self, git_sync: GitSync) -> None:
         """Test getting non-existent repository."""
         repo = git_sync.get_repository("https://github.com/test-owner/test-repo")
         assert repo is None
 
-    def test_get_file_hash(self, git_sync, tmp_path) -> None:
+    def test_get_file_hash(self, git_sync: GitSync, tmp_path: Path) -> None:
         """Test file hash calculation."""
         test_file = tmp_path / "test.txt"
         test_content = b"Hello, World!"
@@ -234,7 +250,9 @@ class TestGitSync:
         assert hash_value == expected_hash
 
     @pytest.mark.asyncio
-    async def test_get_changed_files(self, git_sync, mock_repo) -> None:
+    async def test_get_changed_files(
+        self, git_sync: GitSync, mock_repo: git.Repo
+    ) -> None:
         """Test getting changed files."""
         # Mock diff items
         diff_item1 = MagicMock()
@@ -253,8 +271,11 @@ class TestGitSync:
 
         mock_commit = MagicMock()
         mock_commit.diff.return_value = [diff_item1, diff_item2]
-        mock_repo.commit.return_value = mock_commit
-        mock_repo.head.commit = MagicMock()
+        cast("Any", mock_repo).commit.return_value = mock_commit
+        # Provide a MagicMock for head with a commit attribute
+        head_mock = MagicMock()
+        cast("Any", mock_repo).head = head_mock
+        head_mock.commit = MagicMock()
 
         changed_files = await git_sync.get_changed_files(mock_repo, "abc123")
 
@@ -265,7 +286,9 @@ class TestGitSync:
         assert changed_files["src/added.py"]["change_type"] == "added"
 
     @pytest.mark.asyncio
-    async def test_scan_repository_files(self, git_sync, tmp_path) -> None:
+    async def test_scan_repository_files(
+        self, git_sync: GitSync, tmp_path: Path
+    ) -> None:
         """Test scanning repository files."""
         # Create mock repository structure
         repo_path = tmp_path / "test_repo"
@@ -294,7 +317,7 @@ class TestGitSync:
         assert "src/data.json" not in file_paths
         assert "__pycache__" not in str(file_paths)
 
-    def test_detect_language(self, git_sync) -> None:
+    def test_detect_language(self, git_sync: GitSync) -> None:
         """Test language detection from file extension."""
         test_cases = [
             (Path("test.py"), "python"),
@@ -309,7 +332,7 @@ class TestGitSync:
         for file_path, expected_language in test_cases:
             assert git_sync._detect_language(file_path) == expected_language
 
-    def test_get_commit_info(self, git_sync, mock_repo) -> None:
+    def test_get_commit_info(self, git_sync: GitSync, mock_repo: git.Repo) -> None:
         """Test getting commit information."""
         mock_commit = MagicMock()
         mock_commit.hexsha = "abc123def456"
@@ -320,7 +343,7 @@ class TestGitSync:
         mock_commit.stats.files = {"file1.py": {}, "file2.py": {}}
         mock_commit.stats.total = {"insertions": 10, "deletions": 5}
 
-        mock_repo.commit.return_value = mock_commit
+        cast("Any", mock_repo).commit.return_value = mock_commit
 
         info = git_sync.get_commit_info(mock_repo, "abc123")
 
@@ -333,7 +356,9 @@ class TestGitSync:
         assert info["deletions"] == 5
 
     @pytest.mark.asyncio
-    async def test_get_recent_commits(self, git_sync, mock_repo) -> None:
+    async def test_get_recent_commits(
+        self, git_sync: GitSync, mock_repo: git.Repo
+    ) -> None:
         """Test getting recent commits."""
         # Create mock commits
         commits = []
@@ -348,7 +373,7 @@ class TestGitSync:
             commit.stats.total = {"insertions": i, "deletions": 0}
             commits.append(commit)
 
-        mock_repo.iter_commits.return_value = commits
+        cast("Any", mock_repo).iter_commits.return_value = commits
 
         with patch.object(git_sync, "get_commit_info") as mock_get_info:
             mock_get_info.side_effect = lambda r, sha: {

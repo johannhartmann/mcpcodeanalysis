@@ -2,6 +2,7 @@
 
 import asyncio
 import time
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -12,7 +13,7 @@ from src.scanner.code_processor import CodeProcessor
 
 
 @pytest.fixture
-def mock_files():
+def mock_files() -> list[File]:
     """Create mock file records for testing."""
     files = []
     for i in range(20):
@@ -26,7 +27,7 @@ def mock_files():
 
 
 @pytest.fixture
-def mock_extractor():
+def mock_extractor() -> Any:
     """Mock the code extractor."""
     with patch("src.scanner.code_processor.CodeExtractor") as mock:
         extractor = mock.return_value
@@ -41,8 +42,8 @@ def mock_extractor():
 
 @pytest.mark.asyncio
 async def test_sequential_vs_parallel_processing(
-    async_session: AsyncSession, mock_files, mock_extractor
-):
+    async_session: AsyncSession, mock_files: list[File], mock_extractor: Any
+) -> None:
     """Test that parallel processing is faster than sequential for many files."""
     # Create processor with parallel disabled
     sequential_processor = CodeProcessor(
@@ -52,7 +53,7 @@ async def test_sequential_vs_parallel_processing(
     )
 
     # Mock the actual file processing to simulate some work
-    async def mock_process_file(file_record):
+    async def mock_process_file(file_record: File) -> dict[str, Any]:
         await asyncio.sleep(0.1)  # Simulate processing time
         return {
             "file_id": file_record.id,
@@ -65,7 +66,9 @@ async def test_sequential_vs_parallel_processing(
             },
         }
 
-    sequential_processor.process_file = mock_process_file
+    from typing import cast
+
+    cast("Any", sequential_processor).process_file = mock_process_file
 
     # Time sequential processing
     start_time = time.time()
@@ -79,27 +82,33 @@ async def test_sequential_vs_parallel_processing(
         enable_parallel=True,
     )
 
-    # Mock the ParallelSessionManager
-    mock_manager_instance = AsyncMock()
-
     # Mock execute_parallel to simulate parallel execution
-    async def mock_execute_parallel(items, func, batch_size):
+    async def mock_execute_parallel(
+        items: list[File], func: Any, batch_size: int
+    ) -> list[dict[str, Any]]:
         # Simulate parallel execution with reduced time
-        results = []
+        results: list[dict[str, Any]] = []
+        # Note: emulate ParallelSessionManager behavior: func(item, session)
         for item in items:
-            # Each item processed in "parallel" (simulated)
             result = await func(item, async_session)
             results.append(result)
-        # Sleep less to simulate parallelism benefit
         await asyncio.sleep(0.05 * len(items))
         return results
 
-    mock_manager_instance.execute_parallel = mock_execute_parallel
+    # Assign to attribute on the AsyncMock's spec via cast to Any to satisfy mypy
+    # Bind as attribute on a simple stub object instead of AsyncMock to satisfy mypy
+    class _PMStub:
+        async def execute_parallel(
+            self, items: list[File], func: Any, batch_size: int
+        ) -> list[dict[str, Any]]:
+            return await mock_execute_parallel(items, func, batch_size)
+
+    pm_stub = _PMStub()
 
     with patch(
         "src.scanner.code_processor.ParallelSessionManager"
     ) as mock_parallel_manager:
-        mock_parallel_manager.return_value = mock_manager_instance
+        mock_parallel_manager.return_value = pm_stub
 
         # Mock async_sessionmaker
         with patch(
@@ -125,8 +134,8 @@ async def test_sequential_vs_parallel_processing(
 
 @pytest.mark.asyncio
 async def test_parallel_processing_error_handling(
-    async_session: AsyncSession, mock_files
-):
+    async_session: AsyncSession, mock_files: list[File]
+) -> None:
     """Test that parallel processing handles errors gracefully."""
     processor = CodeProcessor(
         async_session,
@@ -139,7 +148,7 @@ async def test_parallel_processing_error_handling(
         mock_pm_instance = AsyncMock()
 
         # Track calls and simulate errors
-        results = []
+        results: list[dict[str, Any] | None] = []
         for i in range(9):
             if (i + 1) % 3 == 0:
                 results.append(None)  # Simulate error
@@ -172,8 +181,8 @@ async def test_parallel_processing_error_handling(
 
 @pytest.mark.asyncio
 async def test_parallel_processing_respects_batch_size(
-    async_session: AsyncSession, mock_files
-):
+    async_session: AsyncSession, mock_files: list[File]
+) -> None:
     """Test that parallel processing respects batch size limits."""
     processor = CodeProcessor(
         async_session,
@@ -188,7 +197,9 @@ async def test_parallel_processing_respects_batch_size(
         # Track the batch_size argument
         actual_batch_size = None
 
-        async def track_batch_size(items, func, batch_size):
+        async def track_batch_size(
+            items: list[File], func: Any, batch_size: int
+        ) -> list[dict[str, Any]]:
             nonlocal actual_batch_size
             actual_batch_size = batch_size
             # Return dummy results
@@ -223,7 +234,7 @@ async def test_parallel_processing_respects_batch_size(
 
 
 @pytest.mark.asyncio
-async def test_enable_disable_parallel_processing(async_session: AsyncSession):
+async def test_enable_disable_parallel_processing(async_session: AsyncSession) -> None:
     """Test enabling and disabling parallel processing."""
     processor = CodeProcessor(
         async_session,

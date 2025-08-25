@@ -13,8 +13,8 @@ class ParserFactory:
     """Factory for creating language-specific parsers."""
 
     # Legacy mappings maintained for backward compatibility
-    _parsers: ClassVar[dict[str, type]] = {}
-    _language_parsers: ClassVar[dict[str, type]] = {}
+    _parsers: ClassVar[dict[str, type[object]]] = {}
+    _language_parsers: ClassVar[dict[str, type[object]]] = {}
 
     @classmethod
     def create_parser(cls, file_path: Path) -> object | None:
@@ -85,7 +85,7 @@ class ParserFactory:
         return LanguagePluginRegistry.get_supported_languages()
 
     @classmethod
-    def register_parser(cls, extension: str, parser_class: type) -> None:
+    def register_parser(cls, extension: str, parser_class: type[object]) -> None:
         """Register a new parser for a file extension."""
         cls._parsers[extension.lower()] = parser_class
         logger.info(
@@ -95,7 +95,9 @@ class ParserFactory:
         )
 
     @classmethod
-    def register_language_parser(cls, language: str, parser_class: type) -> None:
+    def register_language_parser(
+        cls, language: str, parser_class: type[object]
+    ) -> None:
         """Register a new parser for a language."""
         cls._language_parsers[language.lower()] = parser_class
         logger.info(

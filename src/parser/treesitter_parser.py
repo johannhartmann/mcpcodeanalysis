@@ -1,32 +1,41 @@
 """TreeSitter parser for code analysis."""
 
-from pathlib import Path
-from typing import Any
+from __future__ import annotations
+
+from importlib import import_module
+from typing import TYPE_CHECKING, Any, TypedDict
 
 import tree_sitter
 import tree_sitter_java as tsjava
 import tree_sitter_php as tsphp
 import tree_sitter_python as tspython
 
-# Optional TreeSitter language imports with error handling
-try:
-    import tree_sitter_javascript as tsjavascript
+from src.logger import get_logger
+from src.parser.complexity_calculator import ComplexityCalculator
 
+if TYPE_CHECKING:
+    from pathlib import Path
+    from types import ModuleType
+
+# Optional TreeSitter language imports with error handling
+JAVASCRIPT_AVAILABLE = False
+TYPESCRIPT_AVAILABLE = False
+
+# These module variables are optional and may be None at runtime
+tsjavascript: ModuleType | None = None
+tstypescript: ModuleType | None = None
+
+try:
+    tsjavascript = import_module("tree_sitter_javascript")
     JAVASCRIPT_AVAILABLE = True
 except ImportError:
     JAVASCRIPT_AVAILABLE = False
-    tsjavascript = None
 
 try:
-    import tree_sitter_typescript as tstypescript
-
+    tstypescript = import_module("tree_sitter_typescript")
     TYPESCRIPT_AVAILABLE = True
 except ImportError:
     TYPESCRIPT_AVAILABLE = False
-    tstypescript = None
-
-from src.logger import get_logger
-from src.parser.complexity_calculator import ComplexityCalculator
 
 logger = get_logger(__name__)
 
@@ -34,9 +43,9 @@ logger = get_logger(__name__)
 class TreeSitterParser:
     """Base TreeSitter parser."""
 
-    def __init__(self, language=None) -> None:
-        self.language = language
-        if language:
+    def __init__(self, language: tree_sitter.Language | None = None) -> None:
+        self.language: tree_sitter.Language | None = language
+        if language is not None:
             self.parser = tree_sitter.Parser(language)
         else:
             self.parser = tree_sitter.Parser()
@@ -60,8 +69,15 @@ class TreeSitterParser:
         try:
             return self.parser.parse(content)
         except Exception:
-            logger.exception("Error parsing content: %s")
+            logger.exception("Error parsing content: %s", content[:100])
             return None
+
+    def require_language(self) -> tree_sitter.Language:
+        """Return the configured language or raise if missing (for typing)."""
+        if self.language is None:
+            msg = "Language not set for parser"
+            raise ValueError(msg)
+        return self.language
 
     def get_node_text(self, node: tree_sitter.Node, content: bytes) -> str:
         """Get text content of a node."""
@@ -113,13 +129,55 @@ class TreeSitterParser:
         return None
 
 
+class PyImportData(TypedDict, total=False):
+    import_statement: str
+    imported_from: str | None
+    imported_names: list[str]
+    is_relative: bool
+    level: int
+    line_number: int
+
+
+class PyFuncParam(TypedDict, total=False):
+    name: str | None
+    type: str | None
+    default: str | None
+
+
+class PyFuncData(TypedDict, total=False):
+    name: str | None
+    parameters: list[PyFuncParam]
+    return_type: str | None
+    docstring: str | None
+    decorators: list[str]
+    is_async: bool
+    is_generator: bool
+    is_property: bool
+    is_staticmethod: bool
+    is_classmethod: bool
+    start_line: int
+    end_line: int
+    complexity: int
+
+
+class PyClassData(TypedDict, total=False):
+    name: str | None
+    docstring: str | None
+    base_classes: list[str]
+    decorators: list[str]
+    start_line: int
+    end_line: int
+    is_abstract: bool
+    methods: list[PyFuncData]
+
+
 class PythonParser(TreeSitterParser):
     """Python-specific TreeSitter parser."""
 
     def __init__(self) -> None:
         self.language = tree_sitter.Language(tspython.language())
         super().__init__(self.language)
-        self.complexity_calculator = ComplexityCalculator()
+        self.complexity_calculator = ComplexityCalculator(use_plugin=False)
 
     def extract_imports(  # noqa: PLR0912
         self,
@@ -127,12 +185,12 @@ class PythonParser(TreeSitterParser):
         content: bytes,
     ) -> list[dict[str, Any]]:
         """Extract import statements."""
-        imports = []
+        imports: list[dict[str, Any]] = []
 
         # Find import statements
         import_nodes = self.find_nodes_by_type(tree.root_node, "import_statement")
         for node in import_nodes:
-            import_data = {
+            import_data: dict[str, Any] = {
                 "import_statement": self.get_node_text(node, content),
                 "imported_from": None,
                 "imported_names": [],
@@ -223,7 +281,8 @@ class PythonParser(TreeSitterParser):
         parent_class: tree_sitter.Node | None = None,
     ) -> list[dict[str, Any]]:
         """Extract function definitions."""
-        functions = []
+        functions: list[dict[str, Any]] = []
+
         root = parent_class if parent_class else tree.root_node
 
         # When extracting module-level functions, we need to exclude those inside classes
@@ -252,7 +311,7 @@ class PythonParser(TreeSitterParser):
             ]
 
         for node in function_nodes:
-            func_data = {
+            func_data: dict[str, Any] = {
                 "name": None,
                 "parameters": [],
                 "return_type": None,
@@ -274,7 +333,8 @@ class PythonParser(TreeSitterParser):
                     break
 
             # Extract decorators
-            decorator_nodes = []
+            decorator_nodes: list[tree_sitter.Node] = []
+
             prev_sibling = node.prev_sibling
             while prev_sibling and prev_sibling.type == "decorator":
                 decorator_nodes.insert(0, prev_sibling)
@@ -337,12 +397,12 @@ class PythonParser(TreeSitterParser):
         content: bytes,
     ) -> list[dict[str, Any]]:
         """Extract class definitions."""
-        classes = []
+        classes: list[dict[str, Any]] = []
 
         class_nodes = self.find_nodes_by_type(tree.root_node, "class_definition")
 
         for node in class_nodes:
-            class_data = {
+            class_data: dict[str, Any] = {
                 "name": None,
                 "docstring": None,
                 "base_classes": [],
@@ -354,7 +414,7 @@ class PythonParser(TreeSitterParser):
             }
 
             # Extract decorators
-            decorator_nodes = []
+            decorator_nodes: list[tree_sitter.Node] = []
             prev_sibling = node.prev_sibling
             while prev_sibling and prev_sibling.type == "decorator":
                 decorator_nodes.insert(0, prev_sibling)
@@ -418,7 +478,7 @@ class PythonParser(TreeSitterParser):
         content: bytes,
     ) -> list[dict[str, Any]]:
         """Extract function parameters."""
-        parameters = []
+        parameters: list[dict[str, Any]] = []
 
         for child in params_node.children:
             if child.type in (
@@ -427,7 +487,7 @@ class PythonParser(TreeSitterParser):
                 "typed_default_parameter",
                 "default_parameter",
             ):
-                param_data = {
+                param_data: dict[str, Any] = {
                     "name": None,
                     "type": None,
                     "default": None,
@@ -507,7 +567,7 @@ class PHPParser(TreeSitterParser):
         self.language = tree_sitter.Language(tsphp.language_php())
         super().__init__(self.language)
         self.complexity_calculator = ComplexityCalculator(language="php")
-        self.references = []
+        self.references: list[dict[str, Any]] = []
 
     def extract_imports(
         self,
@@ -520,6 +580,8 @@ class PHPParser(TreeSitterParser):
         # Find use statements
         use_nodes = self.find_nodes_by_type(tree.root_node, "namespace_use_declaration")
         for node in use_nodes:
+            import_data: dict[str, Any]
+
             import_data = {
                 "import_statement": self.get_node_text(node, content),
                 "imported_from": None,
@@ -577,6 +639,8 @@ class PHPParser(TreeSitterParser):
                 "method_declaration",
                 max_depth=4,
             )
+            func_data: dict[str, Any]
+
         else:
             # Module-level functions
             function_nodes = self.find_nodes_by_type(root, "function_definition")
@@ -666,11 +730,12 @@ class PHPParser(TreeSitterParser):
         content: bytes,
     ) -> list[dict[str, Any]]:
         """Extract class definitions."""
-        classes = []
+        classes: list[dict[str, Any]] = []
+
         class_nodes = self.find_nodes_by_type(tree.root_node, "class_declaration")
 
         for node in class_nodes:
-            class_data = {
+            class_data: dict[str, Any] = {
                 "name": None,
                 "docstring": None,
                 "base_classes": [],
@@ -727,11 +792,11 @@ class PHPParser(TreeSitterParser):
         content: bytes,
     ) -> list[dict[str, Any]]:
         """Extract function parameters."""
-        parameters = []
+        parameters: list[dict[str, Any]] = []
 
         for child in params_node.children:
             if child.type == "simple_parameter":
-                param_data = {
+                param_data: dict[str, Any] = {
                     "name": None,
                     "type": None,
                     "default": None,
@@ -774,8 +839,10 @@ class PHPParser(TreeSitterParser):
         """Extract module-level docstring (first comment block)."""
         # In PHP, look for the first comment block in the file
         for child in tree.root_node.children:
-            if child.type == "comment" and child.text.startswith(b"/**"):
-                return self._parse_docblock(self.get_node_text(child, content))
+            if child.type == "comment":
+                text = self.get_node_text(child, content)
+                if text.startswith("/**"):
+                    return self._parse_docblock(text)
         return None
 
     def _get_php_docstring(
@@ -786,12 +853,10 @@ class PHPParser(TreeSitterParser):
         """Extract PHP DocBlock comment."""
         # Look for comment just before the node
         prev_sibling = node.prev_sibling
-        if (
-            prev_sibling
-            and prev_sibling.type == "comment"
-            and prev_sibling.text.startswith(b"/**")
-        ):
-            return self._parse_docblock(self.get_node_text(prev_sibling, content))
+        if prev_sibling and prev_sibling.type == "comment":
+            text = prev_sibling.text
+            if text is not None and text.startswith(b"/**"):
+                return self._parse_docblock(self.get_node_text(prev_sibling, content))
         return None
 
     def _parse_docblock(self, docblock: str) -> str:
@@ -829,7 +894,7 @@ class PHPParser(TreeSitterParser):
         trait_nodes = self.find_nodes_by_type(tree.root_node, "trait_declaration")
 
         for node in trait_nodes:
-            trait_data = {
+            trait_data: dict[str, Any] = {
                 "name": None,
                 "docstring": None,
                 "methods": [],
@@ -968,7 +1033,7 @@ class JavaParser(TreeSitterParser):
         # Find import declarations
         import_nodes = self.find_nodes_by_type(tree.root_node, "import_declaration")
         for node in import_nodes:
-            import_data = {
+            import_data: dict[str, Any] = {
                 "import_statement": self.get_node_text(node, content),
                 "imported_from": None,
                 "imported_names": [],
@@ -1095,7 +1160,7 @@ class JavaParser(TreeSitterParser):
         function_nodes.extend(constructor_nodes)
 
         for node in function_nodes:
-            func_data = {
+            func_data: dict[str, Any] = {
                 "name": None,
                 "parameters": [],
                 "return_type": None,
@@ -1196,6 +1261,8 @@ class JavaParser(TreeSitterParser):
         all_class_nodes = self._collect_class_nodes(tree)
 
         for node in all_class_nodes:
+            class_data: dict[str, Any]
+
             class_data = {
                 "name": None,
                 "docstring": None,
@@ -1264,11 +1331,11 @@ class JavaParser(TreeSitterParser):
         content: bytes,
     ) -> list[dict[str, Any]]:
         """Extract function parameters."""
-        parameters = []
+        parameters: list[dict[str, Any]] = []
 
         for child in params_node.children:
             if child.type in ("formal_parameter", "spread_parameter"):
-                param_data = {
+                param_data: dict[str, Any] = {
                     "name": None,
                     "type": None,
                     "default": None,
@@ -1324,8 +1391,10 @@ class JavaParser(TreeSitterParser):
         """Extract module-level docstring (first JavaDoc comment)."""
         # In Java, look for the first block comment in the file
         for child in tree.root_node.children:
-            if child.type == "block_comment" and child.text.startswith(b"/**"):
-                return self._parse_javadoc(self.get_node_text(child, content))
+            if child.type == "block_comment":
+                text = child.text
+                if text is not None and text.startswith(b"/**"):
+                    return self._parse_javadoc(self.get_node_text(child, content))
         return None
 
     def _get_javadoc(
@@ -1336,12 +1405,10 @@ class JavaParser(TreeSitterParser):
         """Extract JavaDoc comment."""
         # Look for comment just before the node
         prev_sibling = node.prev_sibling
-        if (
-            prev_sibling
-            and prev_sibling.type == "block_comment"
-            and prev_sibling.text.startswith(b"/**")
-        ):
-            return self._parse_javadoc(self.get_node_text(prev_sibling, content))
+        if prev_sibling and prev_sibling.type == "block_comment":
+            text = prev_sibling.text
+            if text is not None and text.startswith(b"/**"):
+                return self._parse_javadoc(self.get_node_text(prev_sibling, content))
         return None
 
     def _parse_javadoc(self, javadoc: str) -> str:
@@ -1496,7 +1563,7 @@ class TypeScriptParser(TreeSitterParser):
         """Extract class definitions from TypeScript code."""
         classes = []
         query = tree_sitter.Query(
-            self.language,
+            self.require_language(),
             """
             (class_declaration
                 name: (type_identifier) @class_name
@@ -1545,7 +1612,7 @@ class TypeScriptParser(TreeSitterParser):
 
         # Function declarations
         query = tree_sitter.Query(
-            self.language,
+            self.require_language(),
             """
             (function_declaration
                 name: (identifier) @function_name
@@ -1561,26 +1628,29 @@ class TypeScriptParser(TreeSitterParser):
                 func_node = captures["function"][0]
                 func_name = self.get_node_text(captures["function_name"][0], content)
 
+                params_nodes = captures.get("params")
+                params_node = params_nodes[0] if params_nodes else None
+                body_nodes = captures.get("body")
+                body_node = body_nodes[0] if body_nodes else func_node
+
                 func_info = {
                     "name": func_name,
                     "start_line": func_node.start_point[0] + 1,
                     "end_line": func_node.end_point[0] + 1,
-                    "parameters": self._extract_ts_parameters(
-                        captures.get("params"), content
-                    ),
+                    "parameters": self._extract_ts_parameters(params_node, content),
                     "return_type": self._extract_return_type(func_node, content),
                     "access_modifier": "public",  # Default for functions
                     "decorators": self._extract_decorators(func_node, content),
                     "is_async": self._is_async_function(func_node, content),
                     "complexity": ComplexityCalculator(
                         "typescript"
-                    ).calculate_complexity(captures.get("body", func_node), content),
+                    ).calculate_complexity(body_node, content),
                 }
                 functions.append(func_info)
 
         # Arrow functions assigned to variables
         arrow_query = tree_sitter.Query(
-            self.language,
+            self.require_language(),
             """
             (variable_declaration
                 (variable_declarator
@@ -1621,7 +1691,7 @@ class TypeScriptParser(TreeSitterParser):
         """Extract import statements from TypeScript code."""
         imports = []
         query = tree_sitter.Query(
-            self.language,
+            self.require_language(),
             """
             (import_statement
                 source: (string) @source) @import
@@ -1654,14 +1724,15 @@ class TypeScriptParser(TreeSitterParser):
         """Extract export statements from TypeScript code."""
         exports = []
         query = tree_sitter.Query(
-            self.language,
+            self.require_language(),
             """
             (export_statement) @export
             """,
         )
 
         for match in query.matches(tree.root_node):
-            export_node = match[1][0][0]
+            captures = match[1]
+            export_node = captures["export"][0]
 
             export_info = {
                 "line": export_node.start_point[0] + 1,
@@ -1681,7 +1752,7 @@ class TypeScriptParser(TreeSitterParser):
         """Extract interface definitions from TypeScript code."""
         interfaces = []
         query = tree_sitter.Query(
-            self.language,
+            self.require_language(),
             """
             (interface_declaration
                 name: (type_identifier) @interface_name
@@ -1698,15 +1769,20 @@ class TypeScriptParser(TreeSitterParser):
                     captures["interface_name"][0], content
                 )
 
+                interface_body_nodes = captures.get("interface_body")
+                interface_body_node = (
+                    interface_body_nodes[0] if interface_body_nodes else None
+                )
+
                 interface_info = {
                     "name": interface_name,
                     "start_line": interface_node.start_point[0] + 1,
                     "end_line": interface_node.end_point[0] + 1,
                     "properties": self._extract_interface_properties(
-                        captures.get("interface_body"), content
+                        interface_body_node, content
                     ),
                     "methods": self._extract_interface_methods(
-                        captures.get("interface_body"), content
+                        interface_body_node, content
                     ),
                     "extends": self._extract_interface_extends(interface_node, content),
                 }
@@ -1722,7 +1798,7 @@ class TypeScriptParser(TreeSitterParser):
         """Extract type alias definitions from TypeScript code."""
         types = []
         query = tree_sitter.Query(
-            self.language,
+            self.require_language(),
             """
             (type_alias_declaration
                 name: (type_identifier) @type_name) @type_alias
@@ -1753,7 +1829,7 @@ class TypeScriptParser(TreeSitterParser):
         """Extract enum definitions from TypeScript code."""
         enums = []
         query = tree_sitter.Query(
-            self.language,
+            self.require_language(),
             """
             (enum_declaration
                 name: (identifier) @enum_name
@@ -1768,13 +1844,14 @@ class TypeScriptParser(TreeSitterParser):
                 enum_node = captures["enum"][0]
                 enum_name = self.get_node_text(captures["enum_name"][0], content)
 
+                enum_body_nodes = captures.get("enum_body")
+                enum_body_node = enum_body_nodes[0] if enum_body_nodes else None
+
                 enum_info = {
                     "name": enum_name,
                     "start_line": enum_node.start_point[0] + 1,
                     "end_line": enum_node.end_point[0] + 1,
-                    "members": self._extract_enum_members(
-                        captures.get("enum_body"), content
-                    ),
+                    "members": self._extract_enum_members(enum_body_node, content),
                 }
                 enums.append(enum_info)
 
@@ -1792,7 +1869,7 @@ class TypeScriptParser(TreeSitterParser):
         parameters = []
         for child in params_node.children:
             if child.type in ["required_parameter", "optional_parameter"]:
-                param_data = {
+                param_data: dict[str, Any] = {
                     "name": None,
                     "type": None,
                     "default": None,
@@ -1826,7 +1903,9 @@ class TypeScriptParser(TreeSitterParser):
                 return self.get_node_text(child, content)
         return "any"
 
-    def _extract_class_methods(self, body_node, content):
+    def _extract_class_methods(
+        self, body_node: tree_sitter.Node | None, content: bytes
+    ) -> list[dict[str, Any]]:
         """Extract methods from TypeScript class body."""
         if not body_node:
             return []
@@ -1870,7 +1949,9 @@ class TypeScriptParser(TreeSitterParser):
 
         return methods
 
-    def _extract_class_properties(self, body_node, content):
+    def _extract_class_properties(
+        self, body_node: tree_sitter.Node | None, content: bytes
+    ) -> list[dict[str, Any]]:
         """Extract properties from TypeScript class body."""
         if not body_node:
             return []
@@ -1905,7 +1986,9 @@ class TypeScriptParser(TreeSitterParser):
 
         return properties
 
-    def _extract_constructors(self, body_node, content):
+    def _extract_constructors(
+        self, body_node: tree_sitter.Node | None, content: bytes
+    ) -> list[dict[str, Any]]:
         """Extract constructors from TypeScript class body."""
         if not body_node:
             return []
@@ -1942,7 +2025,9 @@ class TypeScriptParser(TreeSitterParser):
 
         return constructors
 
-    def _extract_extends_clause(self, class_node, content):
+    def _extract_extends_clause(
+        self, class_node: tree_sitter.Node, content: bytes
+    ) -> list[str]:
         """Extract extends clause from TypeScript class."""
         for child in class_node.children:
             if child.type == "class_heritage":
@@ -1953,7 +2038,9 @@ class TypeScriptParser(TreeSitterParser):
                                 return [self.get_node_text(extends_child, content)]
         return []
 
-    def _extract_implements_clause(self, class_node, content):
+    def _extract_implements_clause(
+        self, class_node: tree_sitter.Node, content: bytes
+    ) -> list[str]:
         """Extract implements clause from TypeScript class."""
         interfaces = []
         for child in class_node.children:
@@ -1969,7 +2056,7 @@ class TypeScriptParser(TreeSitterParser):
                         )
         return interfaces
 
-    def _extract_decorators(self, node, content):
+    def _extract_decorators(self, node: tree_sitter.Node, content: bytes) -> list[str]:
         """Extract decorators from TypeScript node."""
         decorators = []
         for child in node.children:
@@ -1983,25 +2070,27 @@ class TypeScriptParser(TreeSitterParser):
                     decorators.append(decorator_name)
         return decorators
 
-    def _extract_class_modifiers(self, node, content):  # noqa: ARG002
+    def _extract_class_modifiers(self, node: tree_sitter.Node, _: bytes) -> str:
         """Extract class access modifiers."""
         for child in node.children:
             if child.type in ["public", "private", "protected"]:
                 return child.type
         return "public"
 
-    def _extract_return_type(self, func_node, content):
+    def _extract_return_type(self, func_node: tree_sitter.Node, content: bytes) -> str:
         """Extract return type from TypeScript function."""
         for child in func_node.children:
             if child.type == "type_annotation":
                 return self._extract_type_annotation(child, content)
         return "any"
 
-    def _is_async_function(self, func_node, content):  # noqa: ARG002
+    def _is_async_function(self, func_node: tree_sitter.Node, _: bytes) -> bool:
         """Check if function is async."""
         return any(child.type == "async" for child in func_node.children)
 
-    def _extract_arrow_parameters(self, arrow_node, content):
+    def _extract_arrow_parameters(
+        self, arrow_node: tree_sitter.Node, content: bytes
+    ) -> list[dict[str, Any]]:
         """Extract parameters from arrow function."""
         for child in arrow_node.children:
             if child.type == "formal_parameters":
@@ -2018,14 +2107,18 @@ class TypeScriptParser(TreeSitterParser):
                 ]
         return []
 
-    def _extract_arrow_return_type(self, arrow_node, content):
+    def _extract_arrow_return_type(
+        self, arrow_node: tree_sitter.Node, content: bytes
+    ) -> str:
         """Extract return type from arrow function."""
         for child in arrow_node.children:
             if child.type == "type_annotation":
                 return self._extract_type_annotation(child, content)
         return "any"
 
-    def _extract_import_specifiers(self, import_node, content):
+    def _extract_import_specifiers(
+        self, import_node: tree_sitter.Node, content: bytes
+    ) -> list[str]:
         """Extract import specifiers from import statement."""
         imports = []
         for child in import_node.children:
@@ -2045,7 +2138,7 @@ class TypeScriptParser(TreeSitterParser):
                         imports.append(self.get_node_text(clause_child, content))
         return imports
 
-    def _has_default_import(self, import_node, content):  # noqa: ARG002
+    def _has_default_import(self, import_node: tree_sitter.Node, _: bytes) -> bool:
         """Check if import has default import."""
         for child in import_node.children:
             if child.type == "import_clause":
@@ -2054,7 +2147,7 @@ class TypeScriptParser(TreeSitterParser):
                         return True
         return False
 
-    def _has_namespace_import(self, import_node, content):  # noqa: ARG002
+    def _has_namespace_import(self, import_node: tree_sitter.Node, _: bytes) -> bool:
         """Check if import has namespace import."""
         for child in import_node.children:
             if child.type == "import_clause":
@@ -2063,14 +2156,14 @@ class TypeScriptParser(TreeSitterParser):
                         return True
         return False
 
-    def _get_export_type(self, export_node, content):  # noqa: ARG002
+    def _get_export_type(self, export_node: tree_sitter.Node, _: bytes) -> str:
         """Get export type."""
         for child in export_node.children:
             if child.type == "default":
                 return "default"
         return "named"
 
-    def _get_export_name(self, export_node, content):
+    def _get_export_name(self, export_node: tree_sitter.Node, content: bytes) -> str:
         """Get export name."""
         for child in export_node.children:
             if child.type == "identifier":
@@ -2081,11 +2174,13 @@ class TypeScriptParser(TreeSitterParser):
                         return self.get_node_text(class_child, content)
         return ""
 
-    def _is_default_export(self, export_node, content):
+    def _is_default_export(self, export_node: tree_sitter.Node, content: bytes) -> bool:
         """Check if export is default export."""
         return self._get_export_type(export_node, content) == "default"
 
-    def _extract_interface_properties(self, body_node, content):
+    def _extract_interface_properties(
+        self, body_node: tree_sitter.Node | None, content: bytes
+    ) -> list[dict[str, Any]]:
         """Extract properties from TypeScript interface."""
         if not body_node:
             return []
@@ -2116,7 +2211,9 @@ class TypeScriptParser(TreeSitterParser):
 
         return properties
 
-    def _extract_interface_methods(self, body_node, content):
+    def _extract_interface_methods(
+        self, body_node: tree_sitter.Node | None, content: bytes
+    ) -> list[dict[str, Any]]:
         """Extract methods from TypeScript interface."""
         if not body_node:
             return []
@@ -2151,7 +2248,9 @@ class TypeScriptParser(TreeSitterParser):
 
         return methods
 
-    def _extract_interface_extends(self, interface_node, content):
+    def _extract_interface_extends(
+        self, interface_node: tree_sitter.Node, content: bytes
+    ) -> list[str]:
         """Extract extends clause from TypeScript interface."""
         extends = []
         for child in interface_node.children:
@@ -2165,14 +2264,18 @@ class TypeScriptParser(TreeSitterParser):
                 )
         return extends
 
-    def _extract_type_definition(self, type_node, content):
+    def _extract_type_definition(
+        self, type_node: tree_sitter.Node, content: bytes
+    ) -> str:
         """Extract type definition from TypeScript type alias."""
         for child in type_node.children:
             if child.type not in ["type", "type_identifier", "="]:
                 return self.get_node_text(child, content)
         return "any"
 
-    def _extract_enum_members(self, body_node, content):
+    def _extract_enum_members(
+        self, body_node: tree_sitter.Node | None, content: bytes
+    ) -> list[dict[str, Any]]:
         """Extract members from TypeScript enum."""
         if not body_node:
             return []
@@ -2352,7 +2455,7 @@ class JavaScriptParser(TreeSitterParser):
         """Extract class definitions from JavaScript code."""
         classes = []
         query = tree_sitter.Query(
-            self.language,
+            self.require_language(),
             """
             (class_declaration
                 name: (identifier) @class_name
@@ -2398,7 +2501,7 @@ class JavaScriptParser(TreeSitterParser):
 
         # Function declarations
         query = tree_sitter.Query(
-            self.language,
+            self.require_language(),
             """
             (function_declaration
                 name: (identifier) @function_name
@@ -2414,23 +2517,26 @@ class JavaScriptParser(TreeSitterParser):
                 func_node = captures["function"][0]
                 func_name = self.get_node_text(captures["function_name"][0], content)
 
+                params_nodes = captures.get("params")
+                params_node = params_nodes[0] if params_nodes else None
+                body_nodes = captures.get("body")
+                body_node = body_nodes[0] if body_nodes else func_node
+
                 func_info = {
                     "name": func_name,
                     "start_line": func_node.start_point[0] + 1,
                     "end_line": func_node.end_point[0] + 1,
-                    "parameters": self._extract_js_parameters(
-                        captures.get("params"), content
-                    ),
+                    "parameters": self._extract_js_parameters(params_node, content),
                     "is_async": self._is_async_function(func_node, content),
                     "complexity": ComplexityCalculator(
                         "javascript"
-                    ).calculate_complexity(captures.get("body", func_node), content),
+                    ).calculate_complexity(body_node, content),
                 }
                 functions.append(func_info)
 
         # Arrow functions
         arrow_query = tree_sitter.Query(
-            self.language,
+            self.require_language(),
             """
             (variable_declaration
                 (variable_declarator
@@ -2462,6 +2568,51 @@ class JavaScriptParser(TreeSitterParser):
 
         return functions
 
+    # Helper utilities for JavaScript exports/imports/async
+    def _is_async_function(self, func_node: tree_sitter.Node, _: bytes) -> bool:
+        """Check if function is async (JavaScript)."""
+        return any(child.type == "async" for child in func_node.children)
+
+    def _has_default_import(self, import_node: tree_sitter.Node, _: bytes) -> bool:
+        """Check if import has default import (JavaScript)."""
+        for child in import_node.children:
+            if child.type == "import_clause":
+                for clause_child in child.children:
+                    if clause_child.type == "identifier":
+                        return True
+        return False
+
+    def _has_namespace_import(self, import_node: tree_sitter.Node, _: bytes) -> bool:
+        """Check if import has namespace import (JavaScript)."""
+        for child in import_node.children:
+            if child.type == "import_clause":
+                for clause_child in child.children:
+                    if clause_child.type == "namespace_import":
+                        return True
+        return False
+
+    def _get_export_type(self, export_node: tree_sitter.Node, _: bytes) -> str:
+        """Get export type (JavaScript)."""
+        for child in export_node.children:
+            if child.type == "default":
+                return "default"
+        return "named"
+
+    def _get_export_name(self, export_node: tree_sitter.Node, content: bytes) -> str:
+        """Get export name (JavaScript)."""
+        for child in export_node.children:
+            if child.type == "identifier":
+                return self.get_node_text(child, content)
+            if child.type == "class_declaration":
+                for class_child in child.children:
+                    if class_child.type == "identifier":
+                        return self.get_node_text(class_child, content)
+        return ""
+
+    def _is_default_export(self, export_node: tree_sitter.Node, content: bytes) -> bool:
+        """Check if export is default export (JavaScript)."""
+        return self._get_export_type(export_node, content) == "default"
+
     def _extract_imports(
         self,
         tree: tree_sitter.Tree,
@@ -2470,7 +2621,7 @@ class JavaScriptParser(TreeSitterParser):
         """Extract import statements from JavaScript code."""
         imports = []
         query = tree_sitter.Query(
-            self.language,
+            self.require_language(),
             """
             (import_statement
                 source: (string) @source) @import
@@ -2503,14 +2654,15 @@ class JavaScriptParser(TreeSitterParser):
         """Extract export statements from JavaScript code."""
         exports = []
         query = tree_sitter.Query(
-            self.language,
+            self.require_language(),
             """
             (export_statement) @export
             """,
         )
 
         for match in query.matches(tree.root_node):
-            export_node = match[1][0][0]
+            captures = match[1]
+            export_node = captures["export"][0]
 
             export_info = {
                 "line": export_node.start_point[0] + 1,
@@ -2560,7 +2712,9 @@ class JavaScriptParser(TreeSitterParser):
 
         return parameters
 
-    def _extract_js_class_methods(self, body_node, content):
+    def _extract_js_class_methods(
+        self, body_node: tree_sitter.Node | None, content: bytes
+    ) -> list[dict[str, Any]]:
         """Extract methods from JavaScript class body."""
         if not body_node:
             return []
@@ -2600,7 +2754,9 @@ class JavaScriptParser(TreeSitterParser):
 
         return methods
 
-    def _extract_js_class_properties(self, body_node, content):
+    def _extract_js_class_properties(
+        self, body_node: tree_sitter.Node | None, content: bytes
+    ) -> list[dict[str, Any]]:
         """Extract properties from JavaScript class body."""
         if not body_node:
             return []
@@ -2627,7 +2783,9 @@ class JavaScriptParser(TreeSitterParser):
 
         return properties
 
-    def _extract_js_constructors(self, body_node, content):
+    def _extract_js_constructors(
+        self, body_node: tree_sitter.Node | None, content: bytes
+    ) -> list[dict[str, Any]]:
         """Extract constructors from JavaScript class body."""
         if not body_node:
             return []
@@ -2660,7 +2818,9 @@ class JavaScriptParser(TreeSitterParser):
 
         return constructors
 
-    def _extract_js_extends_clause(self, class_node, content):
+    def _extract_js_extends_clause(
+        self, class_node: tree_sitter.Node, content: bytes
+    ) -> list[str]:
         """Extract extends clause from JavaScript class."""
         for child in class_node.children:
             if child.type == "class_heritage":
@@ -2671,7 +2831,9 @@ class JavaScriptParser(TreeSitterParser):
                                 return [self.get_node_text(extends_child, content)]
         return []
 
-    def _extract_js_arrow_parameters(self, arrow_node, content):
+    def _extract_js_arrow_parameters(
+        self, arrow_node: tree_sitter.Node, content: bytes
+    ) -> list[dict[str, Any]]:
         """Extract parameters from JavaScript arrow function."""
         for child in arrow_node.children:
             if child.type == "formal_parameters":
@@ -2687,7 +2849,9 @@ class JavaScriptParser(TreeSitterParser):
                 ]
         return []
 
-    def _extract_js_import_specifiers(self, import_node, content):
+    def _extract_js_import_specifiers(
+        self, import_node: tree_sitter.Node, content: bytes
+    ) -> list[str]:
         """Extract import specifiers from JavaScript import statement."""
         imports = []
         for child in import_node.children:

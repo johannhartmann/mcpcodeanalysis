@@ -1,7 +1,7 @@
 """Utility functions for MCP tools."""
 
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -61,8 +61,14 @@ def format_function_signature(
             import json
 
             params = json.loads(parameters)
-            param_str = ", ".join(params)
-        except:
+            if isinstance(params, list):
+                param_str = ", ".join(str(p) for p in params)
+            elif isinstance(params, dict):
+                # Support dict-style {name: type}
+                param_str = ", ".join(f"{k}: {v}" for k, v in params.items())
+            else:
+                param_str = str(params)
+        except (ValueError, TypeError):
             param_str = ""
     else:
         param_str = ""
@@ -91,9 +97,9 @@ def format_timestamp(timestamp: datetime) -> str:
 
     # Ensure timezone awareness
     if timestamp.tzinfo is None:
-        timestamp = timestamp.replace(tzinfo=timezone.utc)
+        timestamp = timestamp.replace(tzinfo=UTC)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     delta = now - timestamp
 
     # Just now
@@ -153,10 +159,7 @@ def validate_file_path(path: str) -> bool:
         return False
 
     # Check for excessive path traversal
-    if path.count("..") > 3:
-        return False
-
-    return True
+    return not (path.count("..") > 3)
 
 
 def parse_entity_reference(reference: str) -> tuple[str | None, str | None, str | None]:
@@ -244,10 +247,20 @@ async def get_entity_by_type_and_id(
         Entity object or None
     """
     if not validate_entity_type(entity_type):
-        raise ValueError(f"Invalid entity type: {entity_type}")
+
+        class InvalidEntityTypeError(ValueError):
+            """Raised when an entity type is invalid."""
+
+            def __init__(self, entity_type: str) -> None:
+                super().__init__(f"Invalid entity type: {entity_type}")
+
+        raise InvalidEntityTypeError(entity_type)
 
     # Map types to models
-    type_map = {
+    from typing import cast
+
+    model_cls = type[Function] | type[Class] | type[Module] | type[File]
+    type_map: dict[str, model_cls] = {
         "function": Function,
         "class": Class,
         "module": Module,
@@ -257,9 +270,11 @@ async def get_entity_by_type_and_id(
     model = type_map[entity_type]
 
     # Query entity
-    result = await db_session.execute(select(model).where(model.id == entity_id))
+    result = await db_session.execute(
+        select(model).where(model.id == entity_id),
+    )
 
-    return result.scalar_one_or_none()
+    return cast("Function | Class | Module | File | None", result.scalar_one_or_none())
 
 
 async def get_file_content_safe(
@@ -276,13 +291,28 @@ async def get_file_content_safe(
         File content or None if error
     """
     try:
-        with open(file_path, encoding="utf-8") as f:
-            content = f.read(max_size)
-            return content
+        from pathlib import Path
+
+        path_obj = Path(file_path)
+        # Fail fast on very large files
+        try:
+            if path_obj.exists() and path_obj.stat().st_size > max_size:
+                return None
+        except OSError:
+            # If stat fails, fall back to best-effort read with size limit
+            pass
+
+        # Note: This async wrapper uses a threadpool to avoid blocking the event loop
+        import asyncio
+
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None, lambda: path_obj.read_text(encoding="utf-8")[:max_size]
+        )
     except (FileNotFoundError, PermissionError, OSError):
         return None
-    except Exception as e:
-        logger.error(f"Error reading file {file_path}: {e}")
+    except Exception:
+        logger.exception("Error reading file %s", file_path)
         return None
 
 
@@ -301,7 +331,7 @@ def format_error_response(
     Returns:
         Formatted error response
     """
-    response = {
+    response: dict[str, Any] = {
         "status": "error",
         "error": message,
     }
@@ -309,7 +339,7 @@ def format_error_response(
     if code:
         response["code"] = code
 
-    if details:
+    if details is not None:
         response["details"] = details
 
     return response
@@ -373,12 +403,10 @@ def calculate_similarity_score(
         return 1.0
 
     # Count matching characters
-    matches = sum(c1 == c2 for c1, c2 in zip(text1, text2))
+    matches = sum(c1 == c2 for c1, c2 in zip(text1, text2, strict=False))
 
     # Basic similarity score
-    score = matches / longer
-
-    return score
+    return matches / longer
 
 
 def parse_code_location(location: str) -> tuple[str | None, int | None, int | None]:
@@ -399,7 +427,7 @@ def parse_code_location(location: str) -> tuple[str | None, int | None, int | No
 
     if len(parts) == 1:
         return parts[0], None, None
-    elif len(parts) == 2:
+    if len(parts) == 2:
         try:
             return parts[0], int(parts[1]), None
         except ValueError:

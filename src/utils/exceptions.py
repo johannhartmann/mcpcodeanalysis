@@ -67,6 +67,14 @@ class ParsingError(MCPError):
 class EmbeddingError(MCPError):
     """Embedding generation errors."""
 
+    def __init__(
+        self,
+        message: str = "Failed to generate embedding",
+        code: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message, code=code, details=details)
+
 
 class OpenAIError(EmbeddingError):
     """OpenAI API related errors."""

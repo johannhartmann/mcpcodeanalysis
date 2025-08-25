@@ -1,7 +1,7 @@
 """Build and analyze semantic graphs of domain entities."""
 
 import json
-from typing import Any
+from typing import Any, TypedDict, cast
 
 import networkx as nx
 import networkx.algorithms.community as nx_comm
@@ -36,6 +36,12 @@ try:
 except ImportError:
     logger.warning("igraph not available, falling back to NetworkX Louvain algorithm")
     LEIDEN_AVAILABLE = False
+
+
+class EdgeAggregate(TypedDict):
+    count: int
+    total_weight: float
+    relationship_types: set[str]
 
 
 class SemanticGraphBuilder:
@@ -84,7 +90,7 @@ class SemanticGraphBuilder:
                 )
                 self.llm = ChatOpenAI(
                     openai_api_key=openai_key,
-                    model=settings.llm.model,
+                    model_name=settings.llm.model,
                     temperature=settings.llm.temperature,
                 )
             except (AttributeError, KeyError, ValueError) as e:
@@ -196,10 +202,31 @@ class SemanticGraphBuilder:
         else:
             communities = self._detect_louvain_communities(graph, resolution)
 
+        # If detection yields too few usable communities, try robust fallbacks
+        filtered = [list(c) for c in communities if len(c) >= MIN_COMMUNITY_SIZE]
+        if len(filtered) < 2:
+            try:
+                # Try greedy modularity as a fallback
+                greedy = nx_comm.greedy_modularity_communities(graph, weight="weight")
+                filtered = [list(c) for c in greedy if len(c) >= MIN_COMMUNITY_SIZE]
+            except Exception:
+                logger.exception("Greedy modularity community detection failed")
+
+        if len(filtered) < 2 and graph.number_of_nodes() >= 2:
+            try:
+                # Final fallback: Kernighan-Lin bisection into two partitions
+                part1, part2 = nx_comm.kernighan_lin_bisection(graph, weight="weight")
+                candidates = [list(part1), list(part2)]
+                filtered = [c for c in candidates if len(c) >= MIN_COMMUNITY_SIZE]
+            except Exception:
+                logger.exception("Kernighan-Lin bisection failed")
+
+        communities = filtered
+
         # Convert to bounded contexts
         contexts = []
         for community_id, node_ids in enumerate(communities):
-            if len(node_ids) < MIN_COMMUNITY_SIZE:  # Skip single-node communities
+            if len(node_ids) < MIN_COMMUNITY_SIZE:  # Skip small communities
                 continue
 
             context = await self._create_bounded_context(
@@ -399,7 +426,7 @@ Output as JSON:
                 config={"configurable": {"response_format": {"type": "json_object"}}},
             )
 
-            return json.loads(response.content)
+            return cast("dict[str, Any]", json.loads(response.content))
 
         except Exception:
             logger.exception("Error generating context description: %s")
@@ -468,7 +495,9 @@ Output as JSON:
                 entity_to_context[entity_id] = context["id"]
 
         # Analyze cross-context edges
-        context_edges = {}  # (context1, context2) -> edge data
+        context_edges: dict[tuple[int, int], EdgeAggregate] = (
+            {}
+        )  # (context1, context2) -> edge data
 
         for u, v, data in graph.edges(data=True):
             u_context = entity_to_context.get(u)
@@ -520,7 +549,7 @@ Output as JSON:
         self,
         _context1: dict[str, Any],
         _context2: dict[str, Any],
-        edge_data: dict[str, Any],
+        edge_data: EdgeAggregate,
     ) -> str:
         """Determine the type of relationship between contexts."""
         # This is a simplified heuristic - could be enhanced with LLM

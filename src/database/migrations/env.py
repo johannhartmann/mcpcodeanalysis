@@ -62,7 +62,8 @@ def run_migrations_online() -> None:
     In this scenario we need to create an Engine
     and associate a connection with the context.
     """
-    configuration = config.get_section(config.config_ini_section)
+    section = config.get_section(config.config_ini_section)
+    configuration: dict[str, str] = dict(section) if section is not None else {}
     configuration["sqlalchemy.url"] = get_url()
 
     connectable = engine_from_config(
@@ -84,7 +85,7 @@ def run_migrations_online() -> None:
             if context.is_offline_mode():
                 context.execute("CREATE EXTENSION IF NOT EXISTS vector")
             else:
-                connection.execute("CREATE EXTENSION IF NOT EXISTS vector")
+                connection.exec_driver_sql("CREATE EXTENSION IF NOT EXISTS vector")
 
             context.run_migrations()
 

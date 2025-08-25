@@ -1,5 +1,7 @@
 """Tests for embedding generator."""
 
+from collections.abc import Iterator
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -8,7 +10,7 @@ from src.embeddings.embedding_generator import EmbeddingGenerator
 
 
 @pytest.fixture
-def mock_embeddings():
+def mock_embeddings() -> Iterator[MagicMock]:
     """Create mock OpenAIEmbeddings."""
     with patch("src.embeddings.embedding_generator.OpenAIEmbeddings") as mock_class:
         mock_instance = MagicMock()
@@ -19,7 +21,7 @@ def mock_embeddings():
 
 
 @pytest.fixture
-def embedding_generator(mock_embeddings):
+def embedding_generator(mock_embeddings: MagicMock) -> EmbeddingGenerator:
     """Create embedding generator fixture."""
     with patch("src.embeddings.embedding_generator.settings") as mock_settings:
         mock_settings.openai_api_key.get_secret_value.return_value = "test-key"
@@ -28,7 +30,7 @@ def embedding_generator(mock_embeddings):
 
 
 @pytest.fixture
-def sample_function_data():
+def sample_function_data() -> dict[str, Any]:
     """Sample function data."""
     return {
         "name": "test_function",
@@ -51,7 +53,7 @@ def sample_function_data():
 
 
 @pytest.fixture
-def sample_class_data():
+def sample_class_data() -> dict[str, Any]:
     """Sample class data."""
     return {
         "name": "TestClass",
@@ -70,7 +72,7 @@ def sample_class_data():
 
 
 @pytest.fixture
-def sample_module_data():
+def sample_module_data() -> dict[str, Any]:
     """Sample module data."""
     return {
         "name": "test_module",
@@ -85,8 +87,8 @@ class TestEmbeddingGenerator:
 
     def test_prepare_function_text_simple(
         self,
-        embedding_generator,
-        sample_function_data,
+        embedding_generator: EmbeddingGenerator,
+        sample_function_data: dict[str, Any],
     ) -> None:
         """Test preparing function text."""
         text = embedding_generator.prepare_function_text(
@@ -106,8 +108,8 @@ class TestEmbeddingGenerator:
 
     def test_prepare_function_text_method(
         self,
-        embedding_generator,
-        sample_function_data,
+        embedding_generator: EmbeddingGenerator,
+        sample_function_data: dict[str, Any],
     ) -> None:
         """Test preparing method text."""
         sample_function_data["class_name"] = "TestClass"
@@ -123,8 +125,8 @@ class TestEmbeddingGenerator:
 
     def test_prepare_class_text(
         self,
-        embedding_generator,
-        sample_class_data,
+        embedding_generator: EmbeddingGenerator,
+        sample_class_data: dict[str, Any],
     ) -> None:
         """Test preparing class text."""
         text = embedding_generator.prepare_class_text(
@@ -142,8 +144,8 @@ class TestEmbeddingGenerator:
 
     def test_prepare_class_text_abstract(
         self,
-        embedding_generator,
-        sample_class_data,
+        embedding_generator: EmbeddingGenerator,
+        sample_class_data: dict[str, Any],
     ) -> None:
         """Test preparing abstract class text."""
         sample_class_data["is_abstract"] = True
@@ -157,8 +159,8 @@ class TestEmbeddingGenerator:
 
     def test_prepare_module_text(
         self,
-        embedding_generator,
-        sample_module_data,
+        embedding_generator: EmbeddingGenerator,
+        sample_module_data: dict[str, Any],
     ) -> None:
         """Test preparing module text."""
         summary = {"classes": 5, "functions": 10, "imports": 3}
@@ -174,7 +176,9 @@ class TestEmbeddingGenerator:
         assert "Description: Test module for unit testing" in text
         assert "Contains: 5 classes, 10 functions, 3 imports" in text
 
-    def test_prepare_code_chunk_text(self, embedding_generator) -> None:
+    def test_prepare_code_chunk_text(
+        self, embedding_generator: EmbeddingGenerator
+    ) -> None:
         """Test preparing code chunk text."""
         code = """def test_function():
     return 42"""
@@ -196,9 +200,9 @@ class TestEmbeddingGenerator:
     @pytest.mark.asyncio
     async def test_generate_function_embeddings(
         self,
-        embedding_generator,
-        mock_embeddings,
-        sample_function_data,
+        embedding_generator: EmbeddingGenerator,
+        mock_embeddings: MagicMock,
+        sample_function_data: dict[str, Any],
     ) -> None:
         """Test generating function embeddings."""
         functions = [sample_function_data]
@@ -224,9 +228,9 @@ class TestEmbeddingGenerator:
     @pytest.mark.asyncio
     async def test_generate_class_embeddings(
         self,
-        embedding_generator,
-        mock_embeddings,
-        sample_class_data,
+        embedding_generator: EmbeddingGenerator,
+        mock_embeddings: MagicMock,
+        sample_class_data: dict[str, Any],
     ) -> None:
         """Test generating class embeddings."""
         classes = [sample_class_data]
@@ -252,9 +256,9 @@ class TestEmbeddingGenerator:
     @pytest.mark.asyncio
     async def test_generate_module_embedding(
         self,
-        embedding_generator,
-        mock_embeddings,
-        sample_module_data,
+        embedding_generator: EmbeddingGenerator,
+        mock_embeddings: MagicMock,
+        sample_module_data: dict[str, Any],
     ) -> None:
         """Test generating module embedding."""
         summary = {"classes": 2, "functions": 5}
@@ -278,8 +282,8 @@ class TestEmbeddingGenerator:
     @pytest.mark.asyncio
     async def test_generate_code_chunk_embedding(
         self,
-        embedding_generator,
-        mock_embeddings,
+        embedding_generator: EmbeddingGenerator,
+        mock_embeddings: MagicMock,
     ) -> None:
         """Test generating code chunk embedding."""
         code = "def test(): pass"

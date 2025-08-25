@@ -51,7 +51,7 @@ class ParallelSessionManager:
         Returns:
             List of results from processing each item
         """
-        results = []
+        results: list[Any] = []
 
         # Process items in batches to avoid overwhelming the database
         for i in range(0, len(items), batch_size):
@@ -84,7 +84,7 @@ class ParallelSessionManager:
     async def execute_parallel_with_context(
         self,
         items: list[T],
-        func: Callable[[T, AsyncSession], Any],
+        func: Callable[[T, AsyncSession, dict[str, Any]], Any],
         batch_size: int = 5,
         context: dict[str, Any] | None = None,
     ) -> list[Any]:
@@ -103,7 +103,7 @@ class ParallelSessionManager:
         if context is None:
             context = {}
 
-        results = []
+        results: list[Any] = []
 
         # Process items in batches
         for i in range(0, len(items), batch_size):
@@ -112,7 +112,7 @@ class ParallelSessionManager:
             async def process_item_with_context(item: T) -> Any:
                 async with self.get_session() as session:
                     # Add session to context
-                    item_context = {**context, "session": session}
+                    item_context: dict[str, Any] = {**context, "session": session}
                     return await func(item, session, item_context)
 
             # Execute batch in parallel
@@ -179,8 +179,15 @@ class ParallelSessionManager:
             for i in range(0, len(updates), batch_size):
                 batch = updates[i : i + batch_size]
 
-                # Prepare bulk update
-                await session.bulk_update_mappings(model_class, batch)
+                # Use run_sync to access sync-only bulk_update_mappings
+                def _do_bulk_update(
+                    sync_session: Any,
+                    model_cls: type = model_class,
+                    rows: list[dict[str, Any]] = batch,
+                ) -> None:
+                    sync_session.bulk_update_mappings(model_cls, rows)
+
+                await session.run_sync(_do_bulk_update)
 
                 logger.debug(
                     "Bulk updated batch %d-%d (%d items)",

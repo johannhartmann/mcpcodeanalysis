@@ -1,6 +1,6 @@
 """Tests for health check utilities."""
 
-from typing import Never
+from typing import Any, Never, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -33,7 +33,10 @@ class TestHealthCheck:
     class TestCheck(HealthCheck):
         """Test implementation of HealthCheck."""
 
-        async def _perform_check(self):
+        def __init__(self, name: str) -> None:
+            super().__init__(name)
+
+        async def _perform_check(self) -> dict[str, Any]:
             return {"test": "data"}
 
     @pytest.mark.asyncio
@@ -280,7 +283,7 @@ class TestHealthCheckManager:
 
         # Mock all checks to return healthy
         for check in manager.checks:
-            check.check = AsyncMock(
+            cast("Any", check).check = AsyncMock(
                 return_value={
                     "name": check.name,
                     "status": HealthStatus.HEALTHY,
@@ -310,7 +313,7 @@ class TestHealthCheckManager:
             else:
                 status = HealthStatus.HEALTHY
 
-            check.check = AsyncMock(
+            cast("Any", check).check = AsyncMock(
                 return_value={
                     "name": check.name,
                     "status": status,
@@ -328,11 +331,13 @@ class TestHealthCheckManager:
         manager = HealthCheckManager()
 
         # Make first check raise exception
-        manager.checks[0].check = AsyncMock(side_effect=Exception("Check failed"))
+        cast("Any", manager.checks[0]).check = AsyncMock(
+            side_effect=Exception("Check failed")
+        )
 
         # Others are healthy
         for check in manager.checks[1:]:
-            check.check = AsyncMock(
+            cast("Any", check).check = AsyncMock(
                 return_value={
                     "name": check.name,
                     "status": HealthStatus.HEALTHY,

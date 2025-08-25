@@ -9,7 +9,7 @@ from src.utils.exceptions import ParserError
 
 
 @pytest.fixture
-def python_parser():
+def python_parser() -> PythonCodeParser:
     """Create Python parser fixture."""
     return PythonCodeParser()
 
@@ -79,7 +79,7 @@ class AbstractBase:
 
 
 @pytest.fixture
-def temp_python_file(tmp_path, sample_python_code):
+def temp_python_file(tmp_path: Path, sample_python_code: str) -> Path:
     """Create a temporary Python file."""
     file_path = tmp_path / "test_sample.py"
     file_path.write_text(sample_python_code)
@@ -89,7 +89,9 @@ def temp_python_file(tmp_path, sample_python_code):
 class TestPythonCodeParser:
     """Tests for PythonCodeParser class."""
 
-    def test_parse_file_success(self, python_parser, temp_python_file) -> None:
+    def test_parse_file_success(
+        self, python_parser: PythonCodeParser, temp_python_file: Path
+    ) -> None:
         """Test successful file parsing."""
         result = python_parser.parse_file(temp_python_file)
 
@@ -101,14 +103,16 @@ class TestPythonCodeParser:
         assert "classes" in result
         assert "functions" in result
 
-    def test_parse_file_not_found(self, python_parser) -> None:
+    def test_parse_file_not_found(self, python_parser: PythonCodeParser) -> None:
         """Test parsing non-existent file."""
         with pytest.raises(ParserError) as exc_info:
             python_parser.parse_file(Path("/nonexistent/file.py"))
 
         assert "Failed to parse Python file" in str(exc_info.value)
 
-    def test_extract_imports(self, python_parser, temp_python_file) -> None:
+    def test_extract_imports(
+        self, python_parser: PythonCodeParser, temp_python_file: Path
+    ) -> None:
         """Test import extraction."""
         result = python_parser.parse_file(temp_python_file)
         imports = result["imports"]
@@ -122,7 +126,9 @@ class TestPythonCodeParser:
         assert any("from typing import" in stmt for stmt in import_statements)
         assert any("from collections import" in stmt for stmt in import_statements)
 
-    def test_extract_classes(self, python_parser, temp_python_file) -> None:
+    def test_extract_classes(
+        self, python_parser: PythonCodeParser, temp_python_file: Path
+    ) -> None:
         """Test class extraction."""
         result = python_parser.parse_file(temp_python_file)
         classes = result["classes"]
@@ -142,7 +148,9 @@ class TestPythonCodeParser:
         abstract_class = next(c for c in classes if c["name"] == "AbstractBase")
         assert abstract_class["docstring"] == "Abstract base class."
 
-    def test_extract_methods(self, python_parser, temp_python_file) -> None:
+    def test_extract_methods(
+        self, python_parser: PythonCodeParser, temp_python_file: Path
+    ) -> None:
         """Test method extraction."""
         result = python_parser.parse_file(temp_python_file)
         sample_class = next(c for c in result["classes"] if c["name"] == "SampleClass")
@@ -171,7 +179,9 @@ class TestPythonCodeParser:
         process_method = next(m for m in methods if m["name"] == "process_item")
         assert process_method["is_async"]
 
-    def test_extract_functions(self, python_parser, temp_python_file) -> None:
+    def test_extract_functions(
+        self, python_parser: PythonCodeParser, temp_python_file: Path
+    ) -> None:
         """Test function extraction."""
         result = python_parser.parse_file(temp_python_file)
         # Parser returns all functions including methods
@@ -201,7 +211,9 @@ class TestPythonCodeParser:
         # TODO(@dev): Parser doesn't currently detect generators correctly
         # Skip generator assertion until parser is fixed
 
-    def test_extract_entities(self, python_parser, temp_python_file) -> None:
+    def test_extract_entities(
+        self, python_parser: PythonCodeParser, temp_python_file: Path
+    ) -> None:
         """Test entity extraction for database storage."""
         entities = python_parser.extract_entities(temp_python_file, file_id=1)
 
@@ -226,7 +238,9 @@ class TestPythonCodeParser:
             assert "name" in func_data
             assert "parameters" in func_data
 
-    def test_get_code_chunk(self, python_parser, temp_python_file) -> None:
+    def test_get_code_chunk(
+        self, python_parser: PythonCodeParser, temp_python_file: Path
+    ) -> None:
         """Test getting code chunks."""
         # Get a specific function (sample_function is around line 40)
         chunk = python_parser.get_code_chunk(temp_python_file, 40, 44)

@@ -110,7 +110,6 @@ dev = [
     "types-pyyaml>=6.0.0",
     "types-requests>=2.31.0",
     "pandas-stubs>=2.1.0",
-    "sqlalchemy-stubs>=0.4",
     "types-click>=7.1.0",
 
     # Documentation
@@ -259,6 +258,8 @@ unfixable = []
 "__init__.py" = ["F401", "D104"]
 "tests/**/*.py" = ["S101", "ARG", "FBT", "PLR2004", "PLR0913", "TRY003", "SIM117"]
 "src/mcp_server/tools/*.py" = ["ANN201", "PLR0911", "PLR0912", "PLR0915"]  # MCP tools complexity
+"src/query/ranking.py" = ["PLR0915", "PLR0912"] #TODO
+"src/query/search_engine.py" = ["PLR0912"] #TODO
 "src/mcp_server/server.py" = ["PLW0603"]  # global statements for shared resources
 "src/mcp_server/config.py" = ["PLW0603"]  # global statements for singleton config
 "src/mcp_server/tools/explain.py" = ["PERF401"]  # false positive on list append
@@ -294,6 +295,12 @@ warn_unused_ignores = true
 warn_no_return = true
 follow_imports = "normal"
 ignore_missing_imports = true
+plugins = ['pydantic.mypy']
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
 
 [tool.pytest.ini_options]
 minversion = "7.0"

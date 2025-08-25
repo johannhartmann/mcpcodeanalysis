@@ -1,7 +1,7 @@
 """Repository management tools for MCP server."""
 
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -58,10 +58,12 @@ class RepositoryTool:
                 commit_count = commit_count_result.scalar() or 0
 
                 # Get last commit
-                last_commit = await self.commit_repo.get_latest(repo.id)
+                last_commit = await self.commit_repo.get_latest(cast("int", repo.id))
 
                 # Check local directory exists
-                local_path = self.git_sync._get_repo_path(repo.owner, repo.name)
+                local_path = self.git_sync._get_repo_path(
+                    cast("str", repo.owner), cast("str", repo.name)
+                )
                 is_cloned = local_path.exists()
 
                 repositories.append(
@@ -96,7 +98,9 @@ class RepositoryTool:
                                 else None
                             ),
                         },
-                        "sync_age": self._calculate_sync_age(repo.last_synced),
+                        "sync_age": self._calculate_sync_age(
+                            cast("datetime | None", repo.last_synced)
+                        ),
                     },
                 )
 
@@ -166,21 +170,23 @@ class RepositoryTool:
                 }
 
             # Check if cloned
-            local_path = self.git_sync._get_repo_path(repo.owner, repo.name)
+            local_path = self.git_sync._get_repo_path(
+                cast("str", repo.owner), cast("str", repo.name)
+            )
 
             if not local_path.exists():
                 # Clone repository
                 git_repo = await self.git_sync.clone_repository(
-                    repo.github_url,
-                    repo.default_branch,
+                    cast("str", repo.github_url),
+                    cast("str", repo.default_branch),
                 )
                 result["cloned"] = True
                 result["local_path"] = str(local_path)
             else:
                 # Update repository
                 git_repo = await self.git_sync.update_repository(
-                    repo.github_url,
-                    repo.default_branch,
+                    cast("str", repo.github_url),
+                    cast("str", repo.default_branch),
                 )
                 result["updated"] = True
 
@@ -189,9 +195,9 @@ class RepositoryTool:
                 # Get commits since last sync to count changed files
                 recent_commits = await self.git_sync.get_recent_commits(
                     git_repo,
-                    repo.default_branch,
+                    cast("str", repo.default_branch),
                     limit=100,
-                    since=repo.last_synced,
+                    since=cast("datetime | None", repo.last_synced),
                 )
 
                 # Collect unique changed files
@@ -202,15 +208,15 @@ class RepositoryTool:
                 result["changed_files"] = len(changed_files)
 
             # Update last synced
-            await self.repo_repo.update_last_synced(repo.id)
+            await self.repo_repo.update_last_synced(cast("int", repo.id))
 
             # Get latest commits
             if repo.last_synced:
                 commits = await self.github_monitor.get_commits_since(
-                    repo.owner,
-                    repo.name,
-                    repo.last_synced,
-                    repo.default_branch,
+                    cast("str", repo.owner),
+                    cast("str", repo.name),
+                    cast("datetime", repo.last_synced),
+                    cast("str", repo.default_branch),
                 )
                 result["new_commits"] = len(commits)
 

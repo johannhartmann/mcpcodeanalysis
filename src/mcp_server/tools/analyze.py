@@ -1,7 +1,7 @@
 """Analysis tools for MCP server."""
 
 import re
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import and_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -199,7 +199,7 @@ class AnalyzeTool:
                 # Get entity details
                 entity_data = await self._get_entity_details(
                     embedding.entity_type,
-                    embedding.entity_id,
+                    cast("int", embedding.entity_id),
                 )
 
                 if entity_data:
@@ -321,13 +321,14 @@ class AnalyzeTool:
             )
 
         # Check naming convention
-        if not self._is_snake_case(func.name):
+        name_val = cast("str", func.name)
+        if not self._is_snake_case(name_val):
             suggestions.append(
                 {
                     "type": "style",
                     "severity": "low",
-                    "message": f"Function name '{func.name}' doesn't follow snake_case convention",
-                    "suggestion": f"Rename to '{self._to_snake_case(func.name)}'",
+                    "message": f"Function name '{name_val}' doesn't follow snake_case convention",
+                    "suggestion": f"Rename to '{self._to_snake_case(name_val)}'",
                 },
             )
 
@@ -381,13 +382,14 @@ class AnalyzeTool:
             )
 
         # Check naming convention
-        if not self._is_camel_case(cls.name):
+        class_name = cast("str", cls.name)
+        if not self._is_camel_case(class_name):
             suggestions.append(
                 {
                     "type": "style",
                     "severity": "low",
-                    "message": f"Class name '{cls.name}' doesn't follow CamelCase convention",
-                    "suggestion": f"Rename to '{self._to_camel_case(cls.name)}'",
+                    "message": f"Class name '{class_name}' doesn't follow CamelCase convention",
+                    "suggestion": f"Rename to '{self._to_camel_case(class_name)}'",
                 },
             )
 
@@ -448,11 +450,14 @@ class AnalyzeTool:
             if func:
                 module = await self.session.get(Module, func.module_id)
                 file = await self.session.get(File, module.file_id) if module else None
-                # Need to get repository - implement using proper repository pattern
                 from src.database.repositories import RepositoryRepo
 
                 repo_repo = RepositoryRepo(self.session)
-                repo = await repo_repo.get_by_id(file.repository_id) if file else None
+                repo = (
+                    await repo_repo.get_by_id(cast("int", file.repository_id))
+                    if file
+                    else None
+                )
 
                 return {
                     "type": "function",
@@ -472,7 +477,11 @@ class AnalyzeTool:
                 from src.database.repositories import RepositoryRepo
 
                 repo_repo = RepositoryRepo(self.session)
-                repo = await repo_repo.get_by_id(file.repository_id) if file else None
+                repo = (
+                    await repo_repo.get_by_id(cast("int", file.repository_id))
+                    if file
+                    else None
+                )
 
                 return {
                     "type": "class",
@@ -490,7 +499,11 @@ class AnalyzeTool:
                 from src.database.repositories import RepositoryRepo
 
                 repo_repo = RepositoryRepo(self.session)
-                repo = await repo_repo.get_by_id(file.repository_id) if file else None
+                repo = (
+                    await repo_repo.get_by_id(cast("int", file.repository_id))
+                    if file
+                    else None
+                )
 
                 return {
                     "type": "module",
@@ -643,7 +656,7 @@ class AnalyzeTool:
                 }
 
             # Use package analyzer
-            PackageAnalyzer(self.session, file.repository_id)
+            PackageAnalyzer(self.session, cast("int", file.repository_id))
 
             # Get package structure
             from src.database.package_models import Package

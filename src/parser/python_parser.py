@@ -51,7 +51,7 @@ class PythonCodeParser:
         """Extract all entities from a Python file for database storage."""
         module_info = self.parse_file(file_path)
 
-        entities = {
+        entities: dict[str, list[Any]] = {
             "modules": [],
             "classes": [],
             "functions": [],

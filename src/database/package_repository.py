@@ -1,7 +1,7 @@
 """Repository for package-related database operations."""
 
 from collections import defaultdict
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,7 +40,7 @@ class PackageRepository:
             query = query.options(selectinload(Package.metrics))
 
         result = await self.db_session.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def get_package_tree(self, repository_id: int) -> dict[str, Any]:
         """Get the complete package tree for a repository."""
@@ -85,7 +85,7 @@ class PackageRepository:
                       'imported_by' (what imports this package),
                       or 'both'
         """
-        result = {"imports": [], "imported_by": []}
+        result: dict[str, list[dict[str, Any]]] = {"imports": [], "imported_by": []}
 
         if direction in ("imports", "both"):
             # Get packages this package imports
@@ -140,10 +140,10 @@ class PackageRepository:
         """Find circular dependencies between packages."""
         # Get all packages and their dependencies
         packages = await self.get_repository_packages(repository_id)
-        package_map = {p.id: p for p in packages}
+        package_map: dict[int, Package] = {cast("int", p.id): p for p in packages}
 
         # Build adjacency list
-        graph = defaultdict(list)
+        graph: dict[int, list[int]] = defaultdict(list)
         deps_result = await self.db_session.execute(
             select(PackageDependency).where(
                 PackageDependency.source_package_id.in_(package_map.keys())
@@ -151,20 +151,22 @@ class PackageRepository:
         )
 
         for dep in deps_result.scalars():
-            graph[dep.source_package_id].append(dep.target_package_id)
+            src = cast("int", dep.source_package_id)
+            tgt = cast("int", dep.target_package_id)
+            graph[src].append(tgt)
 
         # Find cycles using DFS
         cycles = []
-        visited = set()
-        rec_stack = set()
-        path = []
+        visited: set[int] = set()
+        rec_stack: set[int] = set()
+        path: list[int] = []
 
         def dfs(node: int) -> None:
             visited.add(node)
             rec_stack.add(node)
             path.append(node)
 
-            for neighbor in graph.get(node, []):
+            for neighbor in graph[node]:
                 if neighbor not in visited:
                     dfs(neighbor)
                 elif neighbor in rec_stack:
@@ -198,13 +200,15 @@ class PackageRepository:
         # Get all dependencies
         deps_result = await self.db_session.execute(
             select(PackageDependency).where(
-                PackageDependency.source_package_id.in_([p.id for p in packages])
+                PackageDependency.source_package_id.in_(
+                    [cast("int", p.id) for p in packages]
+                )
             )
         )
         dependencies = deps_result.scalars().all()
 
         # Calculate metrics
-        metrics = {
+        metrics: dict[str, Any] = {
             "total_packages": len(packages),
             "total_dependencies": len(dependencies),
             "avg_dependencies_per_package": (
@@ -217,44 +221,47 @@ class PackageRepository:
         }
 
         # Count dependencies per package
-        outgoing = defaultdict(int)
-        incoming = defaultdict(int)
+        outgoing: dict[int, int] = defaultdict(int)
+        incoming: dict[int, int] = defaultdict(int)
 
         for dep in dependencies:
-            outgoing[dep.source_package_id] += 1
-            incoming[dep.target_package_id] += 1
+            src = cast("int", dep.source_package_id)
+            tgt = cast("int", dep.target_package_id)
+            outgoing[src] += 1
+            incoming[tgt] += 1
 
         # Find packages with no dependencies
         for package in packages:
-            if package.id not in outgoing:
+            pid = cast("int", package.id)
+            if pid not in outgoing:
                 metrics["packages_with_no_dependencies"] += 1
-            if package.id not in incoming:
+            if pid not in incoming:
                 metrics["packages_with_no_dependents"] += 1
 
         # Find most coupled packages
         if packages:
             sorted_by_deps = sorted(
-                packages, key=lambda p: outgoing.get(p.id, 0), reverse=True
+                packages, key=lambda p: outgoing.get(cast("int", p.id), 0), reverse=True
             )[:5]
 
             metrics["most_dependent"] = [
                 {
                     "package_name": p.name,
                     "package_path": p.path,
-                    "dependency_count": outgoing.get(p.id, 0),
+                    "dependency_count": outgoing.get(cast("int", p.id), 0),
                 }
                 for p in sorted_by_deps
             ]
 
             sorted_by_dependents = sorted(
-                packages, key=lambda p: incoming.get(p.id, 0), reverse=True
+                packages, key=lambda p: incoming.get(cast("int", p.id), 0), reverse=True
             )[:5]
 
             metrics["most_depended_on"] = [
                 {
                     "package_name": p.name,
                     "package_path": p.path,
-                    "dependent_count": incoming.get(p.id, 0),
+                    "dependent_count": incoming.get(cast("int", p.id), 0),
                 }
                 for p in sorted_by_dependents
             ]

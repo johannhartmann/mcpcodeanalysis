@@ -2,7 +2,7 @@
 
 import json
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -51,12 +51,13 @@ class DomainAwareSearch:
         """
         self.db_session = db_session
         # settings imported globally from src.config
-        self.embeddings = OpenAIEmbeddings(
-            openai_api_key=settings.openai_api_key.get_secret_value(),
+        # Cast constructors to Any so mypy won't complain about provider-specific kwargs
+        embeddings_client = cast("Any", OpenAIEmbeddings)
+        llm_client = cast("Any", ChatOpenAI)
+        self.embeddings = embeddings_client(
             model=settings.embeddings.model,
         )
-        self.llm = ChatOpenAI(
-            openai_api_key=settings.openai_api_key.get_secret_value(),
+        self.llm = llm_client(
             model=settings.llm.model,
             temperature=settings.llm.temperature,
         )
@@ -143,7 +144,7 @@ class DomainAwareSearch:
         # Get source code entities
         implementations = []
 
-        for source_id in entity.source_entities:
+        for source_id in cast("list[int]", entity.source_entities):
             # Get file info
             file_result = await self.db_session.execute(
                 select(File).where(File.id == source_id),
@@ -152,7 +153,9 @@ class DomainAwareSearch:
 
             if file:
                 # Get specific code entities
-                code_entities = await self._get_code_entities_in_file(file.id)
+                code_entities = await self._get_code_entities_in_file(
+                    cast("int", file.id)
+                )
 
                 implementations.append(
                     {
@@ -223,8 +226,10 @@ class DomainAwareSearch:
                 config={"configurable": {"response_format": {"type": "json_object"}}},
             )
 
-            result = json.loads(response.content)
-            return result.get("concepts", [])
+            content = response.content
+            data = json.loads(content) if isinstance(content, str) else content
+            concepts_raw = data.get("concepts", []) if isinstance(data, dict) else data
+            return [str(c) for c in concepts_raw]
 
         except Exception:
             logger.exception("Error extracting concepts: %s")
@@ -281,7 +286,7 @@ class DomainAwareSearch:
             query = query.where(func.or_(*concept_conditions))
 
         result = await self.db_session.execute(query.limit(20))
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def _enhance_query_with_domain(
         self,
@@ -317,7 +322,7 @@ class DomainAwareSearch:
     ) -> list[dict[str, Any]]:
         """Search with domain-weighted scoring."""
         # Get source entity IDs
-        source_ids = set()
+        source_ids: set[int] = set()
         for entity in relevant_entities:
             source_ids.update(entity.source_entities)
 
@@ -447,7 +452,7 @@ class DomainAwareSearch:
         file_id: int,
     ) -> list[dict[str, Any]]:
         """Get code entities in a file."""
-        entities = []
+        entities: list[dict[str, Any]] = []
 
         # Get classes
         class_result = await self.db_session.execute(

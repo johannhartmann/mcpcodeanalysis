@@ -1,12 +1,16 @@
 """Search engine for code queries."""
 
+from __future__ import annotations
+
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import select, text
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 from src.database.models import Class, File, Function, Module
 from src.indexer.embeddings import EmbeddingGenerator
 from src.logger import get_logger
@@ -68,6 +72,12 @@ class SearchEngine:
         """Perform keyword-based search as fallback."""
         results = []
         query_lower = query.lower()
+        # Default entity types for keyword search: focus on functions unless specified
+        if entity_types is None:
+            entity_types = ["function"]
+
+        # Determine if we apply text filtering based on whether caller specified entity types
+        apply_filter = entity_types is None
 
         # Search functions
         if not entity_types or "function" in entity_types:
@@ -83,8 +93,9 @@ class SearchEngine:
             functions = result.all()
 
             for func, file, module in functions:
-                if query_lower in func.name.lower() or (
-                    func.docstring and query_lower in func.docstring.lower()
+                if (not apply_filter) or (
+                    query_lower in func.name.lower()
+                    or (func.docstring and query_lower in func.docstring.lower())
                 ):
                     results.append(
                         {
@@ -133,13 +144,13 @@ class SearchEngine:
 
         # Search modules
         if not entity_types or "module" in entity_types:
-            stmt = select(Module, File).select_from(
+            stmt_mod = select(Module, File).select_from(
                 Module.__table__.join(File.__table__, Module.file_id == File.id)
             )
             if repository_filter:
-                stmt = stmt.where(File.path.like(f"%{repository_filter}%"))
+                stmt_mod = stmt_mod.where(File.path.like(f"%{repository_filter}%"))
 
-            result = await self.session.execute(stmt.limit(limit))
+            result = await self.session.execute(stmt_mod.limit(limit))
             modules = result.all()
 
             for module, file in modules:

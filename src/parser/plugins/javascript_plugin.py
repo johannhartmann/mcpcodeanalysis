@@ -1,12 +1,12 @@
 """JavaScript language plugin implementation."""
 
 try:
-    from src.parser.javascript_parser import JavaScriptCodeParser
+    from src.parser import javascript_parser as js_parser
 
     JAVASCRIPT_PARSER_AVAILABLE = True
 except ImportError:
+    js_parser = None  # type: ignore[assignment]
     JAVASCRIPT_PARSER_AVAILABLE = False
-    JavaScriptCodeParser = None
 
 from src.logger import get_logger
 from src.parser.base_parser import BaseParser
@@ -42,13 +42,13 @@ class JavaScriptLanguagePlugin(LanguagePlugin):
 
     def create_parser(self) -> BaseParser:
         """Create JavaScript parser instance."""
-        if not JAVASCRIPT_PARSER_AVAILABLE or JavaScriptCodeParser is None:
+        if not JAVASCRIPT_PARSER_AVAILABLE or js_parser is None:
             logger.error(
                 "JavaScript parser not available. Install tree-sitter-javascript to enable JavaScript support."
             )
             msg = "JavaScript parser not available"
             raise ImportError(msg)
-        return JavaScriptCodeParser()
+        return js_parser.JavaScriptCodeParser()
 
     def get_complexity_nodes(self) -> set[str]:
         """Get JavaScript-specific complexity node types.

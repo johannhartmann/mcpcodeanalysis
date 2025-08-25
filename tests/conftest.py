@@ -2,14 +2,26 @@
 
 import asyncio
 import tempfile
+from asyncio import AbstractEventLoop
 from collections.abc import AsyncGenerator, Generator
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pytest
+
 
 import pytest
 import pytest_asyncio
+from dynaconf import Dynaconf
 from sqlalchemy import create_engine
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.engine import Engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from src.config import settings
 from src.database.models import Base
@@ -17,7 +29,7 @@ from src.logger import setup_logging
 
 
 @pytest.fixture(scope="session")
-def event_loop():
+def event_loop() -> Generator[AbstractEventLoop, None, None]:
     """Create an event loop for the test session."""
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
@@ -127,7 +139,7 @@ profiling_path = "profiles/"
 
 
 @pytest.fixture
-def test_settings(test_config_file, monkeypatch):
+def test_settings(test_config_file: Path, monkeypatch: pytest.MonkeyPatch) -> Dynaconf:
     """Create test settings."""
     # Set required environment variables
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test-key")
@@ -151,7 +163,7 @@ def test_db_url() -> str:
 
 
 @pytest.fixture
-def sync_engine(test_db_url):
+def sync_engine(test_db_url: str) -> Generator[Engine, None, None]:
     """Create a synchronous SQLAlchemy engine for testing."""
     engine = create_engine(test_db_url)
     Base.metadata.create_all(bind=engine)
@@ -160,7 +172,7 @@ def sync_engine(test_db_url):
 
 
 @pytest_asyncio.fixture
-async def async_engine(test_db_url):
+async def async_engine(test_db_url: str) -> AsyncGenerator[AsyncEngine, None]:
     """Create an asynchronous SQLAlchemy engine for testing."""
     # Convert to async URL
     if test_db_url.startswith("sqlite"):
@@ -179,21 +191,22 @@ async def async_engine(test_db_url):
 
 
 @pytest_asyncio.fixture
-async def async_session(async_engine) -> AsyncGenerator[AsyncSession, None]:
+async def async_session(
+    async_engine: AsyncEngine,
+) -> AsyncGenerator[AsyncSession, None]:
     """Create an async database session for testing."""
-    async_session_maker = sessionmaker(
+    session_factory = async_sessionmaker(
         async_engine,
-        class_=AsyncSession,
         expire_on_commit=False,
     )
 
-    async with async_session_maker() as session:
+    async with session_factory() as session:
         yield session
         await session.rollback()
 
 
 @pytest.fixture
-def mock_github_response():
+def mock_github_response() -> dict[str, dict[str, int]]:
     """Mock GitHub API response."""
     return {
         "rate": {
@@ -205,7 +218,7 @@ def mock_github_response():
 
 
 @pytest.fixture
-def mock_openai_response():
+def mock_openai_response() -> dict[str, list[dict[str, str]]]:
     """Mock OpenAI API response."""
     return {
         "data": [

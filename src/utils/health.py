@@ -4,7 +4,7 @@ import asyncio
 import os
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from sqlalchemy import text
@@ -284,7 +284,7 @@ class HealthCheckManager:
                 overall_status = HealthStatus.UNHEALTHY
             else:
                 # Type narrowing - result is dict[str, Any] here, not Exception
-                result_dict = result  # type: dict[str, Any]
+                result_dict = cast("dict[str, Any]", result)
                 checks.append(result_dict)
                 if result_dict["status"] == HealthStatus.UNHEALTHY:
                     overall_status = HealthStatus.UNHEALTHY

@@ -2,7 +2,7 @@
 
 import importlib.metadata
 from functools import lru_cache
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 from src.logger import get_logger
 
@@ -233,7 +233,7 @@ def get_api_version() -> str:
     return "2024-11-05"
 
 
-def get_server_info() -> dict[str, str]:
+def get_server_info() -> dict[str, Any]:
     """
     Get server information for health checks and API responses.
 
