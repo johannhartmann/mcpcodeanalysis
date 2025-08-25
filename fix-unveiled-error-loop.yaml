@@ -1,25 +1,25 @@
 version: "1.0.0"
-title: "Fix QA errors in file"
-description: "Fix QA toolchain errors in specified file"
+title: "Fix QA errors in path"
+description: "Fix QA toolchain errors in specified path"
 instructions: |
   do NOT change pyproject.toml
   do NOT weaken qa tools
 
-  Execute `just unveil-next-error {{ file }}`
+  Execute `just unveil-next-error {{ path }}`
   Then atomic surgery fix error and repeat.
 
 prompt: |
   do NOT change pyproject.toml
   do NOT weaken qa tools
 
-  Execute `just unveil-next-error {{ file }}`
+  Execute `just unveil-next-error {{ path }}`
   Then atomic surgery fix error and repeat.
 
 parameters:
-  - key: file
+  - key: path
     input_type: string
     requirement: required
-    description: "Absolute path to python file to fix the errors in."
+    description: "path to check and fix any errors."
 
 extensions:
   - type: builtin
@@ -31,7 +31,7 @@ extensions:
 
 settings:
   goose_provider: openai
-  goose_model: gpt-5
+  goose_model: gpt-5-mini
   temperature: 0.0
 
 response:
