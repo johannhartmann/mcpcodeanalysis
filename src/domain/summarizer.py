@@ -450,8 +450,8 @@ Output as JSON:
 Base classes: {class_obj.base_classes}
 Docstring: {class_obj.docstring or "None"}
 Number of methods: {len(method_summaries)}
-Key methods: {', '.join(safe_method_descriptions)}
-Related domain entities: {', '.join(related_domain_names)}"""
+Key methods: {", ".join(safe_method_descriptions)}
+Related domain entities: {", ".join(related_domain_names)}"""
 
         prompt = f"""Analyze this class and generate a hierarchical summary:
 {context}
@@ -513,8 +513,8 @@ Output as JSON:
 File: {module.file.path if module.file else "Unknown"}
 Classes: {len(class_summaries)}
 Functions: {len(function_summaries)}
-Domain concepts found: {', '.join(concepts_list)}
-Related domain entities: {', '.join(related_names)}"""
+Domain concepts found: {", ".join(concepts_list)}
+Related domain entities: {", ".join(related_names)}"""
 
         prompt = f"""Analyze this module and generate a high-level summary:
 {context}
@@ -571,9 +571,9 @@ Output as JSON:
         entity_types_items: list[str] = [f"{k!s}: {v}" for k, v in entity_types.items()]
         context_info = f"""Bounded Context: {context.name}
 Description: {context.description}
-Core concepts: {', '.join(core_concepts_list)}
+Core concepts: {", ".join(core_concepts_list)}
 Number of entities: {len(domain_entities)}
-Entity types: {', '.join(entity_types_items)}
+Entity types: {", ".join(entity_types_items)}
 Cohesion score: {context.cohesion_score:.2f}
 Coupling score: {context.coupling_score:.2f}"""
 
@@ -581,7 +581,7 @@ Coupling score: {context.coupling_score:.2f}"""
 {context_info}
 
 Key entities:
-{chr(10).join([f'- {e.name!s} ({e.entity_type!s}): {e.description!s}' for e in domain_entities[:15]])}
+{chr(10).join([f"- {e.name!s} ({e.entity_type!s}): {e.description!s}" for e in domain_entities[:15]])}
 
 Generate:
 1. A business-oriented summary of what this context handles
