@@ -3,15 +3,12 @@
 import logging
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import structlog
 from structlog.processors import CallsiteParameter
 
 from src.config import settings
-
-if TYPE_CHECKING:
-    from structlog.types import Processor
 
 
 def setup_logging() -> None:
@@ -23,7 +20,7 @@ def setup_logging() -> None:
     timestamper = structlog.processors.TimeStamper(fmt="iso")
 
     # Shared processors
-    shared_processors: list["Processor"] = [
+    shared_processors: list[Any] = [
         structlog.stdlib.add_log_level,
         structlog.stdlib.add_logger_name,
         structlog.stdlib.ExtraAdder(),
@@ -43,7 +40,7 @@ def setup_logging() -> None:
     ]
 
     # Configure structlog based on format
-    processors: list["Processor"]
+    processors: list[Any]
     if settings.logging.format == "json":
         # JSON output
         processors = [
@@ -107,7 +104,7 @@ def setup_file_logging(log_level: int) -> None:
     # Add formatter based on format setting
     if settings.logging.format == "json":
         # Recreate shared processors for file handler
-        file_processors: list["Processor"] = [
+        file_processors: list[Any] = [
             structlog.stdlib.add_log_level,
             structlog.stdlib.add_logger_name,
             structlog.stdlib.ExtraAdder(),
