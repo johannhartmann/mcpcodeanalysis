@@ -70,7 +70,7 @@ llm-test *paths="tests":
   set -euo pipefail
   export MCP_LOGGING__LEVEL=ERROR
   export PYTEST_ADDOPTS="--tb=short --disable-warnings -r fE"
-  pytest {{ paths }} 2>&1
+  pytest -m 'not integration' {{ paths }} 2>&1
 
 [no-exit-message]
 llm-test-next *paths="tests":
@@ -78,7 +78,7 @@ llm-test-next *paths="tests":
   set -euo pipefail
   export MCP_LOGGING__LEVEL=ERROR
   export PYTEST_ADDOPTS="--exitfirst --no-cov --tb=no --disable-warnings -r fE"
-  pytest {{ paths }} 2>&1 | sed -ne /^FAILED/p -e /^ERROR/p
+  pytest -m 'not integration' {{ paths }} 2>&1 | sed -ne /^FAILED/p -e /^ERROR/p
 
 [no-exit-message]
 pre-commit:

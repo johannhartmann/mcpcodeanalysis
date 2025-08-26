@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import os
 import subprocess
 import tempfile
 from collections.abc import Iterator
@@ -46,8 +45,16 @@ class Calculator:
 ''',
             )
 
-            # Initialize git repo
+            # Initialize git repo (config necessary for github ci)
             subprocess.run(["git", "init"], cwd=repo_path, check=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@invalid"],
+                cwd=repo_path,
+                check=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "test"], cwd=repo_path, check=True
+            )
             subprocess.run(["git", "add", "."], cwd=repo_path, check=True)
             subprocess.run(
                 ["git", "commit", "-m", "Initial commit"],
@@ -61,56 +68,94 @@ class Calculator:
         self, url: str, method: str, params: dict[str, Any] | None = None
     ) -> list[dict[str, Any]]:
         """Send an MCP request to the server."""
+
+        initialization_request_data = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-03-26",
+                "capabilities": {},
+                "clientInfo": {"name": "test", "version": "0.0.1"},
+            },
+        }
+
+        initialized_request_data = {
+            "jsonrpc": "2.0",
+            "method": "notifications/initialized",
+        }
+
         request_data = {
             "jsonrpc": "2.0",
             "method": method,
             "params": params or {},
-            "id": 1,
+            "id": 2,
+        }
+
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
         }
 
         async with httpx.AsyncClient() as client:
+            # Initial POST
+            initialization_response = await client.post(
+                url,
+                json=initialization_request_data,
+                headers=headers,
+                timeout=30.0,
+                follow_redirects=True,
+            )
+
+            # Capture session id if provided
+            sid = initialization_response.headers.get("mcp-session-id")
+            if sid:
+                headers["mcp-session-id"] = sid
+
+            await client.post(
+                url,
+                json=initialized_request_data,
+                headers=headers,
+                timeout=30.0,
+                follow_redirects=True,
+            )
+
             response = await client.post(
                 url,
                 json=request_data,
-                headers={
-                    "Content-Type": "application/json",
-                },
+                headers=headers,
                 timeout=30.0,
+                follow_redirects=True,
             )
 
-            if response.status_code != 200:
-                raise Exception(  # noqa: TRY002
-                    f"Request failed with status {response.status_code}: {response.text}",
-                )
-
-            # Handle streaming response
-            result = []
-            async for line in response.aiter_lines():
-                if line.strip():
+            # If initial succeeded, parse and return
+            if response.status_code == 200:
+                result: list[dict[str, Any]] = []
+                async for line in response.aiter_lines():
+                    raw = line.strip()
+                    if not raw:
+                        continue
+                    if raw.startswith("data:"):
+                        raw = raw[len("data:") :].strip()
+                    if raw.startswith(":"):
+                        continue
                     try:
-                        data = json.loads(line)
+                        data = json.loads(raw)
                         result.append(data)
                     except json.JSONDecodeError:
-                        # Skip non-JSON lines
-                        pass
+                        continue
+                return result
 
-            return result
+            # No session id supplied and initial not 200 -> raise
+            raise httpx.ConnectError(
+                f"Request failed with status {response.status_code}: {response.text}"
+            )
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(
-        "CI" not in os.environ,
-        reason="Requires Docker MCP server to be running",
-    )
+    @pytest.mark.integration
     async def test_list_tools(self, mcp_server_url: str) -> None:
         """Test listing available tools."""
-        try:
-            result = await self.send_mcp_request(mcp_server_url, "tools/list")
-        except httpx.ConnectError:
-            pytest.skip("MCP server not available")
-        except Exception as e:
-            if "Not Acceptable" in str(e):
-                pytest.skip("MCP server running but not in expected mode")
-            raise
+        result = await self.send_mcp_request(mcp_server_url, "tools/list")
 
         assert len(result) > 0
         response = result[-1]  # Get the final response
@@ -134,10 +179,7 @@ class Calculator:
             assert expected in tool_names, f"Missing tool: {expected}"
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(
-        "CI" not in os.environ,
-        reason="Requires Docker MCP server to be running",
-    )
+    @pytest.mark.integration
     async def test_add_and_scan_repository(
         self,
         mcp_server_url: str,
@@ -192,10 +234,7 @@ class Calculator:
         assert test_repo["stats"]["total_files"] > 0
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(
-        "CI" not in os.environ,
-        reason="Requires Docker MCP server to be running",
-    )
+    @pytest.mark.integration
     async def test_search_functionality(
         self, mcp_server_url: str, test_repo_path: Path
     ) -> None:
@@ -249,10 +288,7 @@ class Calculator:
         assert calculator_found, "Calculator class not found in search results"
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(
-        "CI" not in os.environ,
-        reason="Requires Docker MCP server to be running",
-    )
+    @pytest.mark.integration
     async def test_get_code(self, mcp_server_url: str, test_repo_path: Path) -> None:
         """Test getting code for a specific entity."""
         # Add and scan repository
