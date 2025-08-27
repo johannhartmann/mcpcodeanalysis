@@ -44,7 +44,7 @@ services:
       # Server
       MCP_HOST: 0.0.0.0
       MCP_PORT: 8080
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      MCP_LOGGING__LEVEL: ${MCP_LOGGING__LEVEL:-INFO}
 
       # Development
       DEBUG: ${DEBUG:-false}

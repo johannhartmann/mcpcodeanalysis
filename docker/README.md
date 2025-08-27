@@ -78,7 +78,7 @@ OPENAI_API_KEY=your-api-key
 POSTGRES_PASSWORD=secure-password
 
 # Optional
-LOG_LEVEL=INFO
+MCP_LOGGING__LEVEL=INFO
 DEBUG=false
 API_KEY=your-mcp-api-key
 REDIS_PASSWORD=redis-password
