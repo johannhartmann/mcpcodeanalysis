@@ -1,15 +1,11 @@
 """Shared pytest fixtures and configuration."""
 
 import asyncio
+import logging
 import tempfile
 from asyncio import AbstractEventLoop
 from collections.abc import AsyncGenerator, Generator
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import pytest
-
 
 import pytest
 import pytest_asyncio
@@ -25,7 +21,15 @@ from sqlalchemy.ext.asyncio import (
 
 from src.config import settings
 from src.database.models import Base
-from src.logger import setup_logging
+from src.logger import get_logger, setup_logging
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_configure(config: pytest.Config) -> None:
+    """Silence faker DEBUG messages spam."""
+    for name in ("faker", "faker.factory", "faker.providers", "aiosqlite"):
+        log = get_logger(name)
+        log.setLevel(logging.WARNING)
 
 
 @pytest.fixture(scope="session")

@@ -216,10 +216,10 @@ class DomainPatternAnalyzer:
                 )
 
         # Generate recommendations
-        coupling_analysis["recommendations"] = (
-            await self._generate_coupling_recommendations(
-                context_metrics,
-            )
+        coupling_analysis[
+            "recommendations"
+        ] = await self._generate_coupling_recommendations(
+            context_metrics,
         )
 
         return coupling_analysis

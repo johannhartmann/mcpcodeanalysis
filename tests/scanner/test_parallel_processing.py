@@ -41,8 +41,9 @@ def mock_extractor() -> Any:
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("mock_extractor")
 async def test_sequential_vs_parallel_processing(
-    async_session: AsyncSession, mock_files: list[File], mock_extractor: Any
+    async_session: AsyncSession, mock_files: list[File]
 ) -> None:
     """Test that parallel processing is faster than sequential for many files."""
     # Create processor with parallel disabled

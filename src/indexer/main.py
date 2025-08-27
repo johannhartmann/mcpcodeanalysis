@@ -10,7 +10,7 @@ from src.config import settings
 from src.database import get_session_factory, init_database
 
 # Import repository classes at module scope so tests can patch them via src.indexer.main
-from src.database.repositories import RepositoryRepo
+from src.database.repositories import EmbeddingRepo, RepositoryRepo
 from src.indexer.chunking import CodeChunker
 from src.indexer.embeddings import EmbeddingGenerator
 from src.indexer.interpreter import CodeInterpreter
@@ -259,10 +259,6 @@ class IndexerService:
                     },
                 )
 
-            from src.database.repositories import (
-                EmbeddingRepo,
-            )  # imported at top for tests but reimport is safe
-
             embedding_repo = EmbeddingRepo(session)
             logger.info(
                 "Creating %d embeddings for file_id=%s",
@@ -301,7 +297,9 @@ async def main() -> None:
     indexer = IndexerService()
 
     # Handle shutdown signals
-    def signal_handler(sig: int, frame: Any) -> None:  # noqa: ARG001
+    def signal_handler(
+        sig: int, _frame: Any
+    ) -> None:  # frame unused by signal handlers
         logger.info("Received signal %s", sig)
         asyncio.create_task(indexer.stop())
 

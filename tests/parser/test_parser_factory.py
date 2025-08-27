@@ -53,6 +53,11 @@ class TestParserFactory:
 
     def test_is_supported(self) -> None:
         """Test checking if file type is supported."""
+        # Ensure plugin registry state does not affect this unit test
+        from src.parser.plugin_registry import LanguagePluginRegistry
+
+        LanguagePluginRegistry.clear_plugins()
+
         assert ParserFactory.is_supported(Path("test.py"))
         assert ParserFactory.is_supported(Path("test.pyw"))
         assert ParserFactory.is_supported(Path("test.pyi"))

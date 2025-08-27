@@ -150,9 +150,7 @@ def test_calculator_multiply():
         return repo_path
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(
-        reason="Requires full environment setup with PostgreSQL and file permissions"
-    )
+    @pytest.mark.integration
     async def test_full_workflow(
         self, db_session: AsyncSession, sample_repo: Path
     ) -> None:
@@ -232,7 +230,7 @@ def test_calculator_multiply():
         # 4. Extracted classes and functions
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="MCP tools framework not fully implemented in tests")
+    @pytest.mark.integration
     async def test_incremental_scanning(
         self,
         db_session: AsyncSession,
@@ -315,7 +313,7 @@ def greet(name: str) -> str:
         assert helper_file is not None
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="MCP tools framework not fully implemented in tests")
+    @pytest.mark.integration
     async def test_search_functionality(
         self,
         db_session: AsyncSession,
@@ -371,7 +369,7 @@ def greet(name: str) -> str:
         assert calc_results[0]["entity"]["type"] == "class"
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="MCP tools framework not fully implemented in tests")
+    @pytest.mark.integration
     async def test_error_handling(self, db_session: AsyncSession) -> None:
         """Test error handling in various scenarios."""
         from fastmcp import FastMCP

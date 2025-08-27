@@ -160,13 +160,13 @@ class MyClass:
 
         for func in entities["functions"]:
             if func["name"] in generators:
-                assert (
-                    func["is_generator"] is True
-                ), f"{func['name']} should be a generator"
+                assert func["is_generator"] is True, (
+                    f"{func['name']} should be a generator"
+                )
             elif func["name"] in non_generators:
-                assert (
-                    func["is_generator"] is False
-                ), f"{func['name']} should not be a generator"
+                assert func["is_generator"] is False, (
+                    f"{func['name']} should not be a generator"
+                )
 
         # Check async generator
         async_gen = next(

@@ -1,0 +1,23 @@
+site_name: MCP Code Analysis
+site_description: "Minimal docs for MCP Code Analysis (auto-generated placeholder)"
+site_author: "MCP Team"
+
+nav:
+  - Home: index.md
+  - Analysis Tools: analysis-tools-summary.md
+  - Advanced Analysis: advanced-analysis-tools.md
+  - Domain Features: domain-driven-features.md
+  - Domain Example: domain-example.md
+  - Multi-language Support: MULTI_LANGUAGE_SUPPORT.md
+  - Refactoring: refactoring_complex_methods.md
+  - Contributing: COMMIT_MSG_TPL.md
+  - Nix Pre-commit: NIX_PRECOMMIT.md
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+
+# Use the default MkDocs theme to avoid extra dependencies in CI
+theme:
+  name: readthedocs

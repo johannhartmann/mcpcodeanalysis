@@ -115,6 +115,7 @@ class TestVersionUtils:
         assert is_compatible_version("1.2.0", "1.2.3") is True
         assert is_compatible_version("1.2.4", "1.2.3") is False
 
+    @patch("src.utils.version.get_version_info")
     def test_get_build_info_basic(self, mock_get_version_info: Mock) -> None:
         """Test basic build info retrieval."""
         mock_get_version_info.return_value = VersionInfo(

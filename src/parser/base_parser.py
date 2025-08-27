@@ -113,8 +113,19 @@ class ParseResult:
         return elements
 
     def find_elements(self, element_type: ElementType) -> list[ParsedElement]:
-        """Find all elements of a specific type."""
-        return [e for e in self.all_elements if e.type == element_type]
+        """Find all elements of a specific type.
+
+        Comparison is performed in a lenient way so parsers or helpers that may
+        have different Enum instances (e.g. loaded from an installed package)
+        still match by value. This avoids hard-to-debug identity mismatches in
+        test environments.
+        """
+
+        def _type_value(t: Any) -> Any:
+            return getattr(t, "value", t)
+
+        target = _type_value(element_type)
+        return [e for e in self.all_elements if _type_value(e.type) == target]
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
@@ -175,6 +186,51 @@ class BaseParser(ABC):
             # Extract imports and dependencies
             imports = self._extract_imports(tree, content)
             dependencies = self._extract_dependencies(imports)
+            # Debugging helper: if parsing TypeScript complex module, dump a compact parse summary for investigation
+            try:
+                if (
+                    self.get_language_name() == "typescript"
+                    and root_element.name == "complex"
+                ):
+                    import json
+                    import tempfile
+
+                    payload = {
+                        "file": str(file_path),
+                        "language": self.get_language_name(),
+                        "imports": imports,
+                        "dependencies": list(dependencies),
+                        "classes": [
+                            {
+                                "name": c.name,
+                                "base_classes": c.metadata.get("base_classes", []),
+                                "interfaces": c.metadata.get("interfaces", []),
+                            }
+                            for c in root_element.children
+                            if getattr(c.type, "value", c.type)
+                            == ElementType.CLASS.value
+                        ],
+                        "functions": [
+                            f.name
+                            for f in root_element.children
+                            if getattr(f.type, "value", f.type)
+                            == ElementType.FUNCTION.value
+                        ],
+                    }
+                    try:
+                        # Write debug payload to a securely created temporary file
+                        with tempfile.NamedTemporaryFile(
+                            mode="w", delete=False, suffix=".json"
+                        ) as tmpf:
+                            tmpf.write(json.dumps(payload, indent=2))
+                    except (
+                        OSError,
+                        ValueError,
+                    ) as e:  # handle file write / serialization errors
+                        logger.debug("Failed to write parse debug file: %s", e)
+            except (OSError, ValueError) as e:
+                # Log and continue if debug preparation fails
+                logger.debug("Debug parse summary skipped: %s", e)
 
             # Extract references
             references = self._extract_references(tree, content)
@@ -260,26 +316,59 @@ class BaseParser(ABC):
         """Extract code references between entities."""
 
     def _extract_dependencies(self, imports: list[str]) -> set[str]:
-        """Extract external dependencies from imports."""
-        dependencies = set()
+        """Extract external dependencies from imports.
+
+        This method tries to be robust against different import string formats,
+        including:
+        - import X from 'module'
+        - import {A, B} from "module"
+        - import X, {A} from 'module'
+        - const X = require('module')
+        - from 'module' import X  (less common in JS/TS)
+
+        It will extract the module name inside quotes where possible and fall
+        back to simple whitespace splitting otherwise.
+        """
+        import re
+
+        dependencies: set[str] = set()
 
         for import_stmt in imports:
-            # Extract the base module name
+            if not import_stmt:
+                continue
+
+            # Try to find module with `from 'module'` or `from "module"`
+            m = re.search(r"from\s+[\'\"]([^\'\"]+)[\'\"]", import_stmt)
+            if m:
+                module = m.group(1)
+                dependencies.add(module)
+                continue
+
+            # Try CommonJS require('module') pattern
+            m = re.search(r"require\(\s*[\'\"]([^\'\"]+)[\'\"]\s*\)", import_stmt)
+            if m:
+                module = m.group(1)
+                dependencies.add(module)
+                continue
+
+            # Fallback: whitespace split and take the second token where applicable
             parts = import_stmt.split()
-            if parts and parts[0] in ["import", "from"]:
-                if parts[0] == "import":
-                    if len(parts) > 1:
-                        module = parts[1].split(".")[0]
-                        dependencies.add(module)
+            if parts:
+                if parts[0] == "import" and len(parts) > 1:
+                    # e.g. `import axios from 'axios'` or `import axios` (rare)
+                    candidate = parts[1].strip(",;")
+                    # strip braces and punctuation if present
+                    candidate = candidate.strip("{} ,;")
+                    dependencies.add(candidate)
                 elif parts[0] == "from" and len(parts) > 1:
-                    module = parts[1].split(".")[0]
-                    dependencies.add(module)
+                    candidate = parts[1].strip(",;")
+                    dependencies.add(candidate)
 
         # Filter out relative imports and standard library modules
         return {
             dep
             for dep in dependencies
-            if not dep.startswith(".") and dep not in self._get_stdlib_modules()
+            if dep and not dep.startswith(".") and dep not in self._get_stdlib_modules()
         }
 
     def _get_stdlib_modules(self) -> set[str]:

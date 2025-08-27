@@ -8,6 +8,8 @@ from pydantic import Field
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from src.database.init_db import get_session_factory, init_database
 from src.database.models import Repository
@@ -30,7 +32,6 @@ from src.mcp_server.tools.package_analysis import (
     get_package_tree,
 )
 from src.models import RepositoryConfig
-from src.utils.version import get_package_version
 
 logger = get_logger(__name__)
 
@@ -70,7 +71,9 @@ async def get_db_session() -> AsyncGenerator[Any, None]:
     if _session_factory is None:
         await initialize_server()
 
-    assert _session_factory is not None
+    if _session_factory is None:
+        raise RuntimeError
+
     async with _session_factory() as session:
         yield session
 
@@ -185,7 +188,7 @@ async def list_repositories(
                     "name": repo.name,
                     "owner": repo.owner,
                     "url": repo.github_url,
-                    "branch": repo.default_branch,
+                    "default_branch": repo.default_branch,
                     "last_synced": (
                         repo.last_synced.isoformat() if repo.last_synced else None
                     ),
@@ -195,7 +198,8 @@ async def list_repositories(
                     # Get file count
                     from sqlalchemy import func
 
-                    from src.database.models import CodeEmbedding, File
+                    from src.database.models import File
+                    from src.embeddings.vector_search import VectorSearch
 
                     file_count_result = await session.execute(
                         select(func.count(File.id)).where(
@@ -204,17 +208,18 @@ async def list_repositories(
                     )
                     file_count = file_count_result.scalar() or 0
 
-                    # Get embedding count
-                    embedding_count_result = await session.execute(
-                        select(func.count(CodeEmbedding.id))
-                        .join(File)
-                        .where(File.repository_id == repo.id),
+                    # Get embedding stats via vector search (includes totals and breakdown)
+                    vector_search = VectorSearch(session)
+                    embedding_stats = await vector_search.get_repository_stats(
+                        cast("int", repo.id)
                     )
-                    embedding_count = embedding_count_result.scalar() or 0
 
                     repo_data["stats"] = {
-                        "total_files": file_count,
-                        "total_embeddings": embedding_count,
+                        "file_count": file_count,
+                        "total_embeddings": embedding_stats.get("total_embeddings", 0),
+                        "embeddings_by_type": embedding_stats.get(
+                            "embeddings_by_type", {}
+                        ),
                     }
 
                 repo_list.append(repo_data)
@@ -1390,15 +1395,10 @@ async def sync_repository(
     return {}
 
 
-@mcp.tool(name="health_check", description="Check server health status")
-async def health_check() -> dict[str, Any]:
-    """Check server health status."""
-    return {
-        "status": "healthy",
-        "service": "mcp-code-analysis-server",
-        "version": get_package_version(),
-        "tools_available": True,
-    }
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(_request: Request) -> JSONResponse:
+    """Basic health check that the server is running."""
+    return JSONResponse({"status": "alive"}, status_code=200)
 
 
 # Aliases for compatibility

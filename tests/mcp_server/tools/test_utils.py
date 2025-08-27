@@ -2,7 +2,6 @@
 
 # mypy: disallow-any-generics=False
 
-
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -106,7 +105,9 @@ class TestToolUtils:
         assert format_timestamp(now) == "just now"
 
         # Minutes ago
-        minutes_ago = datetime.now(UTC).replace(minute=datetime.now(UTC).minute - 5)
+        from datetime import timedelta
+
+        minutes_ago = datetime.now(UTC) - timedelta(minutes=5)
         result = format_timestamp(minutes_ago)
         assert "5 minutes ago" in result or "4 minutes ago" in result
 

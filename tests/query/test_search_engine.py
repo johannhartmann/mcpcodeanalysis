@@ -29,6 +29,8 @@ def mock_embedding_generator() -> Generator[MagicMock, None, None]:
 def search_engine(
     mock_db_session: AsyncMock, mock_embedding_generator: MagicMock
 ) -> SearchEngine:
+    # Ensure the embedding generator fixture is applied (it patches the EmbeddingGenerator)
+    _ = mock_embedding_generator
     """Create a search engine instance with mocked dependencies."""
     return SearchEngine(mock_db_session)
 

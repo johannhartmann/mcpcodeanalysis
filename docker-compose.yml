@@ -44,7 +44,7 @@ services:
       # Server
       MCP_HOST: 0.0.0.0
       MCP_PORT: 8080
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      MCP_LOGGING__LEVEL: ${MCP_LOGGING__LEVEL:-INFO}
 
       # Development
       DEBUG: ${DEBUG:-false}
@@ -66,6 +66,10 @@ services:
     networks:
       - mcp-network
     command: all  # Run all services
+    develop:
+      watch:
+        - action: restart
+          path: ./src
 
   # Optional development tools
   pgadmin:
