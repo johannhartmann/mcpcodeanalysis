@@ -66,6 +66,10 @@ services:
     networks:
       - mcp-network
     command: all  # Run all services
+    develop:
+      watch:
+        - action: restart
+          path: ./src
 
   # Optional development tools
   pgadmin:
