@@ -118,9 +118,9 @@ class TestLanguagePlugins:
 
         for file_path, expected_lang in test_cases:
             detected = LanguagePluginRegistry.detect_language(file_path)
-            assert detected == expected_lang, (
-                f"Failed for {file_path}: expected {expected_lang}, got {detected}"
-            )
+            assert (
+                detected == expected_lang
+            ), f"Failed for {file_path}: expected {expected_lang}, got {detected}"
 
     def test_plugin_by_file_path(self) -> None:
         """Test getting plugins by file path."""
@@ -143,12 +143,12 @@ class TestLanguagePlugins:
         for lang in oop_languages:
             plugin = LanguagePluginRegistry.get_plugin(lang)
             if plugin:  # May not be available if TreeSitter libs missing
-                assert plugin.supports_feature("classes"), (
-                    f"{lang} should support classes"
-                )
-                assert plugin.supports_feature("functions"), (
-                    f"{lang} should support functions"
-                )
+                assert plugin.supports_feature(
+                    "classes"
+                ), f"{lang} should support classes"
+                assert plugin.supports_feature(
+                    "functions"
+                ), f"{lang} should support functions"
 
     def test_unsupported_language(self) -> None:
         """Test handling of unsupported languages."""

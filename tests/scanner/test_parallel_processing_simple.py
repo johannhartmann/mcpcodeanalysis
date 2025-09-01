@@ -129,6 +129,6 @@ async def test_parallel_processing_batch_size_calculation(
                 print(
                     f"File count: {file_count}, Expected: {expected_batch_size}, Got: {captured_batch_size}"
                 )
-                assert captured_batch_size == expected_batch_size, (
-                    f"Expected batch size {expected_batch_size} for {file_count} files, got {captured_batch_size}"
-                )
+                assert (
+                    captured_batch_size == expected_batch_size
+                ), f"Expected batch size {expected_batch_size} for {file_count} files, got {captured_batch_size}"

@@ -445,9 +445,9 @@ async def test_process_chunk_error_handling(mock_dependencies: dict[str, Any]) -
     chunk = {"type": "function", "content": "def test(): pass", "metadata": {}}
 
     # Make embedding generation fail
-    mock_dependencies[
-        "embedding_generator"
-    ].generate_code_embeddings.side_effect = Exception("API Error")
+    mock_dependencies["embedding_generator"].generate_code_embeddings.side_effect = (
+        Exception("API Error")
+    )
 
     mock_session = AsyncMock()
 

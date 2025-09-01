@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import os
 import pytest
 
 
@@ -18,17 +19,23 @@ class TestDockerMCPIntegration:
     @pytest.fixture
     def mcp_server_url(self) -> str:
         """Get MCP server URL."""
-        return "http://localhost:8080/mcp/"
+        port = os.environ.get("MCP_EXTERNAL_PORT", "8080")
+        return f"http://localhost:{port}/mcp/"
 
     @pytest.fixture
-    def test_repo_path(self) -> Iterator[Path]:
-        """Create a test Git repository."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            repo_path = Path(tmpdir) / "test_repo"
-            repo_path.mkdir()
+    def test_repo_path(self) -> Iterator[str]:
+        """Create a test Git repository accessible inside the Docker container.
+
+        We create it under the project directory (mounted ro as /host_project in the container)
+        and return the container-visible path so the server can access it.
+        """
+        project_root = Path(__file__).resolve().parents[2]
+        with tempfile.TemporaryDirectory(dir=project_root / "tests") as tmpdir:
+            host_repo_path = Path(tmpdir) / "test_repo"
+            host_repo_path.mkdir()
 
             # Create a simple Python file
-            (repo_path / "main.py").write_text(
+            (host_repo_path / "main.py").write_text(
                 '''
 """Test module."""
 
@@ -46,23 +53,26 @@ class Calculator:
             )
 
             # Initialize git repo (config necessary for github ci)
-            subprocess.run(["git", "init"], cwd=repo_path, check=True)
+            subprocess.run(["git", "init"], cwd=host_repo_path, check=True)
             subprocess.run(
                 ["git", "config", "user.email", "test@invalid"],
-                cwd=repo_path,
+                cwd=host_repo_path,
                 check=True,
             )
             subprocess.run(
-                ["git", "config", "user.name", "test"], cwd=repo_path, check=True
+                ["git", "config", "user.name", "test"], cwd=host_repo_path, check=True
             )
-            subprocess.run(["git", "add", "."], cwd=repo_path, check=True)
+            subprocess.run(["git", "add", "."], cwd=host_repo_path, check=True)
             subprocess.run(
                 ["git", "commit", "-m", "Initial commit"],
-                cwd=repo_path,
+                cwd=host_repo_path,
                 check=True,
             )
 
-            yield repo_path
+            # Translate host path to container-visible path under /host_project
+            rel = host_repo_path.relative_to(project_root)
+            container_path = f"/host_project/{rel.as_posix()}"
+            yield container_path
 
     async def send_mcp_request(
         self, url: str, method: str, params: dict[str, Any] | None = None
@@ -151,6 +161,21 @@ class Calculator:
                 f"Request failed with status {response.status_code}: {response.text}"
             )
 
+    @staticmethod
+    def _content_text_to_obj(event: dict[str, Any]) -> dict[str, Any]:
+        """Helper to normalize event content[0]["text"] into a dict.
+
+        The server may return the text field as a JSON string; parse if needed.
+        """
+        content = event["result"]["content"][0]["text"]
+        if isinstance(content, str):
+            try:
+                content = json.loads(content)
+            except json.JSONDecodeError:
+                # Fallback to empty structure to avoid KeyErrors
+                content = {}
+        return content
+
     @pytest.mark.asyncio
     @pytest.mark.integration
     async def test_list_tools(self, mcp_server_url: str) -> None:
@@ -194,9 +219,8 @@ class Calculator:
         )
 
         list_response = list_result[-1]
-        initial_count = len(
-            list_response["result"]["content"][0]["text"].get("repositories", []),
-        )
+        list_content = self._content_text_to_obj(list_response)
+        initial_count = len(list_content.get("repositories", []))
 
         # Add the test repository
         add_result = await self.send_mcp_request(
@@ -213,8 +237,9 @@ class Calculator:
         )
 
         add_response = add_result[-1]
-        assert add_response["result"]["content"][0]["text"]["success"] is True
-        repo_id = add_response["result"]["content"][0]["text"]["repository_id"]
+        add_content = self._content_text_to_obj(add_response)
+        assert add_content.get("success") is True
+        repo_id = add_content["repository_id"]
 
         # List repositories again to verify it was added
         list_result2 = await self.send_mcp_request(
@@ -224,11 +249,12 @@ class Calculator:
         )
 
         list_response2 = list_result2[-1]
-        final_count = list_response2["result"]["content"][0]["text"]["count"]
+        list_content2 = self._content_text_to_obj(list_response2)
+        final_count = list_content2["count"]
         assert final_count == initial_count + 1
 
         # Check that files were scanned
-        repos = list_response2["result"]["content"][0]["text"]["repositories"]
+        repos = list_content2["repositories"]
         test_repo = next((r for r in repos if r["id"] == repo_id), None)
         assert test_repo is not None
         assert test_repo["stats"]["total_files"] > 0
@@ -254,7 +280,8 @@ class Calculator:
         )
 
         add_response = add_result[-1]
-        repo_id = add_response["result"]["content"][0]["text"]["repository_id"]
+        add_content = self._content_text_to_obj(add_response)
+        repo_id = add_content["repository_id"]
 
         # Wait a bit for indexing to complete
         await asyncio.sleep(2)
@@ -275,9 +302,10 @@ class Calculator:
         )
 
         search_response = search_result[-1]
-        assert search_response["result"]["content"][0]["text"]["success"] is True
+        search_content = self._content_text_to_obj(search_response)
+        assert search_content.get("success") is True
 
-        results = search_response["result"]["content"][0]["text"]["results"]
+        results = search_content["results"]
         assert len(results) > 0
 
         # Check that we found the Calculator class
@@ -325,7 +353,8 @@ class Calculator:
             },
         )
 
-        results = search_result[-1]["result"]["content"][0]["text"]["results"]
+        search_content = self._content_text_to_obj(search_result[-1])
+        results = search_content["results"]
         calc_result = next(
             (r for r in results if r["entity"]["name"] == "Calculator"),
             None,
@@ -349,9 +378,10 @@ class Calculator:
         )
 
         code_response = code_result[-1]
-        assert code_response["result"]["content"][0]["text"]["success"] is True
+        code_content = self._content_text_to_obj(code_response)
+        assert code_content.get("success") is True
 
-        code = code_response["result"]["content"][0]["text"]["code"]
+        code = code_content["code"]
         assert "class Calculator:" in code
         assert "def add(" in code
 

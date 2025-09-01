@@ -299,17 +299,15 @@ def greet(name: str) -> str:
         assert scan_result["success"] is True
 
         # Check that new file was added
-        new_files = await db_session.execute(
+        new_files_result = await db_session.execute(
             select(File).where(File.repository_id == repo_id),
         )
-        new_count = len(new_files.scalars().all())
+        new_files_list = new_files_result.scalars().all()
+        new_count = len(new_files_list)
         assert new_count == initial_count + 1
 
         # Verify the new file was parsed
-        helper_file = next(
-            (f for f in new_files.scalars().all() if f.path.endswith("helpers.py")),
-            None,
-        )
+        helper_file = next((f for f in new_files_list if f.path.endswith("helpers.py")), None)
         assert helper_file is not None
 
     @pytest.mark.asyncio

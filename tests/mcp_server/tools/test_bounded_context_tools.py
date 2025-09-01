@@ -33,7 +33,7 @@ def mock_mcp() -> FastMCP:
 # Helper builders to reduce statements in tests
 
 
-def build_bounded_context_with_memberships() -> Tuple[BoundedContext, MagicMock]:
+def build_bounded_context_with_memberships() -> tuple[BoundedContext, MagicMock]:
     mock_context = MagicMock(spec=BoundedContext)
     mock_context.id = 1
     mock_context.name = "OrderContext"

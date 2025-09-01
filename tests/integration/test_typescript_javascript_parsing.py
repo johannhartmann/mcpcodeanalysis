@@ -215,9 +215,9 @@ export { UserService, createUser, getUserById };
         }
 
         for node in ts_nodes:
-            assert node in calculator.COMPLEXITY_NODES, (
-                f"Missing TypeScript node: {node}"
-            )
+            assert (
+                node in calculator.COMPLEXITY_NODES
+            ), f"Missing TypeScript node: {node}"
 
     def test_javascript_complexity_calculation(self) -> None:
         """Test JavaScript complexity calculation."""
@@ -236,9 +236,9 @@ export { UserService, createUser, getUserById };
         }
 
         for node in js_nodes:
-            assert node in calculator.COMPLEXITY_NODES, (
-                f"Missing JavaScript node: {node}"
-            )
+            assert (
+                node in calculator.COMPLEXITY_NODES
+            ), f"Missing JavaScript node: {node}"
 
     def test_domain_analysis_feature_detection(self) -> None:
         """Test that TypeScript/JavaScript support domain analysis."""
@@ -334,6 +334,6 @@ export { UserService, createUser, getUserById };
         for extension, expected_lang in test_cases:
             plugin = LanguagePluginRegistry.get_plugin_by_extension(extension)
             assert plugin is not None, f"No plugin for extension {extension}"
-            assert plugin.get_language_name() == expected_lang, (
-                f"Wrong language for {extension}: expected {expected_lang}, got {plugin.get_language_name()}"
-            )
+            assert (
+                plugin.get_language_name() == expected_lang
+            ), f"Wrong language for {extension}: expected {expected_lang}, got {plugin.get_language_name()}"

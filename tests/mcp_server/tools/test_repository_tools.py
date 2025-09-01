@@ -41,7 +41,7 @@ def mock_mcp() -> FastMCP:
 
 
 @pytest.fixture
-def mock_embeddings() -> Generator[MagicMock, None, None]:
+def mock_embeddings() -> Generator[MagicMock]:
     """Create mock embeddings."""
     with patch("langchain_openai.OpenAIEmbeddings") as mock_class:
         mock_instance = MagicMock()
