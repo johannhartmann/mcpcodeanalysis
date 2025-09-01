@@ -1,6 +1,6 @@
 """Tests for GitHub API client."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -72,9 +72,8 @@ class TestGitHubClient:
     ) -> None:
         """Test rate limit check when limit is exhausted."""
         github_client._rate_limit_remaining = 5
-        github_client._rate_limit_reset = datetime.now(UTC).replace(
-            second=datetime.now(tz=UTC).second + 1,
-        )
+        # Set reset time to 1 second in the future
+        github_client._rate_limit_reset = datetime.now(UTC) + timedelta(seconds=1)
 
         with patch("asyncio.sleep") as mock_sleep:
             await github_client._check_rate_limit()
