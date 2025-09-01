@@ -570,12 +570,10 @@ class CodeReferenceRepo:
         references = result.scalars().all()
 
         # Build adjacency list with proper typing
-        from typing import cast as _cast
-
         graph: dict[int, set[int]] = {}
         for ref in references:
-            src = _cast("int", ref.source_id)
-            tgt = _cast("int", ref.target_id)
+            src = ref.source_id
+            tgt = ref.target_id
             if src not in graph:
                 graph[src] = set()
             graph[src].add(tgt)
@@ -614,19 +612,19 @@ class CodeReferenceRepo:
                     select(Module).where(Module.id.in_(unique_ids))
                 )
                 for m in result_mod.scalars().all():
-                    id_to_name[_cast("int", m.id)] = _cast("str", m.name)
+                    id_to_name[m.id] = m.name
             elif entity_type == "class":
                 result_cls = await self.session.execute(
                     select(Class).where(Class.id.in_(unique_ids))
                 )
                 for c in result_cls.scalars().all():
-                    id_to_name[_cast("int", c.id)] = _cast("str", c.name)
+                    id_to_name[c.id] = c.name
             elif entity_type == "function":
                 result_fn = await self.session.execute(
                     select(Function).where(Function.id.in_(unique_ids))
                 )
                 for f in result_fn.scalars().all():
-                    id_to_name[_cast("int", f.id)] = _cast("str", f.name)
+                    id_to_name[f.id] = f.name
 
         cycles_named: list[list[str]] = [
             [id_to_name.get(i, str(i)) for i in cycle] for cycle in cycles_ids

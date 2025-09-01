@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, cast
 
 try:
@@ -15,7 +16,6 @@ except ImportError:
 from sqlalchemy import (
     JSON,
     Boolean,
-    Column,
     DateTime,
     Enum,
     Float,
@@ -27,31 +27,26 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-# SQLAlchemy compatibility
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
 
-# Create base class
-Base: Any = declarative_base()
+class Base(DeclarativeBase):
+    """Typed declarative base for all ORM models."""
 
-# For type annotations (using Any to avoid import errors)
-Mapped = Any
-mapped_column = Column
+    pass
 
 
 class Repository(Base):
     """GitHub repository model."""
 
     __tablename__ = "repositories"
-    __allow_unmapped__ = True
 
-    id = Column(Integer, primary_key=True)
-    github_url = Column(String(500), unique=True, nullable=False)
-    owner = Column(String(255), nullable=False)
-    name = Column(String(255), nullable=False)
-    default_branch = Column(String(255), default="main")
-    access_token_id = Column(String(255), nullable=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    github_url: Mapped[str] = mapped_column(String(500), unique=True, nullable=False)
+    owner: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    default_branch: Mapped[str] = mapped_column(String(255), default="main")
+    access_token_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     @property
     def access_token(self) -> str | None:
@@ -77,20 +72,22 @@ class Repository(Base):
 
         self.access_token_id = cast("Any", token)
 
-    last_synced = Column(DateTime, default=func.now())
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    is_active = Column(Boolean, default=True)
-    webhook_id = Column(String(255), nullable=True)
-    repo_metadata = Column(JSON, default=dict)
+    last_synced: Mapped[datetime | None] = mapped_column(DateTime, default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=func.now(), onupdate=func.now()
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    webhook_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    repo_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
     # Relationships
-    files: Any = relationship(
+    files: Mapped[list[File]] = relationship(
         "File",
         back_populates="repository",
         cascade="all, delete-orphan",
     )
-    commits: Any = relationship(
+    commits: Mapped[list[Commit]] = relationship(
         "Commit",
         back_populates="repository",
         cascade="all, delete-orphan",
@@ -103,34 +100,37 @@ class File(Base):
     """Source code file model."""
 
     __tablename__ = "files"
-    __allow_unmapped__ = True
 
-    id = Column(Integer, primary_key=True)
-    repository_id = Column(Integer, ForeignKey("repositories.id"), nullable=False)
-    path = Column(String(1000), nullable=False)
-    content_hash = Column(String(64))  # SHA-256 hash
-    git_hash = Column(String(40))  # Git blob hash
-    branch = Column(String(255), default="main")
-    size = Column(Integer)
-    language = Column(String(50))
-    last_modified = Column(DateTime, default=func.now())
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    is_deleted = Column(Boolean, default=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    repository_id: Mapped[int] = mapped_column(
+        ForeignKey("repositories.id"), nullable=False
+    )
+    path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    content_hash: Mapped[str | None] = mapped_column(String(64))  # SHA-256 hash
+    git_hash: Mapped[str | None] = mapped_column(String(40))  # Git blob hash
+    branch: Mapped[str] = mapped_column(String(255), default="main")
+    size: Mapped[int | None] = mapped_column(Integer)
+    language: Mapped[str | None] = mapped_column(String(50))
+    last_modified: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=func.now(), onupdate=func.now()
+    )
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Relationships
-    repository: Any = relationship("Repository", back_populates="files")
-    modules: Any = relationship(
+    repository: Mapped[Repository] = relationship("Repository", back_populates="files")
+    modules: Mapped[list[Module]] = relationship(
         "Module",
         back_populates="file",
         cascade="all, delete-orphan",
     )
-    imports: Any = relationship(
+    imports: Mapped[list[Import]] = relationship(
         "Import",
         back_populates="file",
         cascade="all, delete-orphan",
     )
-    embeddings: Any = relationship(
+    embeddings: Mapped[list[CodeEmbedding]] = relationship(
         "CodeEmbedding",
         back_populates="file",
         cascade="all, delete-orphan",
@@ -148,25 +148,26 @@ class Module(Base):
     """Python module model."""
 
     __tablename__ = "modules"
-    __allow_unmapped__ = True
 
-    id = Column(Integer, primary_key=True)
-    file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
-    name = Column(String(255), nullable=False)
-    docstring = Column(Text)
-    start_line = Column(Integer)
-    end_line = Column(Integer)
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    id: Mapped[int] = mapped_column(primary_key=True)
+    file_id: Mapped[int] = mapped_column(ForeignKey("files.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    docstring: Mapped[str | None] = mapped_column(Text)
+    start_line: Mapped[int | None] = mapped_column(Integer)
+    end_line: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=func.now(), onupdate=func.now()
+    )
 
     # Relationships
-    file: Any = relationship("File", back_populates="modules")
-    classes: Any = relationship(
+    file: Mapped[File] = relationship("File", back_populates="modules")
+    classes: Mapped[list[Class]] = relationship(
         "Class",
         back_populates="module",
         cascade="all, delete-orphan",
     )
-    functions: Any = relationship(
+    functions: Mapped[list[Function]] = relationship(
         "Function",
         primaryjoin="and_(Module.id==Function.module_id, Function.class_id==None)",
         back_populates="module",
@@ -183,23 +184,28 @@ class Class(Base):
     """Class definition model."""
 
     __tablename__ = "classes"
-    __allow_unmapped__ = True
 
-    id = Column(Integer, primary_key=True)
-    module_id = Column(Integer, ForeignKey("modules.id"), nullable=False)
-    name = Column(String(255), nullable=False)
-    docstring = Column(Text)
-    base_classes = Column(JSON, default=[])  # List of base class names
-    decorators = Column(JSON, default=[])  # List of decorator names
-    start_line = Column(Integer)
-    end_line = Column(Integer)
-    is_abstract = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    id: Mapped[int] = mapped_column(primary_key=True)
+    module_id: Mapped[int] = mapped_column(ForeignKey("modules.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    docstring: Mapped[str | None] = mapped_column(Text)
+    base_classes: Mapped[list[str]] = mapped_column(
+        JSON, default=list
+    )  # List of base class names
+    decorators: Mapped[list[str]] = mapped_column(
+        JSON, default=list
+    )  # List of decorator names
+    start_line: Mapped[int | None] = mapped_column(Integer)
+    end_line: Mapped[int | None] = mapped_column(Integer)
+    is_abstract: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=func.now(), onupdate=func.now()
+    )
 
     # Relationships
-    module: Any = relationship("Module", back_populates="classes")
-    methods: Any = relationship(
+    module: Mapped[Module] = relationship("Module", back_populates="classes")
+    methods: Mapped[list[Function]] = relationship(
         "Function",
         primaryjoin="Class.id==Function.class_id",
         back_populates="parent_class",
@@ -216,34 +222,41 @@ class Function(Base):
     """Function/method definition model."""
 
     __tablename__ = "functions"
-    __allow_unmapped__ = True
 
-    id = Column(Integer, primary_key=True)
-    module_id = Column(Integer, ForeignKey("modules.id"), nullable=False)
-    class_id = Column(Integer, ForeignKey("classes.id"), nullable=True)
-    name = Column(String(255), nullable=False)
-    docstring = Column(Text)
-    parameters = Column(JSON, default=[])  # List of parameter info
-    return_type = Column(String(255))
-    decorators = Column(JSON, default=[])  # List of decorator names
-    start_line = Column(Integer)
-    end_line = Column(Integer)
-    is_async = Column(Boolean, default=False)
-    is_generator = Column(Boolean, default=False)
-    is_property = Column(Boolean, default=False)
-    is_static = Column(Boolean, default=False)
-    is_classmethod = Column(Boolean, default=False)
-    complexity = Column(Integer)  # Cyclomatic complexity
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    id: Mapped[int] = mapped_column(primary_key=True)
+    module_id: Mapped[int] = mapped_column(ForeignKey("modules.id"), nullable=False)
+    class_id: Mapped[int | None] = mapped_column(
+        ForeignKey("classes.id"), nullable=True
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    docstring: Mapped[str | None] = mapped_column(Text)
+    parameters: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON, default=list
+    )  # List of parameter info
+    return_type: Mapped[str | None] = mapped_column(String(255))
+    decorators: Mapped[list[str]] = mapped_column(
+        JSON, default=list
+    )  # List of decorator names
+    start_line: Mapped[int | None] = mapped_column(Integer)
+    end_line: Mapped[int | None] = mapped_column(Integer)
+    is_async: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_generator: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_property: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_static: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_classmethod: Mapped[bool] = mapped_column(Boolean, default=False)
+    complexity: Mapped[int | None] = mapped_column(Integer)  # Cyclomatic complexity
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=func.now(), onupdate=func.now()
+    )
 
     # Relationships
-    module: Any = relationship(
+    module: Mapped[Module] = relationship(
         "Module",
         back_populates="functions",
         foreign_keys=[module_id],
     )
-    parent_class: Any = relationship(
+    parent_class: Mapped[Class | None] = relationship(
         "Class",
         back_populates="methods",
         foreign_keys=[class_id],
@@ -260,20 +273,21 @@ class Import(Base):
     """Import statement model."""
 
     __tablename__ = "imports"
-    __allow_unmapped__ = True
 
-    id = Column(Integer, primary_key=True)
-    file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
-    import_statement = Column(String(500), nullable=False)
-    module_name = Column(String(255))
-    imported_names = Column(JSON, default=[])  # List of imported names
-    is_relative = Column(Boolean, default=False)
-    level = Column(Integer, default=0)  # Relative import level
-    line_number = Column(Integer)
-    created_at = Column(DateTime, default=func.now())
+    id: Mapped[int] = mapped_column(primary_key=True)
+    file_id: Mapped[int] = mapped_column(ForeignKey("files.id"), nullable=False)
+    import_statement: Mapped[str] = mapped_column(String(500), nullable=False)
+    module_name: Mapped[str | None] = mapped_column(String(255))
+    imported_names: Mapped[list[str]] = mapped_column(
+        JSON, default=list
+    )  # List of imported names
+    is_relative: Mapped[bool] = mapped_column(Boolean, default=False)
+    level: Mapped[int] = mapped_column(Integer, default=0)  # Relative import level
+    line_number: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     # Relationships
-    file: Any = relationship("File", back_populates="imports")
+    file: Mapped[File] = relationship("File", back_populates="imports")
 
     __table_args__ = (
         Index("idx_import_file", "file_id"),
@@ -285,23 +299,28 @@ class Commit(Base):
     """Git commit model."""
 
     __tablename__ = "commits"
-    __allow_unmapped__ = True
 
-    id = Column(Integer, primary_key=True)
-    repository_id = Column(Integer, ForeignKey("repositories.id"), nullable=False)
-    sha = Column(String(40), unique=True, nullable=False)
-    message = Column(Text)
-    author = Column(String(255))
-    author_email = Column(String(255))
-    timestamp = Column(DateTime, nullable=False)
-    files_changed = Column(JSON, default=[])  # List of file paths
-    additions = Column(Integer, default=0)
-    deletions = Column(Integer, default=0)
-    processed = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=func.now())
+    id: Mapped[int] = mapped_column(primary_key=True)
+    repository_id: Mapped[int] = mapped_column(
+        ForeignKey("repositories.id"), nullable=False
+    )
+    sha: Mapped[str] = mapped_column(String(40), unique=True, nullable=False)
+    message: Mapped[str | None] = mapped_column(Text)
+    author: Mapped[str | None] = mapped_column(String(255))
+    author_email: Mapped[str | None] = mapped_column(String(255))
+    timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    files_changed: Mapped[list[str]] = mapped_column(
+        JSON, default=list
+    )  # List of file paths
+    additions: Mapped[int] = mapped_column(Integer, default=0)
+    deletions: Mapped[int] = mapped_column(Integer, default=0)
+    processed: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     # Relationships
-    repository: Any = relationship("Repository", back_populates="commits")
+    repository: Mapped[Repository] = relationship(
+        "Repository", back_populates="commits"
+    )
 
     __table_args__ = (
         Index("idx_commit_repository", "repository_id"),
@@ -314,30 +333,41 @@ class CodeReference(Base):
     """Track references between code entities."""
 
     __tablename__ = "code_references"
-    __allow_unmapped__ = True
 
-    id = Column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     # Source entity (the one making the reference)
-    source_type = Column(String(50), nullable=False)  # module, class, function
-    source_id = Column(Integer, nullable=False)
-    source_file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
-    source_line = Column(Integer)  # Line where reference occurs
+    source_type: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # module, class, function
+    source_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_file_id: Mapped[int] = mapped_column(ForeignKey("files.id"), nullable=False)
+    source_line: Mapped[int | None] = mapped_column(
+        Integer
+    )  # Line where reference occurs
 
     # Target entity (the one being referenced)
-    target_type = Column(String(50), nullable=False)  # module, class, function
-    target_id = Column(Integer, nullable=False)
-    target_file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
+    target_type: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # module, class, function
+    target_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    target_file_id: Mapped[int] = mapped_column(ForeignKey("files.id"), nullable=False)
 
     # Reference details
-    reference_type = Column(String(50))  # import, call, inherit, instantiate, type_hint
-    context = Column(Text)  # Code context around the reference
-    is_dynamic = Column(Boolean, default=False)  # Dynamic imports/calls
+    reference_type: Mapped[str | None] = mapped_column(
+        String(50)
+    )  # import, call, inherit, instantiate, type_hint
+    context: Mapped[str | None] = mapped_column(
+        Text
+    )  # Code context around the reference
+    is_dynamic: Mapped[bool] = mapped_column(
+        Boolean, default=False
+    )  # Dynamic imports/calls
 
-    created_at = Column(DateTime, default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     # Relationships
-    source_file: Any = relationship("File", foreign_keys=[source_file_id])
-    target_file: Any = relationship("File", foreign_keys=[target_file_id])
+    source_file: Mapped[File] = relationship("File", foreign_keys=[source_file_id])
+    target_file: Mapped[File] = relationship("File", foreign_keys=[target_file_id])
 
     __table_args__ = (
         Index("idx_ref_source", "source_type", "source_id"),
@@ -358,30 +388,33 @@ class CodeEmbedding(Base):
     """Code embedding model with pgvector."""
 
     __tablename__ = "code_embeddings"
-    __allow_unmapped__ = True
 
-    id = Column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     # NOTE: The Enum names are SQLAlchemy Enum types; mypy needs explicit Python types
-    entity_type: Any = Column(
+    entity_type: Mapped[str] = mapped_column(
         Enum("file", "module", "class", "function", name="code_entity_type"),
         nullable=False,
     )
-    entity_id = Column(Integer, nullable=False)
-    file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
-    embedding_type: Any = Column(
+    entity_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    file_id: Mapped[int] = mapped_column(ForeignKey("files.id"), nullable=False)
+    embedding_type: Mapped[str] = mapped_column(
         Enum("raw", "interpreted", name="embedding_type"),
         nullable=False,
     )
     # Use Vector for PostgreSQL, JSON for SQLite
-    embedding: Any = Column(Vector(1536), nullable=False)  # OpenAI ada-002 dimension
-    content = Column(Text, nullable=False)
-    tokens = Column(Integer)
-    repo_metadata = Column(JSON, default={})
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    embedding: Mapped[list[float]] = mapped_column(
+        Vector(1536), nullable=False
+    )  # OpenAI ada-002 dimension
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    tokens: Mapped[int | None] = mapped_column(Integer)
+    repo_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=func.now(), onupdate=func.now()
+    )
 
     # Relationships
-    file: Any = relationship("File", back_populates="embeddings")
+    file: Mapped[File] = relationship("File", back_populates="embeddings")
 
     __table_args__ = (
         Index("idx_embedding_entity", "entity_type", "entity_id"),
@@ -395,16 +428,17 @@ class SearchHistory(Base):
     """Search query history for analytics."""
 
     __tablename__ = "search_history"
-    __allow_unmapped__ = True
 
-    id = Column(Integer, primary_key=True)
-    query = Column(Text, nullable=False)
-    query_type = Column(String(50))  # search_code, find_definition, etc.
-    results_count = Column(Integer, default=0)
-    response_time_ms = Column(Float)
-    user_id = Column(String(255))  # Optional user tracking
-    session_id = Column(String(255))
-    created_at = Column(DateTime, default=func.now())
+    id: Mapped[int] = mapped_column(primary_key=True)
+    query: Mapped[str] = mapped_column(Text, nullable=False)
+    query_type: Mapped[str | None] = mapped_column(
+        String(50)
+    )  # search_code, find_definition, etc.
+    results_count: Mapped[int] = mapped_column(Integer, default=0)
+    response_time_ms: Mapped[float | None] = mapped_column(Float)
+    user_id: Mapped[str | None] = mapped_column(String(255))  # Optional user tracking
+    session_id: Mapped[str | None] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     __table_args__ = (
         Index("idx_search_created", "created_at"),

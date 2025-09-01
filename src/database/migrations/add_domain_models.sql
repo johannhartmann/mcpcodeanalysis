@@ -5,7 +5,7 @@
 -- Create enum types
 CREATE TYPE domain_entity_type AS ENUM (
     'aggregate_root',
-    'entity', 
+    'entity',
     'value_object',
     'domain_service',
     'domain_event',
