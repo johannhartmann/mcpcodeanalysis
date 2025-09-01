@@ -100,14 +100,14 @@ By participating in this project, you agree to abide by our Code of Conduct:
 ```python
 def analyze_code(file_path: Path, options: Dict[str, Any]) -> CodeAnalysis:
     """Analyze Python code and extract structure.
-    
+
     Args:
         file_path: Path to the Python file to analyze
         options: Analysis options including depth and filters
-        
+
     Returns:
         CodeAnalysis object containing extracted information
-        
+
     Raises:
         FileNotFoundError: If file_path doesn't exist
         ParseError: If the code cannot be parsed
@@ -160,20 +160,20 @@ from unittest.mock import Mock, patch
 
 class TestCodeParser:
     """Tests for CodeParser class."""
-    
+
     def test_parse_simple_function(self):
         """Test parsing a simple function definition."""
         # Arrange
         code = "def hello(): pass"
         parser = CodeParser()
-        
+
         # Act
         result = parser.parse(code)
-        
+
         # Assert
         assert len(result.functions) == 1
         assert result.functions[0].name == "hello"
-    
+
     @pytest.mark.parametrize("code,expected", [
         ("class A: pass", "A"),
         ("class B(): pass", "B"),

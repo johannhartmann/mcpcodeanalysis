@@ -19,7 +19,7 @@ Instead of just parsing code structure, the system uses LLMs to understand:
 
 ```python
 # Traditional parsing sees: class Order
-# Domain analysis understands: 
+# Domain analysis understands:
 # - Aggregate root for purchase transactions
 # - Maintains order lifecycle consistency
 # - Enforces business rules about minimum quantities

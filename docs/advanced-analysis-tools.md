@@ -297,7 +297,7 @@ These tools can be integrated into your CI/CD pipeline:
 - name: Analyze Domain Health
   run: |
     mcp call get_domain_metrics --repository_id $REPO_ID
-    
+
 - name: Check Anti-Patterns
   run: |
     mcp call detect_anti_patterns --repository_id $REPO_ID

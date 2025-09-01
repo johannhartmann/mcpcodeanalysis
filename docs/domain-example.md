@@ -14,18 +14,18 @@ class Invoice:
         self.status = "draft"
         self.total = 0
         self.tax_rate = 0.1
-        
+
     def calculate_total(self):
         subtotal = sum(item.price * item.quantity for item in self.items)
         tax = subtotal * self.tax_rate
         self.total = subtotal + tax
-        
+
     def send_to_customer(self):
         if self.status != "finalized":
             raise ValueError("Cannot send draft invoice")
         # Send email logic here
         self.status = "sent"
-        
+
     def mark_as_paid(self, payment_ref):
         if self.status != "sent":
             raise ValueError("Can only mark sent invoices as paid")
@@ -86,7 +86,7 @@ class Invoice:
       "description": "Invoice is issued to a specific customer"
     },
     {
-      "source": "Invoice", 
+      "source": "Invoice",
       "target": "InvoiceItem",
       "type": "aggregates",
       "description": "Invoice contains multiple line items"
@@ -133,7 +133,7 @@ Bounded Context: Billing
 - Entities: InvoiceItem, TaxRule
 - Value Objects: Money, TaxRate, BillingPeriod
 - Domain Services: TaxCalculationService, InvoiceNumberGenerator
-- Integration Points: 
+- Integration Points:
   - Customer (from Sales context)
   - Payment (from Payments context)
 ```

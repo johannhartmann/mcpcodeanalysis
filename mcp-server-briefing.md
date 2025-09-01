@@ -88,43 +88,43 @@ commits (id, repository_id, sha, message, author, timestamp, files_changed)
 @mcp.tool
 async def search_code(query: str, limit: int = 10) -> list:
     """Search for code by natural language query"""
-    
+
 @mcp.tool
 async def explain_code(path: str) -> str:
     """Explain what a code element does (function, class, module, or package).
     For classes: aggregates explanations of all methods and attributes.
     For packages: provides overview of all modules and main components."""
-    
+
 @mcp.tool
 async def find_definition(name: str, type: str = "any") -> list:
     """Find where a function/class/module is defined.
     Type can be: 'function', 'class', 'module', or 'any'"""
-    
+
 @mcp.tool
 async def find_usage(function_or_class: str, repository: str = None) -> list:
     """Find all places where a function/class is used.
     Can search across all repositories or filter by specific repository."""
-    
+
 @mcp.tool
 async def analyze_dependencies(module_path: str) -> dict:
     """Analyze dependencies of a module"""
-    
+
 @mcp.tool
 async def suggest_refactoring(code_path: str) -> list:
     """Suggest refactoring improvements"""
-    
+
 @mcp.tool
 async def find_similar_code(code_snippet: str) -> list:
     """Find similar code patterns in the codebase"""
-    
+
 @mcp.tool
 async def get_code_structure(path: str) -> dict:
     """Get hierarchical structure of a module/package"""
-    
+
 @mcp.tool
 async def list_repositories() -> list:
     """List all monitored GitHub repositories with their sync status"""
-    
+
 @mcp.tool
 async def sync_repository(repository_url: str) -> dict:
     """Manually trigger sync for a specific repository"""
@@ -145,7 +145,7 @@ async def sync_repository(repository_url: str) -> dict:
 For the `explain_code` tool, implement hierarchical aggregation:
 
 - **Function**: Return docstring + parameter analysis + inferred purpose
-- **Class**: 
+- **Class**:
   - Class-level docstring and purpose
   - Aggregate all method explanations
   - List attributes and their types
@@ -154,7 +154,7 @@ For the `explain_code` tool, implement hierarchical aggregation:
 - **Module**:
   - Module docstring
   - List of main classes and their purposes
-  - List of main functions and their purposes  
+  - List of main functions and their purposes
   - Module's role in the system
 - **Package**:
   - Package structure overview
@@ -211,14 +211,14 @@ scanner:
   sync_interval: 300  # Check for updates every 5 minutes
   webhook_secret: "${GITHUB_WEBHOOK_SECRET}"
   storage_path: "./repositories"  # Where to clone repos
-  exclude_patterns: 
+  exclude_patterns:
     - "__pycache__"
     - "*.pyc"
     - ".git"
     - "venv"
     - ".env"
     - "node_modules"
-  
+
 parser:
   languages: ["python"]  # Initially, add more later
   chunk_size: 100  # Lines per chunk for large files
@@ -226,16 +226,16 @@ parser:
 embeddings:
   model: "text-embedding-ada-002"
   batch_size: 100
-  
+
 database:
   host: "postgres"
   port: 5432
   database: "code_analysis"
-  
+
 mcp:
   host: "0.0.0.0"
   port: 8080
-  
+
 github:
   api_rate_limit: 5000  # Requests per hour
   webhook_endpoint: "/webhooks/github"
@@ -257,7 +257,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    
+
   mcp-server:
     build: .
     ports:
