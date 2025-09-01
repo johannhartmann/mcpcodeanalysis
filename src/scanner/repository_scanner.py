@@ -160,7 +160,8 @@ class RepositoryScanner:
         parse_results = await code_processor.process_files(scanned_files)
 
         # Update repository last sync time
-        cast("Any", repo_record).last_synced = datetime.now(UTC)
+        # Store naive datetime to match TIMESTAMP WITHOUT TIME ZONE
+        cast("Any", repo_record).last_synced = datetime.now(UTC).replace(tzinfo=None)
         await self.db_session.commit()
 
         # Run bounded context detection if domain analysis is enabled

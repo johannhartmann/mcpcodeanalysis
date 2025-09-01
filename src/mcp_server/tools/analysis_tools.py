@@ -100,8 +100,8 @@ class AnalysisTools:
 
     def __init__(
         self,
-        db_session: "AsyncSession",
-        mcp: "FastMCP",
+        db_session: AsyncSession,
+        mcp: FastMCP,
     ) -> None:
         """Initialize analysis tools.
 
@@ -378,9 +378,9 @@ class AnalysisTools:
                 )
 
             # Phase 1: collect local import targets and query Module for all
-            local_targets: list[
-                tuple[str, str]
-            ] = []  # (original_label, module_name_to_lookup)
+            local_targets: list[tuple[str, str]] = (
+                []
+            )  # (original_label, module_name_to_lookup)
             for imp in imports:
                 if getattr(imp, "is_local", False):
                     # Build human-friendly label for unresolved list
@@ -603,7 +603,7 @@ class AnalysisTools:
                     select(Import).where(Import.file_id == f.id),
                 )
                 local_imps = imports_result.scalars().all()
-                adjacency[int(f.id)] = [
+                adjacency[f.id] = [
                     int(getattr(imp, "imported_file_id", 0))
                     for imp in local_imps
                     if getattr(imp, "imported_file_id", 0)
@@ -611,7 +611,7 @@ class AnalysisTools:
 
             # Detect cycles with DFS
             cycles: list[list[str]] = []
-            id_to_path = {int(f.id): cast("str", f.path) for f in files}
+            id_to_path = {f.id: cast("str", f.path) for f in files}
 
             temp_mark: set[int] = set()
             perm_mark: set[int] = set()
@@ -638,7 +638,7 @@ class AnalysisTools:
                 perm_mark.add(n)
 
             for f in files:
-                visit(int(f.id))
+                visit(f.id)
 
             return {
                 "repository_id": repository_id,
@@ -656,11 +656,11 @@ class AnalysisTools:
                 select(File).where(File.repository_id == repository_id),
             )
             files = files_result.scalars().all()
-            id_to_path = {int(f.id): cast("str", f.path) for f in files}
+            id_to_path = {f.id: cast("str", f.path) for f in files}
 
             total_local_imports = 0
-            imports_incoming: dict[int, int] = {int(f.id): 0 for f in files}
-            imports_outgoing: dict[int, int] = {int(f.id): 0 for f in files}
+            imports_incoming: dict[int, int] = {f.id: 0 for f in files}
+            imports_outgoing: dict[int, int] = {f.id: 0 for f in files}
 
             for f in files:
                 imports_result = await self.db_session.execute(
@@ -668,7 +668,7 @@ class AnalysisTools:
                 )
                 local_imps = imports_result.scalars().all()
                 out_count = len(local_imps)
-                imports_outgoing[int(f.id)] = out_count
+                imports_outgoing[f.id] = out_count
                 total_local_imports += out_count
                 for imp in local_imps:
                     target_id = int(getattr(imp, "imported_file_id", 0))
@@ -692,8 +692,7 @@ class AnalysisTools:
             isolated_files = sum(
                 1
                 for f in files
-                if imports_outgoing[int(f.id)] == 0
-                and imports_incoming.get(int(f.id), 0) == 0
+                if imports_outgoing[f.id] == 0 and imports_incoming.get(f.id, 0) == 0
             )
 
             return {

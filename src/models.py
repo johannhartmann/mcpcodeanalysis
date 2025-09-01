@@ -24,6 +24,10 @@ class RepositoryConfig(BaseModel):
     @classmethod
     def validate_github_url(cls, v: str) -> str:
         """Validate GitHub URL format."""
+        # Allow local file paths for testing/integration scenarios
+        if v.startswith("file://"):
+            return v
+
         # Accept both HTTPS and SSH formats
         github_patterns = [
             r"^https://github\.com/[\w-]+/[\w.-]+/?$",

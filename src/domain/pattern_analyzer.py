@@ -104,7 +104,7 @@ class DomainPatternAnalyzer:
                 .where(BoundedContextMembership.bounded_context_id == context.id),
             )
             entities = membership_result.scalars().all()
-            entity_ids = [int(e.id) for e in entities]
+            entity_ids = [e.id for e in entities]
 
             # Count outgoing relationships to other contexts
             outgoing_result = await self.db_session.execute(
@@ -132,7 +132,7 @@ class DomainPatternAnalyzer:
             relationship_types = defaultdict(set)
 
             for rel, _target_entity_id, target_context_id in outgoing_result:
-                t_id = int(target_context_id)
+                t_id = target_context_id
                 coupling_by_context[t_id] += 1
                 relationship_types[t_id].add(rel.relationship_type)
 
@@ -140,7 +140,7 @@ class DomainPatternAnalyzer:
             total_outgoing = sum(coupling_by_context.values())
             context_coupling_score = total_outgoing / max(len(entities), 1)
 
-            context_metrics[int(context.id)] = {
+            context_metrics[context.id] = {
                 "name": context.name,
                 "entity_count": len(entities),
                 "outgoing_relationships": total_outgoing,
@@ -216,10 +216,10 @@ class DomainPatternAnalyzer:
                 )
 
         # Generate recommendations
-        coupling_analysis[
-            "recommendations"
-        ] = await self._generate_coupling_recommendations(
-            context_metrics,
+        coupling_analysis["recommendations"] = (
+            await self._generate_coupling_recommendations(
+                context_metrics,
+            )
         )
 
         return coupling_analysis
@@ -271,7 +271,7 @@ class DomainPatternAnalyzer:
 
             # Build internal relationship graph
             entity_graph: dict[int, set[int]] = defaultdict(set)
-            entity_map: dict[int, DomainEntity] = {int(e.id): e for e in entities}
+            entity_map: dict[int, DomainEntity] = {e.id: e for e in entities}
 
             for entity in entities:
                 # Get relationships where this entity is source
@@ -283,8 +283,8 @@ class DomainPatternAnalyzer:
                 )
 
                 for rel in rel_result.scalars().all():
-                    entity_graph[int(entity.id)].add(int(rel.target_entity_id))
-                    entity_graph[int(rel.target_entity_id)].add(int(entity.id))
+                    entity_graph[entity.id].add(rel.target_entity_id)
+                    entity_graph[rel.target_entity_id].add(entity.id)
 
             # Find clusters using simple connected components
             clusters = self._find_entity_clusters(entity_graph, entity_map)

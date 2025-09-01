@@ -34,11 +34,12 @@ class GitSync:
             if settings.scanner.root_paths
             else "repositories"
         )
-        if not Path(root_path).is_absolute():
-            # Make it absolute relative to /app
-            self.storage_path = Path("/app") / root_path
-        else:
-            self.storage_path = Path(root_path)
+        # Make relative paths absolute relative to current working directory
+        # Works both locally and inside the container (WORKDIR=/app)
+        base = Path.cwd()
+        self.storage_path = (
+            base / root_path if not Path(root_path).is_absolute() else Path(root_path)
+        )
         self.storage_path.mkdir(parents=True, exist_ok=True)
 
     def _get_repo_path(self, owner: str, name: str) -> Path:
@@ -46,8 +47,21 @@ class GitSync:
         return self.storage_path / owner / name
 
     def extract_owner_repo(self, github_url: str) -> tuple[str, str]:
-        """Extract owner and repository name from GitHub URL."""
-        # Handle both HTTPS and SSH URLs
+        """Extract owner and repository name from URL.
+
+        Supports GitHub HTTPS/SSH and local file URLs (file://).
+        """
+        # Handle local file paths
+        if github_url.startswith("file://"):
+            path = github_url.replace("file://", "")
+            # Use directory name as repo name; owner marked as 'local'
+            repo_name = Path(path).name
+            if not repo_name:
+                msg = "Invalid local repository path"
+                raise ValidationError(msg)
+            return "local", repo_name
+
+        # Handle both HTTPS and SSH GitHub URLs
         if github_url.startswith("https://github.com/"):
             path = github_url.replace("https://github.com/", "")
         elif github_url.startswith("git@github.com:"):
@@ -73,7 +87,12 @@ class GitSync:
         branch: str | None = None,
         access_token: str | None = None,
     ) -> git.Repo:
-        """Clone a GitHub repository."""
+        """Clone a repository (GitHub or local)."""
+        # Local repositories: open directly, no clone
+        if github_url.startswith("file://"):
+            local_path = Path(github_url.replace("file://", ""))
+            return git.Repo(local_path)
+
         owner, repo_name = self.extract_owner_repo(github_url)
         repo_path = self._get_repo_path(owner, repo_name)
 
@@ -137,7 +156,12 @@ class GitSync:
         branch: str | None = None,
         access_token: str | None = None,
     ) -> git.Repo:
-        """Update an existing repository."""
+        """Update an existing repository or open local path."""
+        # Local repositories: open directly
+        if github_url.startswith("file://"):
+            local_path = Path(github_url.replace("file://", ""))
+            return git.Repo(local_path)
+
         owner, repo_name = self.extract_owner_repo(github_url)
         repo_path = self._get_repo_path(owner, repo_name)
 

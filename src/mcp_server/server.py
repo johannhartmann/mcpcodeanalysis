@@ -121,7 +121,7 @@ async def add_repository(
             await session.commit()
             await session.refresh(repo)
 
-            scan_result: dict[str, Any] = {"repository_id": int(repo.id)}
+            scan_result: dict[str, Any] = {"repository_id": repo.id}
 
             # Scan if requested
             if scan_immediately:
@@ -210,9 +210,7 @@ async def list_repositories(
 
                     # Get embedding stats via vector search (includes totals and breakdown)
                     vector_search = VectorSearch(session)
-                    embedding_stats = await vector_search.get_repository_stats(
-                        cast("int", repo.id)
-                    )
+                    embedding_stats = await vector_search.get_repository_stats(repo.id)
 
                     repo_data["stats"] = {
                         "file_count": file_count,
@@ -277,7 +275,7 @@ async def scan_repository(
 
             embedding_service = EmbeddingService(session)
             embeddings_info = await embedding_service.create_repository_embeddings(
-                int(repository_id)
+                repository_id
             )
             scan_result["embeddings"] = embeddings_info
 
@@ -1454,7 +1452,7 @@ class MockServer:
             if generate_embeddings:
                 embedding_service = EmbeddingService(session)
                 embedding_result = await embedding_service.create_repository_embeddings(
-                    int(repo.id)
+                    repo.id
                 )
                 scan_result["embeddings"] = embedding_result
 

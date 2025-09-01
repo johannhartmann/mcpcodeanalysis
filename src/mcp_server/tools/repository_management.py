@@ -87,8 +87,22 @@ class RepositoryManagementTools:
         """
         self.db_session = db_session
         self.mcp = mcp
-        # Embedding service used by tools when available
-        self.embedding_service = EmbeddingService(db_session)
+        # Embedding service is optional; initialize lazily to avoid requiring
+        # OPENAI_API_KEY for tests that disable embeddings.
+        self.embedding_service: EmbeddingService | None = None
+
+    def _get_embedding_service(self) -> EmbeddingService | None:
+        """Lazily create embedding service if possible.
+
+        Returns None if initialization fails (e.g., missing API key).
+        """
+        if self.embedding_service is None:
+            try:
+                self.embedding_service = EmbeddingService(self.db_session)
+            except Exception as e:  # noqa: BLE001
+                logger.warning("Embedding service unavailable: %s", e)
+                self.embedding_service = None
+        return self.embedding_service
 
     # Public API methods (test-friendly)
     async def add_repository(
@@ -150,9 +164,9 @@ class RepositoryManagementTools:
                         )
                     )
 
-                    if generate_embeddings and self.embedding_service:
+                    if generate_embeddings and self._get_embedding_service():
                         embedding_result = (
-                            await self.embedding_service.create_repository_embeddings(
+                            await self.embedding_service.create_repository_embeddings(  # type: ignore[union-attr]
                                 scan_result["repository_id"],
                             )
                         )
@@ -554,9 +568,9 @@ class RepositoryManagementTools:
                     scan_result = await scanner.scan_repository(repo_config)
 
                     # Generate embeddings if requested
-                    if request.generate_embeddings and self.embedding_service:
+                    if request.generate_embeddings and self._get_embedding_service():
                         embedding_result = (
-                            await self.embedding_service.create_repository_embeddings(
+                            await self.embedding_service.create_repository_embeddings(  # type: ignore[union-attr]
                                 scan_result["repository_id"],
                             )
                         )
@@ -569,6 +583,9 @@ class RepositoryManagementTools:
                         "branch": request.branch or "default",
                     },
                     "scan_result": scan_result,
+                    "repository_id": (
+                        scan_result.get("repository_id") if isinstance(scan_result, dict) else None
+                    ),
                 }
 
             except Exception as e:
@@ -631,7 +648,7 @@ class RepositoryManagementTools:
                         }
 
                         # Get embeddings if embedding service available
-                        if self.embedding_service:
+                        if self._get_embedding_service():
                             vector_search = VectorSearch(self.db_session)
                             stats = await vector_search.get_repository_stats(
                                 cast("int", repo.id)
@@ -984,8 +1001,6 @@ class RepositoryManagementTools:
                     "error": str(e),
                 }
 
-        logger.info("Repository management tools registered")
-
         @self.mcp.tool(
             name="update_repository",
             description="Update repository metadata",
@@ -1106,3 +1121,22 @@ class RepositoryManagementTools:
                 return {"success": False, "error": str(e)}
 
         logger.info("Repository management tools registered")
+
+        # Expose a lightweight list of tools for tests (FastMCP internal API may vary)
+        from types import SimpleNamespace
+
+        tools_for_tests = [
+            SimpleNamespace(name="add_repository", fn=getattr(add_repository, "fn", add_repository)),
+            SimpleNamespace(name="list_repositories", fn=getattr(list_repositories, "fn", list_repositories)),
+            SimpleNamespace(name="scan_repository", fn=getattr(scan_repository, "fn", scan_repository)),
+            SimpleNamespace(name="update_embeddings", fn=getattr(update_embeddings, "fn", update_embeddings)),
+            SimpleNamespace(
+                name="get_repository_stats",
+                fn=getattr(get_repository_stats, "fn", get_repository_stats),
+            ),
+            SimpleNamespace(name="delete_repository", fn=getattr(delete_repository, "fn", delete_repository)),
+            SimpleNamespace(name="update_repository", fn=getattr(update_repository, "fn", update_repository)),
+            SimpleNamespace(name="remove_repository", fn=getattr(remove_repository, "fn", remove_repository)),
+            SimpleNamespace(name="sync_repository", fn=getattr(sync_repository, "fn", sync_repository)),
+        ]
+        setattr(self.mcp, "tools", tools_for_tests)

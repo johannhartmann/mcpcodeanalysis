@@ -336,7 +336,9 @@ class ScannerService:
                     # Update existing file
                     db_file.last_modified = metadata.get(
                         "last_modified"
-                    ) or datetime.now(UTC).replace(tzinfo=None)  # type: ignore[assignment]
+                    ) or datetime.now(UTC).replace(
+                        tzinfo=None
+                    )  # type: ignore[assignment]
                     git_hash = metadata.get("git_hash")
                     if git_hash:
                         db_file.git_hash = git_hash
@@ -425,7 +427,9 @@ class ScannerService:
                 # Update existing file
                 db_file.last_modified = metadata.get("last_modified") or datetime.now(
                     UTC
-                ).replace(tzinfo=None)  # type: ignore[assignment]
+                ).replace(
+                    tzinfo=None
+                )  # type: ignore[assignment]
                 git_hash = metadata.get("git_hash")
                 if git_hash:
                     db_file.git_hash = git_hash

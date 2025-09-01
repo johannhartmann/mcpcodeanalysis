@@ -495,9 +495,9 @@ Output as JSON:
                 entity_to_context[entity_id] = context["id"]
 
         # Analyze cross-context edges
-        context_edges: dict[
-            tuple[int, int], EdgeAggregate
-        ] = {}  # (context1, context2) -> edge data
+        context_edges: dict[tuple[int, int], EdgeAggregate] = (
+            {}
+        )  # (context1, context2) -> edge data
 
         for u, v, data in graph.edges(data=True):
             u_context = entity_to_context.get(u)

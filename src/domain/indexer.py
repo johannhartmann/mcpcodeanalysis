@@ -165,7 +165,7 @@ class DomainIndexer:
             logger.info("Processing file %d/%d: %s", i, len(files), file.path)
 
             try:
-                file_result = await self.index_file(int(file.id))
+                file_result = await self.index_file(file.id)
 
                 if file_result["status"] == "success":
                     results["successful"] += 1
@@ -233,7 +233,7 @@ class DomainIndexer:
                     saved_contexts,
                 )
 
-        return [int(ctx.id) for ctx in saved_contexts]
+        return [ctx.id for ctx in saved_contexts]
 
     async def generate_summaries(
         self,
@@ -262,7 +262,7 @@ class DomainIndexer:
 
             for module in modules:
                 try:
-                    await self.summarizer.summarize_module(int(module.id))
+                    await self.summarizer.summarize_module(module.id)
                     count += 1
                 except Exception:
                     logger.exception("Error summarizing module %d", module.id)
@@ -278,7 +278,7 @@ class DomainIndexer:
 
             for context in contexts:
                 try:
-                    await self.summarizer.summarize_bounded_context(int(context.id))
+                    await self.summarizer.summarize_bounded_context(context.id)
                     count += 1
                 except Exception:
                     logger.exception("Error summarizing context %d", context.id)
@@ -420,7 +420,7 @@ class DomainIndexer:
                 from src.embeddings.embedding_service import EmbeddingService
 
                 embedding_service = EmbeddingService(self.db_session)
-                await embedding_service.create_domain_entity_embedding(int(entity.id))
+                await embedding_service.create_domain_entity_embedding(entity.id)
                 logger.info("Generated embedding for domain entity: %s", entity.name)
             except Exception:
                 logger.exception(

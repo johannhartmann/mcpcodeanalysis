@@ -712,27 +712,21 @@ class CodeProcessor:
             select(Module).where(Module.file_id == file_id)
         )
         modules = result.scalars().all()
-        module_map: dict[str, int] = {
-            cast("str", m.name): cast("int", cast("Any", m).id) for m in modules
-        }
+        module_map: dict[str, int] = {cast("str", m.name): m.id for m in modules}
 
         # Get classes (through modules)
         result = await self.db_session.execute(
             select(Class).join(Module).where(Module.file_id == file_id)
         )
         classes = result.scalars().all()
-        class_map: dict[str, int] = {
-            cast("str", c.name): cast("int", cast("Any", c).id) for c in classes
-        }
+        class_map: dict[str, int] = {cast("str", c.name): c.id for c in classes}
 
         # Get functions (through modules)
         result = await self.db_session.execute(
             select(Function).join(Module).where(Module.file_id == file_id)
         )
         functions = result.scalars().all()
-        function_map: dict[str, int] = {
-            cast("str", f.name): cast("int", cast("Any", f).id) for f in functions
-        }
+        function_map: dict[str, int] = {cast("str", f.name): f.id for f in functions}
 
         return module_map, class_map, function_map
 
