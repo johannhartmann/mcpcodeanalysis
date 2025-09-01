@@ -20,33 +20,33 @@ jobs:
   build:
     name: Build Distribution
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-    
+
     - name: Install uv
       uses: astral-sh/setup-uv@v6
-    
+
     - name: Install dependencies
       run: |
         uv sync --all-extras
         uv pip install build twine
-    
+
     - name: Build package
       run: |
         uv run python -m build
-    
+
     - name: Check package
       run: |
         uv run twine check dist/*
-    
+
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -56,20 +56,20 @@ jobs:
   docker:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-    
+
     - name: Log in to GitHub Container Registry
       uses: docker/login-action@v3
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    
+
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v5
@@ -82,7 +82,7 @@ jobs:
           type=semver,pattern={{major}}.{{minor}}
           type=semver,pattern={{major}}
           type=raw,value=latest,enable={{is_default_branch}}
-    
+
     - name: Build and push Docker image
       uses: docker/build-push-action@v6
       with:
@@ -98,16 +98,16 @@ jobs:
     name: Create Release
     needs: [build, docker]
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Download artifacts
       uses: actions/download-artifact@v3
       with:
         name: dist
         path: dist/
-    
+
     - name: Get version
       id: version
       run: |
@@ -116,7 +116,7 @@ jobs:
         else
           echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
         fi
-    
+
     - name: Generate changelog
       id: changelog
       run: |
@@ -126,7 +126,7 @@ jobs:
         echo "changelog<<EOF" >> $GITHUB_OUTPUT
         echo "$CHANGELOG" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
-    
+
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
@@ -134,21 +134,21 @@ jobs:
         name: Release ${{ steps.version.outputs.version }}
         body: |
           ## What's Changed
-          
+
           ${{ steps.changelog.outputs.changelog }}
-          
+
           ## Docker Image
-          
+
           ```bash
           docker pull ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
           ```
-          
+
           ## Installation
-          
+
           ```bash
           pip install mcp-code-analysis-server==${{ steps.version.outputs.version }}
           ```
-          
+
           **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.previous.outputs.version }}...${{ steps.version.outputs.version }}
         files: |
           dist/*
@@ -160,20 +160,20 @@ jobs:
     needs: release
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    
+
     environment:
       name: pypi
       url: https://pypi.org/p/mcp-code-analysis-server
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Download artifacts
       uses: actions/download-artifact@v3
       with:
         name: dist
         path: dist/
-    
+
     - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
