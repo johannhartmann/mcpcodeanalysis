@@ -149,6 +149,8 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    # Only run security scans on main branch to avoid permission issues with Dependabot PRs
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     steps:
     - uses: actions/checkout@v4
