@@ -19,7 +19,7 @@ scanner:
     - node_modules
     - .env
 
-# Parser settings  
+# Parser settings
 parser:
   languages:
     - python
@@ -82,4 +82,3 @@ logging:
   format: json
   file_enabled: true
   file_path: logs/mcp-server.log
-EOF < /dev/null

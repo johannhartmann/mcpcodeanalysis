@@ -1,4 +1,4 @@
-.PHONY: help install dev-install format lint type-check test test-unit test-integration test-all security clean pre-commit qa
+.PHONY: help install dev-install format lint type-check test test-unit test-integration test-all test-integration-docker security clean pre-commit qa docker-up-integration docker-down-integration docker-logs-integration
 
 help:  ## Show this help message
 	@echo "Usage: make [target]"
@@ -69,6 +69,50 @@ qa:  ## Run all quality assurance checks
 	@echo "\nRunning security checks..."
 	@make security
 	@echo "\n✅ All QA checks passed!"
+
+# ------------------------------
+# Integration via Docker Compose
+# ------------------------------
+
+# Choose your compose command. Override if you use `docker compose`:
+#   make test-integration-docker DOCKER_COMPOSE="docker compose"
+DOCKER_COMPOSE ?= docker-compose
+
+docker-up-integration: ## Start Postgres + MCP server containers (detached)
+	$(DOCKER_COMPOSE) up -d --build postgres mcp-server
+
+docker-down-integration: ## Stop and remove integration containers + volumes
+	$(DOCKER_COMPOSE) down -v
+
+docker-logs-integration: ## Tail MCP server logs
+	$(DOCKER_COMPOSE) logs -f mcp-server
+
+MCP_EXTERNAL_PORT ?= 8080
+
+test-integration-docker: ## Build, start stack, wait for server, run integration tests, teardown
+	@set -e; \
+	status=0; \
+	$(DOCKER_COMPOSE) up -d --build postgres mcp-server; \
+	echo "Waiting for MCP server on http://localhost:$(MCP_EXTERNAL_PORT)/mcp/ ..."; \
+	for i in $$(seq 1 60); do \
+		if curl -s -o /dev/null http://localhost:$(MCP_EXTERNAL_PORT)/mcp/; then \
+			echo "MCP server is up"; \
+			break; \
+		fi; \
+		sleep 2; \
+		if [ $$i -eq 60 ]; then \
+			echo "Timeout waiting for MCP server. Recent logs:"; \
+			$(DOCKER_COMPOSE) logs --tail=200 mcp-server || true; \
+			exit 1; \
+		fi; \
+	done; \
+	MCP_EXTERNAL_PORT=$(MCP_EXTERNAL_PORT) uv run pytest -m "integration" -v || status=$$?; \
+	if [ "$$KEEP_CONTAINERS" != "1" ]; then \
+		$(DOCKER_COMPOSE) down -v; \
+	else \
+		echo "KEEP_CONTAINERS=1 set; leaving containers running"; \
+	fi; \
+	exit $$status
 
 watch-test:  ## Watch for changes and run tests
 	uv run ptw --runner "pytest -x -vs"

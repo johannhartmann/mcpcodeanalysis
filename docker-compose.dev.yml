@@ -1,0 +1,6 @@
+services:
+  mcp-server:
+    develop:
+      watch:
+        - action: restart
+          path: ./src

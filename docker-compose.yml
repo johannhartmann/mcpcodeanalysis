@@ -28,7 +28,7 @@ services:
     container_name: mcp-server
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "${MCP_EXTERNAL_PORT:-8080}:8080"
     environment:
       # Database
       DATABASE_URL: postgresql+asyncpg://codeanalyzer:${POSTGRES_PASSWORD:-developmentpass}@postgres:5432/code_analysis
@@ -57,6 +57,7 @@ services:
       - ./src:/app/src:ro
       - ./config.yaml:/app/config.yaml:ro
       - ./code_to_analyze:/workspace:ro
+      - ./:/host_project:ro
       - repositories:/app/repositories
       - logs:/app/logs
       - embeddings_cache:/app/.embeddings_cache
@@ -66,10 +67,6 @@ services:
     networks:
       - mcp-network
     command: all  # Run all services
-    develop:
-      watch:
-        - action: restart
-          path: ./src
 
   # Optional development tools
   pgadmin:
